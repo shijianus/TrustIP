@@ -1,5 +1,21 @@
 name: Upstream Sync
 
+# TrustMy.IP is a derivative of jason5ng32/MyIP and stays one: keeping the
+# upstream flow of fixes and features is what makes the fork worth using, so
+# this is the one workflow that deliberately references the upstream repo.
+# It only ever *reads* upstream and merges into our own branch — it publishes
+# nothing under the upstream's name (compare docker-image.yml, which does, and
+# is therefore parked).
+#
+# Two things were changed from the upstream copy of this file, both to make it
+# actually run here:
+#   - target_sync_branch is `dev`, not `main`. Repository rule: dev in, dev
+#     out — main only moves through a dev → main PR, so an automated merge must
+#     not land on main with contents:write.
+#   - the old `if: github.event.repository.fork` guard is gone. This repo was
+#     created by pushing a clone, not by GitHub's Fork button, so that flag is
+#     false forever and the schedule would silently never sync.
+
 permissions:
   contents: write
 
@@ -12,7 +28,6 @@ jobs:
   sync_latest_from_upstream:
     name: Sync latest commits from upstream repo
     runs-on: ubuntu-latest
-    if: ${{ github.event.repository.fork }}
 
     steps:
       # step 1: checkout target repo
@@ -26,7 +41,7 @@ jobs:
         with:
           upstream_sync_repo: jason5ng32/MyIP
           upstream_sync_branch: main
-          target_sync_branch: main
+          target_sync_branch: dev
           target_repo_token: ${{ secrets.GITHUB_TOKEN }} # auto-generated, no need to set
 
           # set test_mode to true to run tests instead of the real action!
@@ -36,5 +51,5 @@ jobs:
       - name: Sync check
         if: failure()
         run: |
-          echo "[Error] Due to a change in the workflow file of the upstream repository, GitHub has automatically suspended the scheduled automatic update. You need to manually sync your fork again."
+          echo "::error::The scheduled upstream sync failed. Most often GitHub has suspended the schedule after a change to a workflow file, or the merge conflicted with our own edits (branding, workflows, docs). Re-run this workflow manually from the Actions tab; resolve conflicts by hand if it fails again."
           exit 1

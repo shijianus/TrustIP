@@ -41,7 +41,7 @@ jobs:
             const isFirstTime = search.total_count <= 1;
 
             const firstTime = [
-              `Thanks for your first PR here, @${author} — contributions like this are what keep MyIP going! 🙏`,
+              `Thanks for your first PR here, @${author} — contributions like this are what keep TrustMy.IP going! 🙏`,
               '',
               'This project has a single maintainer, so reviews are usually quick but not instant — expect a response within a day or two. A couple of things that speed a merge up:',
               '',

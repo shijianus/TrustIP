@@ -1,9 +1,21 @@
-# docker-compose up -d
+# docker compose up -d
+#
+# This is the TrustMy.IP fork, not the upstream MyIP image. No image is
+# published under this name anywhere: `image:` is an EpoCanvas-local tag that
+# only exists once it has been built from this repository's Dockerfile. Build
+# it explicitly with `docker compose build` (plain `up` also builds it on
+# demand, because the `build:` section is present) — never pull it.
+#
+# Zero configuration: no env_file is mounted, because the app runs with no
+# environment variables at all (see .env.example for what each one adds back).
+# To configure a deployment, drop a `.env` next to this file — compose reads
+# it automatically — and restart.
 version: '3'
 services:
-    myip:
-        container_name: myip
-        image: jason5ng32/myip:latest # my-app: x.x.x
+    trustip:
+        container_name: trustip
+        build: .
+        image: epocanvas/trustip:local # built by `docker compose build`, never pulled
         stdin_open: true # docker run -i interactive mode
         tty: true        # docker run -t terminal mode
         restart: always # restart policy / on-failure:5 restart 5 times / always restart forever / unless-stopped unless stopped / no never restart

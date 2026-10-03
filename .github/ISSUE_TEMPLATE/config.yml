@@ -1,8 +1,17 @@
 blank_issues_enabled: true
 contact_links:
   - name: 📖 Documentation
+    url: https://github.com/shijianus/TrustIP/blob/dev/README.md
+    about: >-
+      This fork keeps no docs site of its own — the README covers deployment
+      (Node / Docker), the optional environment variables and what runs without
+      them.
+  - name: 📖 Upstream documentation (MyIP)
     url: https://docs.ipcheck.ing
-    about: Deployment, MaxMind setup, environment variables, and how each tool works.
+    about: >-
+      The GitBook docs of the project this fork derives from. Written for
+      IPCheck.ing, so deployment steps there assume credentials this fork does
+      not have; useful for architecture and per-tool background.
   - name: 🔒 Report a security vulnerability
-    url: https://github.com/jason5ng32/MyIP/security/advisories/new
+    url: https://github.com/shijianus/TrustIP/security/advisories/new
     about: Private report, visible only to the maintainer. Please don't open a public issue.

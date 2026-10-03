@@ -186,7 +186,7 @@ export async function updateMaxMindDatabases({ reload, signal, reloadReason = 'a
         return { updated: false, reason: 'locked' };
     }
 
-    const tempDir = await fsp.mkdtemp(path.join(os.tmpdir(), 'myip-maxmind-'));
+    const tempDir = await fsp.mkdtemp(path.join(os.tmpdir(), 'trustip-maxmind-'));
 
     try {
         const result = await downloadAndReplaceDatabases(dbDir, tempDir, { signal });

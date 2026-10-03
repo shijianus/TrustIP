@@ -8,13 +8,13 @@
 module.exports = {
     apps: [
         {
-            name: 'myip-backend',
+            name: 'trustip-backend',
             script: 'backend-server.js',
             cwd: __dirname,
             node_args: '--import ./sentry-instrument.js',
         },
         {
-            name: 'myip-frontend',
+            name: 'trustip-frontend',
             script: 'frontend-server.js',
             cwd: __dirname,
         },

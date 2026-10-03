@@ -5,7 +5,7 @@ import { fetchUpstream } from './fetch-with-timeout.js';
 import { lookupAsOrgName } from './as-org-db.js';
 
 const BASE_URL = 'https://stat.ripe.net/data';
-const SOURCE_APP = process.env.RIPESTAT_SOURCE_APP || 'myip';
+const SOURCE_APP = process.env.RIPESTAT_SOURCE_APP || 'trustip';
 
 function fetchRipestat(endpoint, resource, { timeoutMs = 8000, params = {} } = {}) {
     const search = new URLSearchParams({ resource, sourceapp: SOURCE_APP, ...params });

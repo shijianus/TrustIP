@@ -1,8 +1,26 @@
-name: Docker Build and Push
+name: Docker Build and Push (parked)
+
+# This fork publishes no image. The upstream workflow pushed
+# `jason5ng32/myip:latest` to Docker Hub on every GitHub release — a fork
+# running that would publish its own builds into someone else's namespace, so
+# the Docker Hub half is gone and the whole job is parked.
+#
+# To ship an image for TrustMy.IP instead:
+#   1. delete the `if: false` on the job below,
+#   2. add a `release: types: [published]` trigger back if you want it to run
+#      automatically on a tag,
+#   3. make the package public on GitHub first (GHCR creates a *private*
+#      package for the first push, and `docker compose up` on another machine
+#      then fails to pull it).
+# The tags below are already retargeted to the repository owner, so ghcr.io
+# needs no secret beyond the built-in GITHUB_TOKEN. Locally you don't need any
+# of this: `docker compose build` produces the same image as
+# epocanvas/trustip:local.
+#
+# `environment: production` was dropped on purpose — that environment only
+# exists upstream, and referencing a missing one fails the job.
 
 on:
-  release:
-    types: [published]
   workflow_dispatch:
     inputs:
       version:
@@ -11,17 +29,16 @@ on:
 
 # Least-privilege GITHUB_TOKEN:
 # - contents: read  → checkout the source
-# - packages: write → push the built image to ghcr.io/${owner}/myip
-# Docker Hub push uses DOCKER_HUB_ACCESS_TOKEN (a repo secret), not GITHUB_TOKEN,
-# so no extra scopes are needed for that half of the job.
+# - packages: write → push the built image to ghcr.io/${owner}/trustip
 permissions:
   contents: read
   packages: write
 
 jobs:
   build-and-push:
+    # Parked. See the header for the three steps to enable it.
+    if: false
     runs-on: ubuntu-latest
-    environment: production
     # The multi-arch build normally lands in ~5 min; a hosted runner that loses
     # its connection would otherwise sit "in progress" for the 6h default.
     timeout-minutes: 20
@@ -33,12 +50,6 @@ jobs:
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v4
 
-    - name: Login to Docker Hub
-      uses: docker/login-action@v4
-      with:
-        username: ${{ secrets.DOCKER_HUB_USERNAME }}
-        password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
-
     - name: Login to GitHub Packages
       uses: docker/login-action@v4
       with:
@@ -46,28 +57,25 @@ jobs:
         username: ${{ github.repository_owner }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Get the version and release notes
-      if: github.event_name == 'release'
+    - name: Derive image metadata
+      # The dispatch input reaches the shell through the environment, never
+      # interpolated into the script text — a `"` or `$` in the version field
+      # must not be able to rewrite the command.
+      env:
+        VERSION_INPUT: ${{ github.event.inputs.version }}
       run: |
-        printf "RELEASE_VERSION=%s\n" "${{ github.event.release.tag_name }}" >> $GITHUB_ENV
-        printf "RELEASE_NOTES<<EOF\n%s\nEOF\n" "${{ github.event.release.body }}" >> $GITHUB_ENV
-
-    - name: Set version for manual dispatch
-      if: github.event_name == 'workflow_dispatch'
-      run: |
-        echo "RELEASE_VERSION=${{ github.event.inputs.version }}" >> $GITHUB_ENV
-        echo "RELEASE_NOTES=Manually triggered build" >> $GITHUB_ENV
+        # Manual dispatch supplies the tag; there is no release event to read
+        # one from, because this workflow is not wired to releases.
+        echo "RELEASE_VERSION=$VERSION_INPUT" >> "$GITHUB_ENV"
 
     - name: Build and Push Docker Image
       uses: docker/build-push-action@v7
       with:
         push: true
         tags: |
-          jason5ng32/myip:latest
-          jason5ng32/myip:${{ env.RELEASE_VERSION }}
-          ghcr.io/${{ github.repository_owner }}/myip:latest
-          ghcr.io/${{ github.repository_owner }}/myip:${{ env.RELEASE_VERSION }}
+          ghcr.io/${{ github.repository_owner }}/trustip:latest
+          ghcr.io/${{ github.repository_owner }}/trustip:${{ env.RELEASE_VERSION }}
         labels: |
           org.opencontainers.image.version=${{ env.RELEASE_VERSION }}
-          org.opencontainers.image.description=${{ env.RELEASE_NOTES }}
+          org.opencontainers.image.source=https://github.com/${{ github.repository }}
         platforms: linux/amd64,linux/arm64

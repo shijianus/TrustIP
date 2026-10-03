@@ -1,41 +1,52 @@
 # Getting help
 
-Start with the docs, then pick the channel that matches what you need.
+TrustMy.IP keeps no documentation site and no chat channel: everything happens on GitHub,
+in the open, so the next person with the same question can find the answer.
 
 ## Documentation first
 
-The **[MyIP Docs Center](https://docs.ipcheck.ing)** covers most questions, in English,
-中文, français and русский:
+Start with what lives in this repository — it is the authoritative description of **this
+fork** (the upstream project's own docs describe IPCheck.ing's hosted setup instead):
 
-- **[Developer Guide](https://docs.ipcheck.ing/developer)** — deployment (Node, Docker,
-  Vercel), MaxMind setup, reverse proxies and `ALLOWED_DOMAINS`, environment variables,
-  architecture.
-- **[Knowledge Base](https://docs.ipcheck.ing/knowledge-base)** — what each tool measures
-  and how to read its results.
+- **[README.md](README.md)** — what the toolbox does, quick start, and the honest list of
+  what runs with zero configuration versus what stays hidden without a credential.
+- **[.env.example](.env.example)** — every variable the backend and the frontend actually
+  read, and what stops working when each one is empty.
+- **[`AGENTS.md`](AGENTS.md)** plus [`frontend/AGENTS.md`](frontend/AGENTS.md) and
+  [`api/AGENTS.md`](api/AGENTS.md) — architecture, conventions, and the reasoning behind
+  them. Written for humans and AI agents alike.
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** · **[TRANSLATING.md](TRANSLATING.md)** ·
+  **[SECURITY.md](SECURITY.md)**
 
-Two settings account for most self-hosting problems: MaxMind credentials (without them
-the MaxMind source returns 503) and `ALLOWED_DOMAINS` (without it every request from a
-non-localhost domain gets 403).
+The single setting that accounts for most self-hosting reports: **`ALLOWED_DOMAINS`**.
+Without it, every `/api/*` request from a non-localhost origin gets **403** — the referer
+guard is global. (MaxMind credentials are worth setting too, but they are optional: the
+other IP sources keep working and `/api/maxmind` just answers 503.)
 
 ## Where to ask
 
 | You want to… | Go to |
 |---|---|
-| Ask how to do something, or why a result looks odd | [Discussions → Q&A](https://github.com/jason5ng32/MyIP/discussions/categories/q-a) |
-| Report a bug you can reproduce | [New issue → Bug report](https://github.com/jason5ng32/MyIP/issues/new?template=bug_report.md) |
-| Suggest a feature | [New issue → Feature request](https://github.com/jason5ng32/MyIP/issues/new?template=feature_request.md) |
-| Report a security vulnerability | [Private advisory](https://github.com/jason5ng32/MyIP/security/advisories/new) — see [SECURITY.md](SECURITY.md) |
+| Ask how to do something, or why a result looks odd | [New issue](https://github.com/shijianus/TrustIP/issues/new/choose) — say how you're running it |
+| Report a bug you can reproduce | [New issue → Bug report](https://github.com/shijianus/TrustIP/issues/new?template=bug_report.md) |
+| Suggest a feature | [New issue → Feature request](https://github.com/shijianus/TrustIP/issues/new?template=feature_request.md) |
+| Report a security vulnerability | [Private advisory](https://github.com/shijianus/TrustIP/security/advisories/new) — see [SECURITY.md](SECURITY.md) |
 | Contribute code or a translation | [CONTRIBUTING.md](CONTRIBUTING.md) · [TRANSLATING.md](TRANSLATING.md) |
-
-There are no chat channels — everything happens on GitHub, in the open, so the next
-person with the same question can find the answer.
+| Ask about the original MyIP project | [github.com/jason5ng32/MyIP](https://github.com/jason5ng32/MyIP) and its docs at [docs.ipcheck.ing](https://docs.ipcheck.ing) |
 
 ## Making your question answerable
 
-Deployment questions need: how you're running it (Docker / Node / Vercel), the version,
-what you set for `ALLOWED_DOMAINS` and MaxMind, and the backend terminal output.
+Deployment questions need: how you're running it (Docker build from this repo / `pnpm
+start` / `pm2`), the commit or version, what you set for `ALLOWED_DOMAINS`, and the backend
+terminal output — the startup lines say exactly which datasets and optional sources are
+active.
+
 Page questions need: browser, what you saw versus what you expected, and any errors from
 the browser console.
 
-MyIP is maintained by one person in their spare time. Replies aren't instant, and a
-question that already contains the details above gets answered a lot sooner.
+A feature you expected to find and don't is usually not a bug: check
+[the "What stays dark" table in the README](README.md#what-stays-dark) first — several
+tools ride on credentials this fork does not have.
+
+This fork is maintained in spare time. Replies aren't instant, and a question that already
+contains the details above gets answered a lot sooner.

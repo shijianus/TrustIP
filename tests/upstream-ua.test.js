@@ -21,21 +21,21 @@ describe('initUpstreamUserAgent()', () => {
         setUpstreamUserAgent(null);
     });
 
-    it('builds MyIP/v<version>/<site> from package.json and VITE_SITE_URL', () => {
+    it('builds TrustIP/v<version>/<site> from package.json and VITE_SITE_URL', () => {
         process.env.VITE_SITE_URL = 'https://example.test';
         const ua = initUpstreamUserAgent();
-        assert.match(ua, /^MyIP\/v\d+\.\d+\.\d+\/https:\/\/example\.test$/);
+        assert.match(ua, /^TrustIP\/v\d+\.\d+\.\d+\/https:\/\/example\.test$/);
     });
 
     it('drops the site segment when VITE_SITE_URL is unset', () => {
         delete process.env.VITE_SITE_URL;
         const ua = initUpstreamUserAgent();
-        assert.match(ua, /^MyIP\/v\d+\.\d+\.\d+$/);
+        assert.match(ua, /^TrustIP\/v\d+\.\d+\.\d+$/);
     });
 
     it('ignores a whitespace-only VITE_SITE_URL', () => {
         process.env.VITE_SITE_URL = '   ';
         const ua = initUpstreamUserAgent();
-        assert.match(ua, /^MyIP\/v\d+\.\d+\.\d+$/);
+        assert.match(ua, /^TrustIP\/v\d+\.\d+\.\d+$/);
     });
 });

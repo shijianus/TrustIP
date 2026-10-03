@@ -1,35 +1,48 @@
-# 🧰 MyIP - A Better IP Toolbox
+# 🧰 TrustMy.IP — a better IP toolbox that runs with zero configuration
 
 <div align="center">
 
-![IPCheck.ing Banner](https://raw.githubusercontent.com/jason5ng32/MyIP/main/public/github/gh_banner.png)
-
-<a href="https://trendshift.io/repositories/5332" target="_blank"><img src="https://trendshift.io/api/badge/repositories/5332" alt="jason5ng32%2FMyIP | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
-
-[![Mentioned in Awesome Self Hosted](https://awesome.re/mentioned-badge.svg)](https://github.com/awesome-selfhosted/awesome-selfhosted)
-
-![GitHub Repo stars](https://img.shields.io/github/stars/jason5ng32/MyIP)
-![GitHub forks](https://img.shields.io/github/forks/jason5ng32/myip)
-![Docker Pulls](https://img.shields.io/docker/pulls/jason5ng32/myip)
-
-[![Website](https://img.shields.io/website?url=https%3A%2F%2Fipcheck.ing&up_message=online&label=IPCheck.ing 'IPCheck.ing')](https://ipcheck.ing)
+![GitHub Repo stars](https://img.shields.io/github/stars/shijianus/TrustIP)
+![GitHub forks](https://img.shields.io/github/forks/shijianus/TrustIP)
+![CI](https://github.com/shijianus/TrustIP/actions/workflows/ci.yml/badge.svg?branch=dev)
+![License](https://img.shields.io/badge/License-MIT-blue)
 ![PWA](https://img.shields.io/badge/PWA-Supported-blue)
-
-![CodeQL](https://github.com/jason5ng32/MyIP/actions/workflows/github-code-scanning/codeql/badge.svg?branch=main)
-![Docker Build and Push](https://github.com/jason5ng32/MyIP/actions/workflows/docker-image.yml/badge.svg?branch=main)
-[![CI](https://github.com/jason5ng32/MyIP/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/jason5ng32/MyIP/actions/workflows/ci.yml)
 
 [English](README.md) | [简体中文](README_ZH.md) | [繁體中文](README_ZH-TW.md) | [Русский](README_RU.md) | [Français](README_FR.md) | [Português (BR)](README_PT-BR.md)
 
-An open-source, all-in-one IP toolbox: IP lookup from multiple sources, connectivity tests, WebRTC & DNS-leak detection, speed test, MTR, censorship checks, Whois, and more — self-hostable with one Docker command.
-
-👉 Demo: [https://ipcheck.ing](https://ipcheck.ing)
-
-Feel free to bookmark the demo or deploy your own.
-
-[![Deploy with Docker](https://raw.githubusercontent.com/jason5ng32/MyIP/main/public/github/Docker.svg)](https://hub.docker.com/r/jason5ng32/myip)
+An open-source, all-in-one IP toolbox: IP lookup from multiple sources, connectivity
+tests, WebRTC & DNS-leak detection, speed test, MTR, censorship checks, Whois, and
+more. Clone it, `pnpm start`, and it works — **no `.env`, no API keys, no account.**
 
 </div>
+
+## What this is, and where it comes from
+
+**TrustMy.IP** is a fork by **EpoCanvas** of **[MyIP](https://github.com/jason5ng32/MyIP)**
+(demo site: [IPCheck.ing](https://ipcheck.ing)), the open-source IP toolbox written by
+**Jason Ng**. It is licensed MIT — see [LICENSE](LICENSE), which is
+`MIT © Jason Ng` and stays that way: attribution for the original work is a license
+condition, not a courtesy.
+
+What this fork changes:
+
+- **Zero-configuration is the default deployment.** Every optional credential is
+  optional in practice: an unconfigured install boots, serves every keyless data
+  source, and hides or politely refuses the features whose upstream services need a
+  key. Nothing throws because a variable is missing.
+- **Our own runtime identity.** The package is `trustip`, outbound API calls
+  identify as `TrustIP/v<version>/<site>`, and pm2 / Docker / repository badges are
+  EpoCanvas's, never the upstream's. No image is published under the upstream's
+  Docker Hub name and none is pulled from it.
+- **No credentials borrowed from upstream.** Features that run on IPCheck.ing's private
+  credentials stay switched off here rather than silently failing — listed in
+  [What stays dark](#what-stays-dark). One public dependency is still the upstream's: the
+  homepage IP cards resolve *your own* address through trace endpoints, and
+  `4.ipcheck.ing` / `6.ipcheck.ing` / `64.ipcheck.ing` are hosts EpoCanvas does not run. The
+  IPv4 and IPv6 cards fall back to `ipify.org`, and the Cloudflare and ipip.net cards never
+  touch the upstream at all; only the combined IPv4+IPv6 card has no fallback, so it can
+  report an error if the upstream's host is unavailable. Re-pointing those hops at your own
+  deployment is a good first contribution.
 
 ## 👀 Features
 
@@ -66,130 +79,123 @@ Feel free to bookmark the demo or deploy your own.
 
 ### ✨ Platform
 
-* 📤 **Shareable Reports**: Turn your test results into a diagnostic report — a read-only link with auto-expiry, AI-ready Markdown, or JSON.
-* ⌨️ **Curl API**: Get your IP from the terminal with a single `curl` command.
-* 🌍 **Earth Online**: A panel broadcasting global internet outage events as they happen.
+* ⌨️ **Curl API**: Get your IP from the terminal with a single `curl` command — needs the domains you serve it on.
 * 🌗 **Dark Mode**: Follows your system automatically, with a manual toggle.
 * 📲 **PWA**: Installable as an app on your phone and as a Chrome app on your desktop.
 * ⚡ **Keyboard Shortcuts**: Every function has one — press `?` to see the list.
 * 🔤 **Multiple Languages**: The UI ships in 6 languages, and adding yours takes one locale pack.
 
-## 📕 How to Use
+## 🚀 Quick start
 
-### Using Docker
+### With Docker
 
-One command and you're up:
+The image is not published anywhere — build it from this repository:
 
 ```bash
-docker run -d -p 18966:18966 --name myip --restart always jason5ng32/myip:latest
+git clone https://github.com/shijianus/TrustIP.git
+cd TrustIP
+docker compose build
+docker compose up -d
 ```
 
-Or click the "Deploy with Docker" button at the top of this page.
+Then open [http://localhost:18966](http://localhost:18966). No `-e` flags and no
+`--env-file` are needed; compose builds `epocanvas/trustip:local`.
 
-### Deploying in a Node Environment
+### With Node
 
-Make sure you have Node.js installed, then clone the code:
-
-```bash
-git clone https://github.com/jason5ng32/MyIP.git
-```
-
-Install and build. This project uses pnpm — if you don't have it, install it first (npm ships with Node, so this command always works):
+Node.js 24 or newer, then:
 
 ```bash
-npm install -g pnpm
+git clone https://github.com/shijianus/TrustIP.git
+cd TrustIP
+npm install -g pnpm   # the project is pnpm-only; npm ships with Node
 pnpm install && pnpm run build
-```
-
-Run:
-
-```bash
 pnpm start
 ```
 
-The program will run on port 18966.
+`pnpm start` serves the built frontend on **18966** and the API on **11966**
+(localhost-only by design — put a reverse proxy in front of 18966).
 
 ## ⚙️ Configuration
 
-> [!IMPORTANT]
-> **MaxMind GeoLite2 credentials are required.** They power IP geolocation and ASN lookups — without them, the MaxMind source returns 503. They're free: → [MaxMind Setup](https://docs.ipcheck.ing/developer/getting-started/maxmind-setup)
+**Nothing is required.** [.env.example](.env.example) documents every variable the
+code reads, what each one switches on, and what keeps working without it. Copy it to
+`.env` and fill in only what you want; a blank `.env` behaves exactly like no `.env`.
 
-> [!WARNING]
-> **`ALLOWED_DOMAINS` is required on a real domain.** It's the hostname allowlist for the backend API — without it, every request from a non-localhost domain gets 403. → [Reverse Proxy & Domains](https://docs.ipcheck.ing/developer/getting-started/reverse-proxy-and-domains)
+Three settings are worth knowing about, none of them mandatory:
 
-```bash
-docker run -d -p 18966:18966 \
-  -e MAXMIND_ACCOUNT_ID="YOUR_ACCOUNT_ID" \
-  -e MAXMIND_LICENSE_KEY="YOUR_LICENSE_KEY" \
-  -e MAXMIND_AUTO_UPDATE="true" \
-  -e ALLOWED_DOMAINS="your-domain.com" \
-  --name myip --restart always \
-  jason5ng32/myip:latest
-```
+| Variable | If you leave it empty |
+|---|---|
+| `ALLOWED_DOMAINS` | `localhost` still works. On a real hostname, every visitor's `/api/*` call gets **403** — the global `requireReferer` guard allows localhost plus this list. Set it as soon as you have a domain. |
+| `MAXMIND_ACCOUNT_ID` + `MAXMIND_LICENSE_KEY` | `/api/maxmind` answers **503** `MaxMind database is not ready`. The other IP sources keep working; the boot log says so and the server starts anyway. Free credentials at maxmind.com, or drop the two `.mmdb` files into `common/maxmind-db/` yourself. |
+| `VITE_SITE_URL` | The build drops the canonical / `og:url` / `og:image` block from `index.html` rather than emitting `undefined`, and the outbound User-Agent becomes `TrustIP/v<version>`. Set it to your public origin once you have one. |
 
-Everything else — optional API keys, security & rate limiting, logging, Sentry, the curl API domains — is documented in the [Environment Variables reference](https://docs.ipcheck.ing/developer/reference/environment-variables).
+Datasets the backend fetches for you, with no credentials to obtain:
+
+* **CAIDA** `as2org` + `as-rel2` — downloaded at first boot into `common/as-org-db/`
+  and `common/as-rel-db/` (about **25 MB unpacked**, roughly **20 seconds** on a
+  normal connection), which is what powers ASN organization names and the upstream
+  topology graph. The daily re-check is opt-in via `CAIDA_AUTO_UPDATE`.
+* **MaxMind GeoLite2** — the exception: MaxMind requires a (free) license key, so
+  without one the API degrades to 503 instead of guessing.
+
+### What stays dark
+
+These ride on services the fork does not have credentials for, so they are hidden —
+not half-working — on a default install. Each comes back by setting the variable
+named in [.env.example](.env.example):
+
+| Feature | Needs |
+|---|---|
+| IPCheck.ing IP source | `IPCHECKING_API_KEY` + `IPCHECKING_API_ENDPOINT` (the upstream project's private API) |
+| Invisibility Test, Enhanced DNS Leak Test, Persona Check, user accounts & achievements | the same private API, plus Firebase Auth and the proxy-detection script key |
+| Shareable report links | `CLOUDFLARE_API_KEY` + `CLOUDFLARE_ACCOUNT_ID` + `CLOUDFLARE_KV_NAMESPACE_ID` (your own Workers KV namespace works fine) |
+| Cloudflare Radar panels, ASN "live in Radar" links, outage feed | `CLOUDFLARE_API_KEY` |
+| Static map on the IP card | `GOOGLE_MAP_API_KEY` |
+| api.ipapi.is and ip2location.io source cards | their respective keys (both are key-only services) |
+| Earth Online (status feed, visitor map, visit beacon) | `VITE_PULSE_BEACON_URL` (a backend this fork does not run) |
+| In-app docs assistant and Help Center links | `VITE_DOCS_URL` (the upstream's GitBook site) |
+| Curl API card | `VITE_CURL_IPV4_DOMAIN` / `IPV6` / `IPV64` — hostnames you serve yourself |
+| Google Analytics, Sentry error monitoring | opt-in by design; unset means the SDK is not even in the bundle |
 
 ## 📖 Documentation
 
-Full guides live in the MyIP Docs Center: **[docs.ipcheck.ing](https://docs.ipcheck.ing)**
+This fork keeps no documentation site. What is authoritative, in this repository:
 
-* [Developer Guide](https://docs.ipcheck.ing/developer) — deployment, configuration, architecture, and contributing
-* [Knowledge Base](https://docs.ipcheck.ing/knowledge-base) — how to use every tool, step-by-step network diagnosis, and networking concepts
+* [.env.example](.env.example) — the full environment reference, including what
+  breaks when each variable is empty
+* [`AGENTS.md`](AGENTS.md), [`frontend/AGENTS.md`](frontend/AGENTS.md),
+  [`api/AGENTS.md`](api/AGENTS.md) — architecture and conventions, written for humans
+  and AI agents alike
+* [CONTRIBUTING.md](CONTRIBUTING.md) · [TRANSLATING.md](TRANSLATING.md) ·
+  [SUPPORT.md](SUPPORT.md) · [SECURITY.md](SECURITY.md)
+
+The upstream project's docs live at
+**[docs.ipcheck.ing](https://docs.ipcheck.ing)** — written for MyIP / IPCheck.ing, so
+their deployment steps assume credentials this fork does not have. Useful for
+architecture and per-tool background, not for reproducing a hosted setup.
 
 ## 🤝 Contributing
 
-Contributions are welcome! We keep a curated set of beginner-friendly tasks — each with exact file paths, acceptance criteria, and tests that guide you to a green build:
+Contributions are welcome, especially ones that make the default deployment better.
 
-* 🏷️ [Good first issues](https://github.com/jason5ng32/MyIP/labels/good%20first%20issue) — add a DNS resolver from your country, add curated site lists, translate the README into your language, polish translations, and more
+* 🏷️ [Good first issues](https://github.com/shijianus/TrustIP/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) — add a DNS resolver from your country, curate site lists, translate the README, polish translations
 * 🌐 [TRANSLATING.md](TRANSLATING.md) — bring the UI to your language: a locale pack plus one registry line, and a **partial translation is a welcome first PR**
 * 📄 [CONTRIBUTING.md](CONTRIBUTING.md) — setup, conventions, and how PRs flow (target the `dev` branch)
 
-## 👩🏻‍💻 Advanced Usage
+Upstream fixes keep flowing in: [`.github/workflows/sync.yml`](.github/workflows/sync.yml)
+merges `jason5ng32/MyIP` into our `dev` daily, which is why the fork never publishes
+artifacts under the upstream's name — it consumes upstream, it does not impersonate it.
 
-<details>
-<summary>Proxy rules for checking your real IP and your proxy IP at the same time</summary>
+## 🙏 Credit
 
-If you're using a proxy for internet access, consider adding this rule to your proxy configuration (modify it according to your client). This setup lets you check both your real IP and the IP when using the proxy:
-
-```ini
-# IP Testing
-IP-CIDR,1.0.0.2/32,Proxy,no-resolve
-IP-CIDR6,2606:4700:4700::1111/128,Proxy,no-resolve
-DOMAIN,4.ipcheck.ing,DIRECT
-DOMAIN,6.ipcheck.ing,DIRECT
-# Rule Testing
-DOMAIN,ptest-1.ipcheck.ing,Proxy1
-DOMAIN,ptest-2.ipcheck.ing,Proxy2
-DOMAIN,ptest-3.ipcheck.ing,Proxy3
-DOMAIN,ptest-4.ipcheck.ing,Proxy4
-DOMAIN,ptest-5.ipcheck.ing,Proxy5
-DOMAIN,ptest-6.ipcheck.ing,Proxy6
-DOMAIN,ptest-7.ipcheck.ing,Proxy7
-DOMAIN,ptest-8.ipcheck.ing,Proxy8
-```
-
-</details>
-
-## 💖 Sponsors
-
-As an open source project, I'm very grateful to the following sponsors for their support:
-
-<a href="https://www.rapidproxy.io/?ref=myip"><img src="https://res.ipcheck.ing/img/rapid_proxy_logo.png" width="240px"  title="RapidProxy — Global Residential Proxy Service, covering 90+ million residential IPs, supporting smart rotation, stable sessions, and precise geolocation for proxy testing, browser automation, and data collection. Starting at $0.55/GB, use RAPID10 for 10% off." /></a>
-
-<a href="https://www.digitalocean.com/?refcode=fd2634a3981b&utm_campaign=Referral_Invite&utm_medium=Referral_Program&utm_source=badge"><img src="https://res.ipcheck.ing/img/digitalocean_logo.png" width="240px"  title="DigitalOcean" /></a>
-
-<a href="https://www.1password.com"><img src="https://res.ipcheck.ing/img/1password_logo.png" alt="1Password" title="1Password" width="240px"  /></a>
-
-<a href="https://www.greptile.com/"><img src="https://res.ipcheck.ing/img/greptile_logo.png" alt="Greptile" title="Greptile" width="240px"  /></a>
-
-<a href="https://www.sentry.io"><img src="https://res.ipcheck.ing/img/sentry_logo.png" alt="Sentry" title="Sentry" width="240px" /></a>
-
-<a href="https://www.gitbook.com"><img src="https://res.ipcheck.ing/img/gitbook_logo.png" alt="GitBook" title="GitBook" width="240px" /></a>
-
-<a href="https://v.ps/?utm_source=ipcheck.ing&utm_medium=referral&utm_campaign=github_readme&utm_content=en"><img src="https://res.ipcheck.ing/img/vps_logo.png" alt="v.ps" title="v.ps" width="240px" /></a>
-
-<a href="https://www.cloudflare.com/lp/project-alexandria/"><img src="https://res.ipcheck.ing/img/cloudflare_logo.png" alt="Cloudflare Project Alexandria" title="Cloudflare Project Alexandria" width="240px" /></a>
+TrustMy.IP exists because MyIP does. The original project, its demo site and its
+sponsor program belong to Jason Ng and the MyIP contributors; this fork carries no
+sponsor button and directs support to the upstream repository instead
+([github.com/jason5ng32/MyIP](https://github.com/jason5ng32/MyIP)).
 
 ## 📄 License
 
-[MIT](LICENSE) © Jason Ng
+[MIT](LICENSE) © Jason Ng — TrustMy.IP is a derivative work of
+[MyIP](https://github.com/jason5ng32/MyIP) by Jason Ng, distributed under the same
+MIT license.

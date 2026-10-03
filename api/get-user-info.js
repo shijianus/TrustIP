@@ -3,13 +3,15 @@ import logger from '../common/logger.js';
 
 export default async (req, res) => {
     const key = process.env.IPCHECKING_API_KEY;
+    const apiEndpoint = process.env.IPCHECKING_API_ENDPOINT;
 
-    if (!key) {
+    // Both halves are needed: the endpoint has no default here, so a key
+    // without it would reach `new URL()` as "undefined/userinfo" and throw.
+    if (!key || !apiEndpoint) {
         return res.status(500).json({ error: 'API key is missing' });
     }
 
     // Build request
-    const apiEndpoint = process.env.IPCHECKING_API_ENDPOINT;
     const url = new URL(`${apiEndpoint}/userinfo?key=${key}`);
 
     try {

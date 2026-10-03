@@ -38,13 +38,25 @@ currently `dns-resolvers.js`, the country-annotated resolver list behind
 - **Every upstream call uses `fetchUpstream`** from
   `common/fetch-with-timeout.js` (8s timeout). Never a bare `fetch()` /
   `https.get()` — a hanging provider must time out, not pin the connection.
-  It also injects a default `User-Agent` of `MyIP/v<version>/<VITE_SITE_URL>`
+  It also injects a default `User-Agent` of `TrustIP/v<version>/<VITE_SITE_URL>`
   (registered at boot by `common/upstream-ua.js` — some upstream WAFs block
   undici's default `node` UA); caller-supplied `User-Agent` headers, including
   the private-API `{ ...req.headers }` pass-through, always win.
 - **Error shape.** `res.status(500).json({ error: error.message })` on
   upstream failure, `400` on bad input. Terse — the frontend doesn't display
   these verbatim.
+- **An unset environment variable is a supported state, never a crash.**
+  Every `process.env` read carries a fallback or takes an early "not
+  configured" return before any request leaves the process:
+  `res.status(500).json({ error: 'API key is missing' })` for a
+  key-mandatory upstream, `503` for report sharing (KV trio), and
+  `{ stars: null }` for a repo that isn't public yet. So an unset value must
+  never reach `.split()` / `new URL()` unguarded — a private
+  `IPCHECKING_API_ENDPOINT` alongside a configured key is as much a
+  misconfiguration as a missing key, and both get the same answer. Geo
+  sources declare theirs with `requiredEnv` in `common/geo-handler.js`, which
+  checks it and answers before `buildUrl` runs. `/api/configs` booleanizes the
+  same variables, so the frontend hides the feature rather than calling it.
 - **Response shape.** IP-geolocation handlers normalize to the canonical
   frontend shape (`ip` / `country_code` / `latitude` / `asn` / `org` / …);
   new sources match it. `timezone` is the exception — no handler produces it;
@@ -124,7 +136,8 @@ A new geo source inherits the field by adding the middleware to its route.
 
 ### Private-API header pass-through (intentional exception)
 
-Handlers proxying our private IPCheck.ing API (`ipcheck-ing`,
+Handlers proxying the upstream project's private IPCheck.ing API
+(`ipcheck-ing`,
 `invisibility-test`, `update-user-achievement`, `get-user-info`,
 `dns-leak-test`, `persona`) forward the caller's headers upstream
 (`headers: { ...req.headers }`) — the upstream needs caller context

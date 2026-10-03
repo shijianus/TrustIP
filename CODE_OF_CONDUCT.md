@@ -60,7 +60,7 @@ representative at an online or offline event.
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
 reported privately to the maintainer using GitHub's
-[private report form](https://github.com/jason5ng32/MyIP/security/advisories/new)
+[private report form](https://github.com/shijianus/TrustIP/security/advisories/new)
 — it reaches only the maintainer; start the report with "Code of Conduct" so it
 isn't triaged as a security issue. Behavior that violates
 [GitHub's own terms](https://github.com/contact/report-abuse) can also be

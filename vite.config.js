@@ -8,7 +8,7 @@ import { PREFS_STORAGE_KEY } from './frontend/data/default-preferences.js';
 import { LOCALE_CODES } from './common/locale-registry.js';
 import { stripPack } from './common/locale-pack.js';
 
-dotenv.config();
+dotenv.config({ quiet: true });
 
 // Sentry source-map upload — build-time only. Needs SENTRY_AUTH_TOKEN and a
 // production SENTRY_ENVIRONMENT (unset means production, matching the
@@ -267,6 +267,9 @@ export default defineConfig({
     proxy: {
       '/api': `http://localhost:${backEndPort}`
     },
-    allowedHosts: ['dev.ipcheck.ing', 'test.ipcheck.ing'],
+    // Extra hostnames the dev server answers for, so a tunnel / second
+    // machine can reach `pnpm dev` without Vite's "blocked request" host
+    // check. localhost and 127.0.0.1 are always allowed and need no entry.
+    allowedHosts: ['dev.trustmy.ip', 'test.trustmy.ip'],
   }
 })

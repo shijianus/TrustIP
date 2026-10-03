@@ -1,1 +1,16 @@
-github: [jason5ng32]
+# TrustMy.IP is a fork and runs no funding program of its own, so this file
+# deliberately lists no sponsor button. It used to point GitHub's "Sponsor"
+# at jason5ng32 — under our brand that would send visitors to the upstream
+# author's wallet while looking like ours, which is the wrong shape for both
+# sides.
+#
+# The code here is a derivative of MyIP by Jason Ng, MIT-licensed: attribution
+# lives in LICENSE, README.md and the docs. To support the original project, go
+# to its own repository — https://github.com/jason5ng32/MyIP — where the
+# sponsor button is the upstream's and says so.
+#
+# To re-enable a button for EpoCanvas, replace the empty list below with an
+# account that actually has GitHub Sponsors turned on (GitHub hides the button
+# otherwise):
+# github: [shijianus]
+github: []

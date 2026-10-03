@@ -1,38 +1,46 @@
-# 🧰 MyIP — удобный набор инструментов для работы с IP
-
-> [!NOTE]
-> Это перевод, поддерживаемый сообществом; английская версия README является основной, и данная версия может отставать от неё.
+# 🧰 TrustMy.IP — IP-инструменты, которые работают без единой настройки
 
 <div align="center">
 
-![IPCheck.ing Banner](https://raw.githubusercontent.com/jason5ng32/MyIP/main/public/github/gh_banner.png)
-
-<a href="https://trendshift.io/repositories/5332" target="_blank"><img src="https://trendshift.io/api/badge/repositories/5332" alt="jason5ng32%2FMyIP | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
-
-[![Mentioned in Awesome Self Hosted](https://awesome.re/mentioned-badge.svg)](https://github.com/awesome-selfhosted/awesome-selfhosted)
-
-![GitHub Repo stars](https://img.shields.io/github/stars/jason5ng32/MyIP)
-![GitHub forks](https://img.shields.io/github/forks/jason5ng32/myip)
-![Docker Pulls](https://img.shields.io/docker/pulls/jason5ng32/myip)
-
-[![Website](https://img.shields.io/website?url=https%3A%2F%2Fipcheck.ing&up_message=online&label=IPCheck.ing 'IPCheck.ing')](https://ipcheck.ing)
-![PWA](https://img.shields.io/badge/PWA-Supported-blue)
-
-![CodeQL](https://github.com/jason5ng32/MyIP/actions/workflows/github-code-scanning/codeql/badge.svg?branch=main)
-![Docker Build and Push](https://github.com/jason5ng32/MyIP/actions/workflows/docker-image.yml/badge.svg?branch=main)
-[![CI](https://github.com/jason5ng32/MyIP/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/jason5ng32/MyIP/actions/workflows/ci.yml)
+![Звёзды GitHub](https://img.shields.io/github/stars/shijianus/TrustIP)
+![Форки GitHub](https://img.shields.io/github/forks/shijianus/TrustIP)
+![CI](https://github.com/shijianus/TrustIP/actions/workflows/ci.yml/badge.svg?branch=dev)
+![Лицензия](https://img.shields.io/badge/Лицензия-MIT-blue)
+![PWA](https://img.shields.io/badge/PWA-поддерживается-blue)
 
 [English](README.md) | [简体中文](README_ZH.md) | [繁體中文](README_ZH-TW.md) | [Русский](README_RU.md) | [Français](README_FR.md) | [Português (BR)](README_PT-BR.md)
 
-Универсальный набор IP-инструментов с открытым исходным кодом: определение IP по нескольким источникам, проверка доступности сайтов, обнаружение утечек WebRTC и DNS, тест скорости, MTR, проверка цензуры, Whois и многое другое — разворачивается на своём сервере одной командой Docker.
-
-👉 Демо: [https://ipcheck.ing](https://ipcheck.ing)
-
-Добавьте демо в закладки или разверните собственный экземпляр.
-
-[![Deploy with Docker](https://raw.githubusercontent.com/jason5ng32/MyIP/main/public/github/Docker.svg)](https://hub.docker.com/r/jason5ng32/myip)
+Универсальный набор IP-инструментов с открытым исходным кодом: определение IP по нескольким источникам, проверка доступности сайтов, обнаружение утечек WebRTC и DNS, тест скорости, MTR, проверка цензуры, Whois и многое другое. Склонируйте, запустите `pnpm start` — и всё работает: **без `.env`, без ключей API, без аккаунта.**
 
 </div>
+
+## Что это и откуда
+
+**TrustMy.IP** — это форк **[MyIP](https://github.com/jason5ng32/MyIP)**
+(демонстрационный сайт: [IPCheck.ing](https://ipcheck.ing), автор — **Jason Ng**),
+поддерживаемый **EpoCanvas**. Проект распространяется под лицензией MIT — см.
+[LICENSE](LICENSE), где по-прежнему написано `MIT © Jason Ng`, и так должно остаться:
+указание авторства оригинала требует лицензия, а не вежливость.
+
+Что изменилось в этом форке:
+
+- **Развертывание без конфигурации — это базовый сценарий.** Все учетные данные действительно
+  необязательны: без единой переменной окружения бэкенд стартует, все источники, не требующие
+  ключей, работают, а функции, которым нужен сторонний или приватный сервис, скрыты либо
+  вежливо отказывают — но никогда не падают из-за отсутствующей переменной.
+- **Собственная идентичность во времени выполнения.** Пакет называется `trustip`, исходящие
+  запросы представляют себя как `TrustIP/v<версия>/<сайт>`, а имена pm2 / Docker / значки
+  репозитория принадлежат EpoCanvas, а не апстриму. Мы не публикуем образ под именем апстрима
+  на Docker Hub и не берём его оттуда.
+- **Мы не берём учётные данные у апстрима.** Возможности, завязанные на приватные ключи
+  IPCheck.ing, здесь отключены, а не работают наполовину — см. раздел
+  [Что остаётся выключенным](#что-остаётся-выключенным). Одна публичная зависимость всё ещё
+  принадлежит апстриму: карточки IP на главной определяют *ваш собственный* адрес через
+  конечные точки `trace`, а хосты `4.ipcheck.ing` / `6.ipcheck.ing` / `64.ipcheck.ing`
+  поддерживаем не мы. Карточки IPv4 и IPv6 падают на запасной `ipify.org`, а карточки
+  Cloudflare и ipip.net вообще не обращаются к апстриму; только комбинированная карточка
+  IPv4+IPv6 запасного варианта не имеет и может показать ошибку, если хост апстрима недоступен.
+  Перевести эти запросы на ваш собственный деплой — хорошая задача для первого вклада.
 
 ## 👀 Возможности
 
@@ -69,130 +77,124 @@
 
 ### ✨ Платформа
 
-* 📤 **Диагностические отчёты**: превращают результаты тестов в отчёт, которым можно поделиться, — ссылка только для чтения с автоматическим истечением срока, Markdown для ИИ или JSON.
-* ⌨️ **Curl API**: узнайте свой IP прямо из терминала одной командой `curl`.
-* 🌍 **Земля онлайн**: панель, транслирующая глобальные сбои интернета в момент их возникновения.
+* ⌨️ **Curl API**: узнайте свой IP прямо из терминала одной командой `curl` — для неё нужны домены, которые обслуживаете вы сами.
 * 🌗 **Тёмная тема**: автоматически следует настройкам системы, с ручным переключателем.
 * 📲 **PWA**: устанавливается как приложение на телефон и как приложение Chrome на компьютер.
 * ⚡ **Сочетания клавиш**: есть у каждой функции — нажмите `?`, чтобы увидеть список.
 * 🔤 **Несколько языков**: интерфейс доступен на 6 языках, а чтобы добавить свой, достаточно одного языкового пакета.
 
-## 📕 Использование
+## 🚀 Быстрый старт
 
-### Использование Docker
+### С Docker
 
-Одна команда — и всё готово:
+Образ нигде не опубликован — соберите его из этого репозитория:
 
 ```bash
-docker run -d -p 18966:18966 --name myip --restart always jason5ng32/myip:latest
+git clone https://github.com/shijianus/TrustIP.git
+cd TrustIP
+docker compose build
+docker compose up -d
 ```
 
-Или нажмите кнопку «Deploy with Docker» в верхней части этой страницы.
+Затем откройте [http://localhost:18966](http://localhost:18966). Ни `-e`, ни
+`--env-file` не нужны; compose соберёт `epocanvas/trustip:local`.
 
-### Развёртывание в среде Node
+### С Node
 
-Убедитесь, что Node.js установлен, затем клонируйте репозиторий:
-
-```bash
-git clone https://github.com/jason5ng32/MyIP.git
-```
-
-Установите зависимости и соберите проект. Проект использует pnpm — если он ещё не установлен, сначала установите его (npm входит в состав Node, поэтому эта команда всегда доступна):
+Нужен Node.js 24 или новее, затем:
 
 ```bash
-npm install -g pnpm
+git clone https://github.com/shijianus/TrustIP.git
+cd TrustIP
+npm install -g pnpm   # проект работает исключительно с pnpm; npm идёт вместе с Node
 pnpm install && pnpm run build
-```
-
-Запустите:
-
-```bash
 pnpm start
 ```
 
-Приложение будет работать на порту 18966.
+`pnpm start` поднимает собранный фронтенд на порту **18966** и API на порту **11966**
+(намеренно только локально — поставьте обратный прокси перед 18966).
 
 ## ⚙️ Конфигурация
 
-> [!IMPORTANT]
-> **Учётные данные MaxMind GeoLite2 обязательны.** Они обеспечивают геолокацию IP и запросы ASN — без них источник MaxMind возвращает 503. Они бесплатны: → [MaxMind Setup](https://docs.ipcheck.ing/developer/getting-started/maxmind-setup)
+**Обязательного нет ничего.** [.env.example](.env.example) описывает каждую переменную,
+которую действительно читает код, что она включает и что продолжает работать без неё.
+Скопируйте его в `.env` и заполните только нужное: полностью пустой `.env` ведёт себя
+ ровно так же, как его отсутствие.
 
-> [!WARNING]
-> **`ALLOWED_DOMAINS` обязателен на реальном домене.** Это список разрешённых хостов для backend API — без него любой запрос с домена, отличного от localhost, получает 403. → [Reverse Proxy & Domains](https://docs.ipcheck.ing/developer/getting-started/reverse-proxy-and-domains)
+Стоит знать про три настройки, хотя ни одна из них не обязательна:
 
-```bash
-docker run -d -p 18966:18966 \
-  -e MAXMIND_ACCOUNT_ID="YOUR_ACCOUNT_ID" \
-  -e MAXMIND_LICENSE_KEY="YOUR_LICENSE_KEY" \
-  -e MAXMIND_AUTO_UPDATE="true" \
-  -e ALLOWED_DOMAINS="your-domain.com" \
-  --name myip --restart always \
-  jason5ng32/myip:latest
-```
+| Переменная | Что происходит, если оставить пустой |
+|---|---|
+| `ALLOWED_DOMAINS` | `localhost` работает как раньше. Но когда вы открываете сайт на реальном домене, каждый запрос посетителя к `/api/*` получает **403** — глобальная проверка `requireReferer` разрешает только localhost и список из этой переменной. Появился домен — настройте её. |
+| `MAXMIND_ACCOUNT_ID` + `MAXMIND_LICENSE_KEY` | `/api/maxmind` отвечает **503** `MaxMind database is not ready`. Остальные источники IP работают; в стартовом журнале это сказано прямым текстом, и сервер всё равно стартует. Бесплатные ключи выдаёт maxmind.com, либо положите два файла `.mmdb` в `common/maxmind-db/` самостоятельно. |
+| `VITE_SITE_URL` | При сборке из `index.html` целиком выбрасывается блок canonical / `og:url` / `og:image` — вместо него туда не попадает `undefined`, — а исходящий User-Agent становится `TrustIP/v<версия>`. Ничего не ломается, просто исчезают абсолютные URL в этих тегах. |
 
-Всё остальное — необязательные ключи API, безопасность и ограничение частоты запросов, логирование, Sentry, домены curl API — описано в [справочнике переменных окружения](https://docs.ipcheck.ing/developer/reference/environment-variables).
+Наборы данных, которые бэкенд скачивает сам, без всяких ключей:
+
+* **CAIDA** `as2org` + `as-rel2` — загружаются при первом запуске в `common/as-org-db/` и
+  `common/as-rel-db/` (примерно **25 МБ в разархивированном виде**, около **20 секунд** при
+  нормальном соединении). Именно они питают названия организаций ASN и топологию
+  вышестоящих сетей. Ежедневная перепроверка включается отдельно — `CAIDA_AUTO_UPDATE`.
+* **MaxMind GeoLite2** — исключение: MaxMind требует (бесплатный) лицензионный ключ, поэтому
+  без ключа API деградирует до 503, вместо того чтобы выдумывать ответ.
+
+### Что остаётся выключенным
+
+Эти возможности опираются на сервисы, ключей от которых у форка нет, поэтому в сборке «из
+коробки» они скрыты — а не работают вполоборота. Каждая вернётся, как только вы укажете
+переменную из [.env.example](.env.example):
+
+| Возможность | Требует |
+|---|---|
+| Источник IP «IPCheck.ing» | `IPCHECKING_API_KEY` + `IPCHECKING_API_ENDPOINT` (приватный API апстрим-проекта) |
+| Тест невидимости, расширенный тест утечки DNS, Persona-анализ, аккаунты и достижения | того же приватного API, плюс Firebase Auth и ключ скрипта определения прокси |
+| Публикуемые ссылки на диагностический отчёт | `CLOUDFLARE_API_KEY` + `CLOUDFLARE_ACCOUNT_ID` + `CLOUDFLARE_KV_NAMESPACE_ID` (ваше собственное пространство Workers KV прекрасно подойдёт) |
+| Панели Cloudflare Radar, ссылки ASN «смотреть в Radar», лента сбоев | `CLOUDFLARE_API_KEY` |
+| Статическая карта в карточке IP | `GOOGLE_MAP_API_KEY` |
+| Источники api.ipapi.is и ip2location.io | их ключи (оба сервиса работают только с ключом) |
+| «Земля онлайн» (лента состояний, карта посетителей, маяк посещений) | `VITE_PULSE_BEACON_URL` (бэкенд, который этот форк не запускает) |
+| Внутриприложенческий ассистент документации и ссылки на Справочный центр | `VITE_DOCS_URL` (GitBook-сайт апстрима) |
+| Карточка Curl API | `VITE_CURL_IPV4_DOMAIN` / `IPV6` / `IPV64` — домены, которые вы обслуживаете сами |
+| Google Analytics и Sentry-мониторинг ошибок | по замыслу opt-in: без ключей SDK даже не попадает в сборку |
 
 ## 📖 Документация
 
-Полные руководства — в центре документации MyIP: **[docs.ipcheck.ing](https://docs.ipcheck.ing)**
+Своего сайта документации у этого форка нет. Авторитетные источники — здесь, в репозитории:
 
-* [Руководство разработчика](https://docs.ipcheck.ing/developer) — развёртывание, настройка, архитектура и участие в разработке
-* [База знаний](https://docs.ipcheck.ing/knowledge-base) — как пользоваться каждым инструментом, пошаговая диагностика сети и сетевые концепции
+* [.env.example](.env.example) — полный справочник переменных окружения, включая то, что
+  отключается при пустом значении
+* [`AGENTS.md`](AGENTS.md), [`frontend/AGENTS.md`](frontend/AGENTS.md),
+  [`api/AGENTS.md`](api/AGENTS.md) — архитектура и соглашения; они написаны и для людей,
+  и для ИИ-агентов
+* [CONTRIBUTING.md](CONTRIBUTING.md) · [TRANSLATING.md](TRANSLATING.md) ·
+  [SUPPORT.md](SUPPORT.md) · [SECURITY.md](SECURITY.md)
+
+Документация апстрима находится на **[docs.ipcheck.ing](https://docs.ipcheck.ing)** — она
+написана для MyIP / IPCheck.ing, и её шаги развертывания предполагают ключи, которых у этого
+форка нет. Полезно для архитектуры и для понимания отдельных инструментов, но не для того,
+ чтобы воспроизвести у себя размещённую версию.
 
 ## 🤝 Участие в проекте
 
-Мы рады вашему участию! У нас есть подборка задач для новичков — с точными путями к файлам, критериями приёмки и тестами, которые ведут вас к зелёной сборке:
+Участие приветствуется — особенно то, которое улучшает сценарий «развернуть ничего не настраивая».
 
-* 🏷️ [Good first issues](https://github.com/jason5ng32/MyIP/labels/good%20first%20issue) — добавьте DNS-резолвер своей страны, расширьте подборки сайтов, переведите README на свой язык, улучшите переводы и не только
-* 🌐 [TRANSLATING.md](TRANSLATING.md) — переведите интерфейс на свой язык: языковой пакет плюс одна строка в реестре, причём **частичный перевод — отличный первый PR**
-* 📄 [CONTRIBUTING.md](CONTRIBUTING.md) — настройка окружения, соглашения и процесс работы с PR (направляйте их в ветку `dev`)
+* 🏷️ [Первые задачи](https://github.com/shijianus/TrustIP/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) — добавить DNS-резолвер из вашей страны, пополнить готовые списки сайтов, перевести README, отполировать переводы
+* 🌐 [TRANSLATING.md](TRANSLATING.md) — добавьте интерфейс на свой язык: языковой пакет и одна строка в реестре; **даже частичный перевод — хороший первый PR**
+* 📄 [CONTRIBUTING.md](CONTRIBUTING.md) — настройка окружения, соглашения и порядок review (PR направляйте в ветку `dev`)
 
-## 👩🏻‍💻 Расширенное использование
+Изменения из апстрима продолжают приходить: [`.github/workflows/sync.yml`](.github/workflows/sync.yml)
+ежедневно сливает `jason5ng32/MyIP` в нашу ветку `dev`. Именно поэтому форк никогда не
+публикует артефакты под именем апстрима — он его потребляет, а не выдаёт себя за него.
 
-<details>
-<summary>Правила прокси для одновременной проверки реального IP и IP через прокси</summary>
+## 🙏 Благодарность
 
-Если вы выходите в интернет через прокси, добавьте это правило в конфигурацию прокси (адаптировав его под свой клиент). Такая настройка позволяет проверять и ваш реальный IP, и IP при использовании прокси:
-
-```ini
-# IP Testing
-IP-CIDR,1.0.0.2/32,Proxy,no-resolve
-IP-CIDR6,2606:4700:4700::1111/128,Proxy,no-resolve
-DOMAIN,4.ipcheck.ing,DIRECT
-DOMAIN,6.ipcheck.ing,DIRECT
-# Rule Testing
-DOMAIN,ptest-1.ipcheck.ing,Proxy1
-DOMAIN,ptest-2.ipcheck.ing,Proxy2
-DOMAIN,ptest-3.ipcheck.ing,Proxy3
-DOMAIN,ptest-4.ipcheck.ing,Proxy4
-DOMAIN,ptest-5.ipcheck.ing,Proxy5
-DOMAIN,ptest-6.ipcheck.ing,Proxy6
-DOMAIN,ptest-7.ipcheck.ing,Proxy7
-DOMAIN,ptest-8.ipcheck.ing,Proxy8
-```
-
-</details>
-
-## 💖 Спонсоры
-
-Как автор проекта с открытым исходным кодом, я очень благодарен следующим спонсорам за поддержку:
-
-<a href="https://www.rapidproxy.io/?ref=myip"><img src="https://res.ipcheck.ing/img/rapid_proxy_logo.png" width="240px"  title="RapidProxy — Глобальный сервис прокси-сервисов для домашнего использования, предоставляющий доступ к 90+ миллионам частных IP-адресов. Поддерживает интеллектуальную ротацию, стабильные сессии и точную геолокацию для тестирования прокси, автоматизации браузера и сбора данных. Начало с $0.55/GB, используйте RAPID10 для 10% скидки." /></a>
-
-<a href="https://www.digitalocean.com/?refcode=fd2634a3981b&utm_campaign=Referral_Invite&utm_medium=Referral_Program&utm_source=badge"><img src="https://res.ipcheck.ing/img/digitalocean_logo.png" width="240px"  title="DigitalOcean" /></a>
-
-<a href="https://www.1password.com"><img src="https://res.ipcheck.ing/img/1password_logo.png" alt="1Password" title="1Password" width="240px"  /></a>
-
-<a href="https://www.greptile.com/"><img src="https://res.ipcheck.ing/img/greptile_logo.png" alt="Greptile" title="Greptile" width="240px"  /></a>
-
-<a href="https://www.sentry.io"><img src="https://res.ipcheck.ing/img/sentry_logo.png" alt="Sentry" title="Sentry" width="240px" /></a>
-
-<a href="https://www.gitbook.com"><img src="https://res.ipcheck.ing/img/gitbook_logo.png" alt="GitBook" title="GitBook" width="240px" /></a>
-
-<a href="https://v.ps/?utm_source=ipcheck.ing&utm_medium=referral&utm_campaign=github_readme&utm_content=en"><img src="https://res.ipcheck.ing/img/vps_logo.png" alt="v.ps" title="v.ps" width="240px" /></a>
-
-<a href="https://www.cloudflare.com/lp/project-alexandria/"><img src="https://res.ipcheck.ing/img/cloudflare_logo.png" alt="Cloudflare Project Alexandria" title="Cloudflare Project Alexandria" width="240px" /></a>
+TrustMy.IP существует, потому что существует MyIP. Оригинальный проект, его демонстрационный
+сайт и его программа поддержки принадлежат Jason Ng и участникам MyIP; этот форк не
+показывает кнопку поддержки и направляет её к репозиторию апстрима
+([github.com/jason5ng32/MyIP](https://github.com/jason5ng32/MyIP)).
 
 ## 📄 Лицензия
 
-[MIT](LICENSE) © Jason Ng
+[MIT](LICENSE) © Jason Ng — TrustMy.IP является производной работой от
+[MyIP](https://github.com/jason5ng32/MyIP) автора Jason Ng и распространяется под той же
+лицензией MIT.

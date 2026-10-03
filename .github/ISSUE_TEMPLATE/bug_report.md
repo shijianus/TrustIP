@@ -20,7 +20,7 @@ A clear description of the bug. Screenshots or recordings help a lot.
 
 ## Environment
 
-- Where: ipcheck.ing / self-hosted (Docker / Node / Vercel)
+- Where: self-hosted (Docker / Node) or the hosted demo, and which commit / version
 - OS & browser (for page issues):
 - Node version (self-hosted only):
 

@@ -1,13 +1,16 @@
 // /api/ipapiis — geolocation source handler backed by api.ipapi.is.
 // Picks a random API key and normalizes the response into the canonical
 // geo shape (plus isHosting / isProxy) via the shared makeGeoHandler factory.
+// The upstream answers 401 without a key, so the route is declared
+// key-mandatory: an unconfigured deployment gets "API key is missing" and the
+// source card stays hidden (`configs.ipapiis`).
 
 import { makeGeoHandler } from '../common/geo-handler.js';
 
 function buildUrl(req) {
     const ipAddress = req.query.ip;
 
-    const keys = (process.env.IPAPIIS_API_KEY).split(',');
+    const keys = (process.env.IPAPIIS_API_KEY || '').split(',');
     const key = keys[Math.floor(Math.random() * keys.length)];
     return `https://api.ipapi.is?q=${ipAddress}&key=${key}`;
 }
@@ -36,4 +39,9 @@ export function modifyJsonForIPAPI(json) {
     };
 }
 
-export default makeGeoHandler({ name: 'ipapi-is', buildUrl, normalize: modifyJsonForIPAPI });
+export default makeGeoHandler({
+    name: 'ipapi-is',
+    buildUrl,
+    normalize: modifyJsonForIPAPI,
+    requiredEnv: 'IPAPIIS_API_KEY',
+});

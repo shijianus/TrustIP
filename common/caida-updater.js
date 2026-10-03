@@ -177,7 +177,7 @@ async function updateDataset(dataset, { signal, reloadReason = 'auto update' } =
         return { updated: false, reason: 'locked' };
     }
 
-    const tempDir = await fsp.mkdtemp(path.join(os.tmpdir(), `myip-caida-${dataset.id}-`));
+    const tempDir = await fsp.mkdtemp(path.join(os.tmpdir(), `trustip-caida-${dataset.id}-`));
 
     try {
         const result = await downloadAndPublish(dataset, tempDir, { signal });

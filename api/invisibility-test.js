@@ -20,12 +20,14 @@ export default async (req, res) => {
     }
 
     const apikey = process.env.IPCHECKING_API_KEY;
+    const apiEndpoint = process.env.IPCHECKING_API_ENDPOINT;
 
-    if (!apikey) {
+    // Both halves are needed: the endpoint has no default here, so a key
+    // without it would reach `new URL()` as "undefined/getpdresult" and throw.
+    if (!apikey || !apiEndpoint) {
         return res.status(500).json({ error: 'API key is missing' });
     }
 
-    const apiEndpoint = process.env.IPCHECKING_API_ENDPOINT;
     const url = new URL(`${apiEndpoint}/getpdresult/${id}?apikey=${apikey}`);
 
     try {

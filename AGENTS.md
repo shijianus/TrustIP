@@ -1,6 +1,7 @@
 # AGENTS.md
 
-Single source of truth for anyone — human or AI — contributing to MyIP.
+Single source of truth for anyone — human or AI — contributing to
+TrustMy.IP.
 Area-specific details: @frontend/AGENTS.md (Vue SPA) · @api/AGENTS.md (Express API).
 
 ## Local skill discovery
@@ -19,11 +20,19 @@ and may not appear in the agent's automatically supplied skill list.
 
 ## Overview
 
-**MyIP** (IPCheck.ing) is an open-source IP toolbox: IP lookup, connectivity
+**TrustMy.IP** (engineering name **TrustIP**, published by **EpoCanvas**) is
+an open-source IP toolbox: IP lookup, connectivity
 tests, WebRTC / DNS-leak detection, speed test, MTR, Whois, security
 checklist, browser fingerprint, anonymity checks, persona check, IP
 calculator, and more. Single repo, two
 halves: a Vue 3 SPA front-end and an Express 5 back-end API.
+
+It is a derivative of **MyIP / IPCheck.ing** by Jason Ng, under the MIT
+license (`LICENSE`) — that license requires keeping the attribution, so the
+upstream name stays in code comments where it describes the *upstream*
+service (e.g. the IPCheck.ing API this app can proxy). Our own runtime
+identifiers — package name, outbound User-Agent, pm2 / container names, repo
+badge — are TrustIP's, never the upstream's.
 
 ## Stack
 
@@ -99,6 +108,29 @@ use npm / yarn — they'd produce a competing lockfile.
 - **Comments describe the code as it is now** — no changelog narration
   (`previously…`, `…fixes that`); git history covers the past. A comment
   stays shorter than the code it explains.
+
+### Configuration
+
+- **A deployment with zero environment variables is a supported
+  configuration** — it is how this fork ships by default. Every `process.env`
+  read in `api/`, `common/`, `backend-server.js`, `frontend-server.js` and
+  `vite.config.js` either has a fallback or takes the handler's normal
+  "not configured" branch. Never let an unset value reach `.split()` or
+  `new URL()` and throw. Sources that work without a key (ipinfo.io, ip.sb,
+  ip-api.com, maclookup.app, RDAP/WHOIS, RIPEstat, OONI, Globalping) keep
+  working unconfigured; key-mandatory ones answer
+  `res.status(500).json({ error: 'API key is missing' })` before any request
+  leaves the process, and `/api/configs` booleanizes the same variables so the
+  UI hides the feature instead of failing.
+- **`.env.example` is the contract.** It documents every variable the code
+  actually reads and what stops working when it is empty. A new env read
+  lands with its `.env.example` entry in the same change.
+- **`VITE_SITE_URL` is the single source of the canonical origin** — the
+  `index.html` canonical / og / twitter URLs (substituted by
+  `siteUrlHtmlPlugin` in `vite.config.js`) and the third segment of the
+  outbound User-Agent (`common/upstream-ua.js`). Empty is a valid build: the
+  whole conditional block is dropped rather than emitting `undefined`, and the
+  User-Agent degrades to `TrustIP/v<version>`.
 
 ### i18n coverage
 

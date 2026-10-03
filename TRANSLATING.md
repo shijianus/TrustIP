@@ -1,9 +1,15 @@
-# Translating MyIP
+# Translating TrustMy.IP
 
-MyIP (demo website: [IPCheck.ing](https://ipcheck.ing)) ships its UI in English, 简体中文, 繁體中文,
-Français and Русский. Adding a sixth — or a seventh — is a two-file change, and **a partial
-translation is a welcome first PR**. You do not need to translate everything, and you do not
-need to know Vue.
+TrustMy.IP is a fork by EpoCanvas of [MyIP](https://github.com/jason5ng32/MyIP) by Jason Ng,
+under the same MIT license — see [LICENSE](LICENSE) and the attribution note in
+[README.md](README.md). The UI ships in English, 简体中文, 繁體中文, Français, Русский and
+Português (Brasil). Adding another — a seventh, an eighth — is a two-file change, and **a
+partial translation is a welcome first PR**. You do not need to translate everything, and you do
+not need to know Vue.
+
+In product copy the name is **TrustMy.IP**; third-party services keep whatever name they spell
+for themselves. When a string names the deployment rather than a service, ask in the issue
+before inventing a translation of the brand.
 
 Anything you leave untranslated falls back to English, so a pack with a hundred strings in
 it is genuinely useful on day one and can grow over several PRs. Untranslated strings stay
@@ -184,7 +190,7 @@ them would fail the gate on your behalf. Translate the new keys, or drop the fil
 
 ## Improving an existing language
 
-Fixes and better phrasings for `en` / `zh` / `zh-TW` / `fr` / `ru` are just as welcome as new
+Fixes and better phrasings for `en` / `zh` / `zh-TW` / `fr` / `ru` / `pt-BR` are just as welcome as new
 languages — edit the JSON and open the PR. Two things to keep in mind:
 
 - Prefer natural phrasing over literal translation; this is a networking tool, and the
@@ -225,8 +231,10 @@ bugs, and none of them block a PR:
 - **The backend needs no change for a new language** — it resolves whatever tag the UI
   sends onto the closest one its data sources actually have, so a translation PR never
   touches back-end code.
-- **Documentation** at [docs.ipcheck.ing](https://docs.ipcheck.ing) and the README
-  translations are separate efforts — see CONTRIBUTING.md for README translations.
+- **Documentation** is a separate effort from the UI: this fork documents itself in
+  [README.md](README.md), [.env.example](.env.example) and the `AGENTS.md` files, while the
+  upstream project's GitBook site at [docs.ipcheck.ing](https://docs.ipcheck.ing) describes
+  MyIP / IPCheck.ing. README translations are a third thing again — see CONTRIBUTING.md.
 
 ## Questions
 
