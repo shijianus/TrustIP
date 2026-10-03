@@ -22,6 +22,12 @@
   *, ::before, ::after {
     border-color: var(--border);
   }
+
+  /* Always reserve the scrollbar gutter. Without it, moving between a short
+     page and a long one shifts every centred column sideways. */
+  html {
+    overflow-y: scroll;
+  }
 }
 
 /* Dark mode: triggered by .dark class (synchronized from store.isDarkMode to <html>) */
@@ -67,7 +73,57 @@
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
-  --radius: 0.5rem;
+  --radius: 0.625rem;
+
+  /* Derived tints — defined ONCE, correct in both themes.
+     Each pair mixes the state hue with the CURRENT surface (`--card`) and the
+     CURRENT foreground, so the same declaration yields a pale well under a
+     light theme and a deep well under a dark theme, with a foreground that
+     moves away from the surface in whichever direction contrast requires.
+     No `.dark` duplicate, no `dark:` variant, nothing to keep in sync. */
+  --success-soft:    color-mix(in oklab, var(--success)   14%, var(--card));
+  --success-soft-fg: color-mix(in oklab, var(--success)   78%, var(--foreground));
+  --warning-soft:    color-mix(in oklab, var(--warning)   16%, var(--card));
+  --warning-soft-fg: color-mix(in oklab, var(--warning)   72%, var(--foreground));
+  --info-soft:       color-mix(in oklab, var(--info)      14%, var(--card));
+  --info-soft-fg:    color-mix(in oklab, var(--info)      76%, var(--foreground));
+  --action-soft:     color-mix(in oklab, var(--action)    14%, var(--card));
+  --action-soft-fg:  color-mix(in oklab, var(--action)    76%, var(--foreground));
+  --destructive-soft:    color-mix(in oklab, var(--destructive) 14%, var(--card));
+  --destructive-soft-fg: color-mix(in oklab, var(--destructive) 76%, var(--foreground));
+
+  /* Third foreground tier — sits between `foreground` and `muted-foreground`.
+     Dense data panels need four readable levels (key / secondary value /
+     tertiary hint / disabled); two greys force keys and hints to share a
+     weight and read as mush. */
+  --foreground-secondary: color-mix(in oklab, var(--foreground) 62%, var(--card));
+
+  /* Trust bands, 0→100 in five steps: danger → caution → neutral → sound →
+     strong. Anchored on hue only; the `-soft` wells derive from each anchor
+     the same way the state tints do, so a band's surface and its text can
+     never disagree about the active theme. */
+  --trust-1: oklch(0.577 0.245 27.325);   /* 0–19   */
+  --trust-2: oklch(0.72 0.19 52);         /* 20–39  */
+  --trust-3: oklch(0.7 0.15 190);         /* 40–59  */
+  --trust-4: oklch(0.63 0.17 149);        /* 60–79  */
+  --trust-5: oklch(0.5 0.14 152);         /* 80–100 */
+  --trust-1-soft: color-mix(in oklab, var(--trust-1) 14%, var(--card));
+  --trust-2-soft: color-mix(in oklab, var(--trust-2) 16%, var(--card));
+  --trust-3-soft: color-mix(in oklab, var(--trust-3) 14%, var(--card));
+  --trust-4-soft: color-mix(in oklab, var(--trust-4) 14%, var(--card));
+  --trust-5-soft: color-mix(in oklab, var(--trust-5) 16%, var(--card));
+  --trust-1-fg: color-mix(in oklab, var(--trust-1) 78%, var(--foreground));
+  --trust-2-fg: color-mix(in oklab, var(--trust-2) 74%, var(--foreground));
+  --trust-3-fg: color-mix(in oklab, var(--trust-3) 76%, var(--foreground));
+  --trust-4-fg: color-mix(in oklab, var(--trust-4) 78%, var(--foreground));
+  --trust-5-fg: color-mix(in oklab, var(--trust-5) 72%, var(--foreground));
+
+  /* Elevation. Two levels only — a card and a floating surface. `--shadow-ink`
+     carries the theme difference so the shadow definitions stay single. */
+  --shadow-ink: oklch(0.2 0 0 / 0.1);
+  --shadow-card: 0 1px 3px var(--shadow-ink);
+  --shadow-pop: 0 1px 4px var(--shadow-ink), 0 6px 20px oklch(0.2 0 0 / 0.12);
+
   /* Canonical page background. Single source of truth for the iOS PWA
      safe-area painter (Nav.vue). Must stay in sync with the literal
      hex values in: index.html inline `html { background }`, index.html
@@ -105,6 +161,10 @@
   --border: oklch(1 0 0 / 0.1);
   --input: oklch(1 0 0 / 0.15);
   --ring: oklch(0.556 0 0);
+  /* Black ink, heavier: a light-theme shadow is invisible against a dark
+     surface, and a coloured ink tints the elevation. */
+  --shadow-ink: oklch(0 0 0 / 0.45);
+  --shadow-pop: 0 1px 4px oklch(0 0 0 / 0.45), 0 8px 24px oklch(0 0 0 / 0.5);
   --page-bg: #0e0e0e;
 }
 
@@ -133,10 +193,38 @@
   --color-warning-foreground: var(--warning-foreground);
   --color-action: var(--action);
   --color-action-foreground: var(--action-foreground);
+  --color-success-soft: var(--success-soft);
+  --color-success-soft-fg: var(--success-soft-fg);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-soft-fg: var(--warning-soft-fg);
+  --color-info-soft: var(--info-soft);
+  --color-info-soft-fg: var(--info-soft-fg);
+  --color-action-soft: var(--action-soft);
+  --color-action-soft-fg: var(--action-soft-fg);
+  --color-destructive-soft: var(--destructive-soft);
+  --color-destructive-soft-fg: var(--destructive-soft-fg);
+  --color-foreground-secondary: var(--foreground-secondary);
+  --color-trust-1: var(--trust-1);
+  --color-trust-2: var(--trust-2);
+  --color-trust-3: var(--trust-3);
+  --color-trust-4: var(--trust-4);
+  --color-trust-5: var(--trust-5);
+  --color-trust-1-soft: var(--trust-1-soft);
+  --color-trust-2-soft: var(--trust-2-soft);
+  --color-trust-3-soft: var(--trust-3-soft);
+  --color-trust-4-soft: var(--trust-4-soft);
+  --color-trust-5-soft: var(--trust-5-soft);
+  --color-trust-1-fg: var(--trust-1-fg);
+  --color-trust-2-fg: var(--trust-2-fg);
+  --color-trust-3-fg: var(--trust-3-fg);
+  --color-trust-4-fg: var(--trust-4-fg);
+  --color-trust-5-fg: var(--trust-5-fg);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
   --color-page-bg: var(--page-bg);
+  --shadow-card: var(--shadow-card);
+  --shadow-pop: var(--shadow-pop);
   --radius-lg: var(--radius);
   --radius-md: calc(var(--radius) - 2px);
   --radius-sm: calc(var(--radius) - 4px);
@@ -202,9 +290,57 @@
 }
 
 .jn-card {
-  box-shadow: 0 0 10pt #0000001c;
+  box-shadow: var(--shadow-card);
   height: 100%;
   border: 1px solid #9c9c9c2e;
+}
+
+/* Fixed-width digits. Every value that can change width between renders —
+   IPs, scores, latencies, CIDRs, counts — holds its column instead of shifting
+   the layout around it. Applied as a class rather than `font-mono` so numeric
+   strings keep the UI typeface and only the metrics go tabular. */
+.jn-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes jn-shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+/* Skeleton fill. Painted as a moving gradient over the muted token so a
+   placeholder reads as "queued", not "empty", at any theme. */
+.jn-skeleton {
+  background-image: linear-gradient(
+    90deg,
+    var(--muted) 0%,
+    color-mix(in oklab, var(--muted) 55%, var(--card)) 50%,
+    var(--muted) 100%
+  );
+  background-size: 200% 100%;
+  background-position: 200% 0;
+  animation: jn-shimmer 1.3s linear infinite;
+  border-radius: calc(var(--radius) - 4px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jn-skeleton { animation: none; }
+}
+
+/* Queued async measurement — the value slot breathes instead of spinning, so a
+   row waiting on a distant probe looks waiting rather than broken. */
+@keyframes jn-queued {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.jn-queued {
+  animation: jn-queued 1.2s ease-in-out infinite;
+  color: var(--muted-foreground);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jn-queued { animation: none; opacity: 0.6; }
 }
 
 .jn-card.keyboard-hover {
@@ -231,13 +367,11 @@ footer {
 }
 
 .body-dark-mode {
-  background-color: rgb(19, 21, 21) !important;
-  color: #e3e3e3 !important;
-  border-color: #757575;
-}
-
-.hidden {
-  display: none !important;
+  /* The page background has one owner: `--page-bg`, which follows the `.dark`
+     class and is mirrored by the theme-color meta and the manifest. A literal
+     colour here (this rule used to carry one, with `!important`) silently
+     overrode all three. */
+  background-color: var(--page-bg);
 }
 
 *:focus {

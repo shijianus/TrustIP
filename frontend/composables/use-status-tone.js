@@ -23,10 +23,39 @@ const textColorMap = {
     'fail':    'text-destructive',
 };
 
+// Tinted surface + text for a tone — the "verdict chip" pair. Solid `bg-*`
+// reads as a button; a verdict reads as data, so it sits on a pale well of its
+// own hue with text mixed toward the theme foreground. Both halves are derived
+// from one token pair, so a chip never disagrees with the theme it renders in.
+const chipColorMap = {
+    'wait':    'bg-muted text-muted-foreground',
+    'ok-fast': 'bg-success-soft text-success-soft-fg',
+    'ok-slow': 'bg-warning-soft text-warning-soft-fg',
+    'fail':    'bg-destructive-soft text-destructive-soft-fg',
+};
+
+// Trust bands for a 0–100 score, five steps. The ladder is finer than the
+// four-state tones because a score is a measurement, not a test outcome:
+// "sound" and "strong" are both passing and must still be distinguishable.
+const TRUST_BANDS = [
+    { min: 80, band: 5 },
+    { min: 60, band: 4 },
+    { min: 40, band: 3 },
+    { min: 20, band: 2 },
+    { min: 0, band: 1 },
+];
+
+export const trustBandOf = (score) => {
+    if (typeof score !== 'number' || !Number.isFinite(score)) return null;
+    const hit = TRUST_BANDS.find((entry) => score >= entry.min);
+    return hit ? hit.band : null;
+};
+
 export function useStatusTone() {
     return {
         dotClass:  (tone) => dotColorMap[tone]  || dotColorMap.wait,
         textClass: (tone) => textColorMap[tone] || textColorMap.wait,
+        chipClass: (tone) => chipColorMap[tone] || chipColorMap.wait,
     };
 }
 
