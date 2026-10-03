@@ -80,7 +80,14 @@ frontendApp.use(express.static(distDir, { setHeaders: setStaticHeaders }));
 //     purge stays a two-URL operation.
 frontendApp.use((req, res, next) => {
   if (req.method !== 'GET' || !req.accepts('html')) return next();
-  if (req.path.split('/').pop().includes('.')) return next();
+  // A dotted final segment is an asset request, not a client route — with one
+  // exception. The dossier's parameter is an IP address, and `8.8.8.8` and
+  // `2001:db8::1` are both full of dots. Only that prefix is exempted, so a
+  // chunk missing after a deploy still 404s rather than receiving HTML.
+  // `express.static` has already had its chance to serve a real file by this
+  // point, so the carve-out cannot mask one.
+  const isDottedAsset = req.path.split('/').pop().includes('.') && !/^\/ip\//.test(req.path);
+  if (isDottedAsset) return next();
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
   res.sendFile(path.join(distDir, 'index.html'));
 });
