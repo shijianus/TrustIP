@@ -40,6 +40,7 @@ import invisibilitytestHandler from './api/invisibility-test.js';
 import macChecker from './api/mac-checker.js';
 import githubStarsHandler from './api/github-stars.js';
 import personaEvaluateHandler from './api/persona.js';
+import trustScoreHandler from './api/trust-score.js';
 // User
 import validateConfigs from './api/configs.js';
 import getUserinfo from './api/get-user-info.js';
@@ -279,6 +280,18 @@ app.get('/api/cfradar', cacheable((req) => RADAR_VIEWS[req.query.view]?.ttl), cf
 app.get('/api/asn-history', requireValidPrefix(), cacheable(THIRTY_DAYS_CACHE), asnHistoryHandler);
 app.get('/api/asn-connectivity', requireValidASN(), cacheable(THIRTY_DAYS_CACHE), asnConnectivityHandler);
 app.get('/api/macchecker', cacheable(THIRTY_DAYS_CACHE), macChecker);
+// TrustMy.IP's own trust assessment. One visitor request fans out into six
+// registry reads (PTR, RIR allocation, AS overview, announcement set, RPKI,
+// geo), so it gets a far tighter per-IP budget than the global limiter — a
+// scanner walking a /8 would otherwise spend our RIPEstat fair-use allowance
+// on the first minute. Twenty-four hours of edge cache is the other half of
+// that protection: registry facts about a prefix do not change within a day.
+const trustScoreLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 12,
+    message: 'Too Many Requests',
+});
+app.get('/api/trustscore', requirePublicIP(), trustScoreLimiter, cacheable(24 * 60 * 60), trustScoreHandler);
 // Long Cache
 app.get('/api/map', cacheable(ONE_YEAR_CACHE), mapHandler);
 // Non-cacheable routes — auth-context, debug tools, or per-request lookups.
