@@ -1,5 +1,5 @@
 // index.html is hand-maintained outside the bundle: its boot-screen copy
-// (QUIPS / SLOW_HINTS), its JSON-LD and its language picker can't import
+// (QUIPS), its JSON-LD and its language picker can't import
 // common/locale-registry.js. This spec reads the file as text and holds those
 // three inline copies to the registry, so a typo or a half-done sync fails here
 // instead of shipping.
@@ -53,12 +53,10 @@ const evalDeclaration = (name) => {
 };
 
 const QUIPS = evalDeclaration('QUIPS');
-const SLOW_HINTS = evalDeclaration('SLOW_HINTS');
 
-// The boot copy objects, checked by the same rules.
+// The boot copy object, checked by the same rules.
 const COPY = [
     { name: 'QUIPS', value: QUIPS },
-    { name: 'SLOW_HINTS', value: SLOW_HINTS },
 ];
 
 describe('index.html boot copy — languages match the registry', () => {
@@ -77,13 +75,6 @@ describe('index.html boot copy — languages match the registry', () => {
             }
         });
     }
-
-    it('QUIPS and SLOW_HINTS cover the same languages', () => {
-        // pickLang() picks from QUIPS and then indexes SLOW_HINTS with the
-        // result — a language in one object only renders `undefined`.
-        assert.deepEqual(Object.keys(QUIPS), Object.keys(SLOW_HINTS),
-            'index.html: QUIPS and SLOW_HINTS must list the same locales, in the same order');
-    });
 });
 
 describe('index.html boot copy — shape holds across languages', () => {
@@ -105,18 +96,6 @@ describe('index.html boot copy — shape holds across languages', () => {
                 assert.ok(typeof quip === 'string' && quip.trim() !== '',
                     `index.html QUIPS.${code}[${i}] is empty`);
             }
-        });
-    }
-
-    for (const [code, hint] of Object.entries(SLOW_HINTS)) {
-        it(`SLOW_HINTS.${code} is one sentence carrying the Lite link`, () => {
-            assert.ok(typeof hint === 'string' && hint.trim() !== '',
-                `index.html SLOW_HINTS.${code} is empty`);
-            const links = hint.match(/<a\s+href="([^"]*)"/g) ?? [];
-            assert.equal(links.length, 1,
-                `index.html SLOW_HINTS.${code}: expected exactly one link, found ${links.length}`);
-            assert.match(hint, /<a\s+href="https:\/\/lite\.ipcheck\.ing\/">/,
-                `index.html SLOW_HINTS.${code}: the link must point at IPCheck.ing Lite`);
         });
     }
 });

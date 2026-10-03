@@ -1,13 +1,13 @@
 {
-  "name": "IPCheck.ing",
-  "short_name": "IPCheck.ing",
-  "description": "All in one IP Toolbox",
-  "id": "com.jasonng.myip",
+  "name": "TrustMy.IP",
+  "short_name": "TrustMy.IP",
+  "description": "Know exactly what your IP is — an open-source IP toolbox: lookup, leak tests, speed test, MTR, Whois and more.",
+  "id": "com.epocanvas.trustmyip",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "theme_color": "#f4f4f4",
-  "background_color": "#ffffff",
+  "background_color": "#f4f4f4",
   "orientation": "portrait",
   "icons": [
     {

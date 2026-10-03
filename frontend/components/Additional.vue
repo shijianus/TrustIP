@@ -39,28 +39,14 @@
         </DialogContent>
     </Dialog>
 
-    <!-- Additional Tools: external product link bar -->
+    <!-- One below-fold entry point, in our own type. Tiles advertising other
+         vendors' products were removed: this deployment cannot back them, and
+         their artwork carried a different product's name. -->
     <div class="mx-auto text-center max-w-[98%]">
-        <div id="morefromipchecking" class="flex justify-center items-center gap-2 sm:gap-4 flex-wrap">
-            <a href="https://www.raycast.com/jason5ng32/ipcheck-ing" target="_blank" rel="noopener"
-                @click="trackEvent('Additional', 'AdditionalClick', 'Raycast')">
-                <img src="/additional/raycast.webp" alt="IPCheck.ing on Raycast"
-                    class="w-[108px] sm:w-[180px] h-auto">
-            </a>
-
-            <button type="button" @click="openCurlModal"
-                aria-label="IPCheck.ing for Curl"
-                class="cursor-pointer bg-transparent border-0 p-0">
-                <img src="/additional/curl.webp" alt="IPCheck.ing for Curl"
-                    class="w-[108px] sm:w-[180px] h-auto">
-            </button>
-
-            <a href="https://lite.ipcheck.ing" target="_blank" rel="noopener"
-                @click="trackEvent('Additional', 'AdditionalClick', 'Lite')">
-                <img src="/additional/lite.webp" alt="IPCheck.ing lite"
-                    class="w-[108px] sm:w-[180px] h-auto">
-            </a>
-        </div>
+        <button type="button" @click="openCurlModal"
+            class="text-xs font-medium text-muted-foreground underline-offset-4 hover:underline cursor-pointer bg-transparent border-0 p-0">
+            {{ t('curl.Title') }}
+        </button>
     </div>
 </template>
 

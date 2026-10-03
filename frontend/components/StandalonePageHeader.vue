@@ -11,12 +11,8 @@
     <div class="mx-auto flex w-full max-w-[1600px] items-center gap-2 px-4 h-14">
       <RouterLink to="/"
         class="inline-flex items-center gap-1.5 rounded-md px-1 py-1 text-lg font-semibold text-foreground no-underline hover:opacity-80 transition-opacity"
-        aria-label="IPCheck.ing">
-        <brandIcon />
-        <span class="tracking-tight">
-          <span class="font-bold">IP</span><span class="font-extralight">Check.</span><span
-            class="font-extralight">ing</span>
-        </span>
+        aria-label="TrustMy.IP">
+        <BrandWordmark />
       </RouterLink>
       <!-- Breadcrumb: " / <title>" — only when the page passes a title. -->
       <template v-if="title">
@@ -45,7 +41,7 @@
 // Shared slim header for standalone pages. The breadcrumb label is passed in as
 // `title` (already localized by the caller); everything else is fixed chrome.
 import { useI18n } from 'vue-i18n';
-import brandIcon from '@/components/svgicons/Brand.vue';
+import BrandWordmark from '@/components/widgets/BrandWordmark.vue';
 import { ArrowLeft } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
 
