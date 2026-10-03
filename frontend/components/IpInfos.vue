@@ -11,6 +11,11 @@
       </div>
     </header>
 
+    <!-- Trust assessment leads the section: one verdict for the address, with
+         the registry evidence under it, before the per-source cards repeat the
+         same facts in more detail. -->
+    <TrustScorePanel v-if="primaryIpCard" class="mb-4" :ip="primaryIpCard.ip" :geo="primaryIpCard" />
+
     <!-- Card grid: 1 col on mobile, always 2 cols on PC (md+). Card counts
         (2 / 4 / 6) are all even, so the last row always fills. -->
     <div class="grid gap-4 items-stretch grid-cols-1 md:grid-cols-2">
@@ -44,6 +49,7 @@ import { useAppCommand } from '@/composables/use-app-command.js';
 import { authenticatedFetch, fetchErrorLabel, logSourceFetchFailure } from '@/utils/authenticated-fetch';
 import IPCard from './ip-infos/IPCard.vue';
 import InfoBanner from './widgets/InfoBanner.vue';
+import TrustScorePanel from './ip-infos/TrustScorePanel.vue';
 
 
 const { t } = useI18n();
@@ -108,6 +114,12 @@ const ipDataCards = reactive([
     source: "IPCheck.ing IPv6/4",
   },
 ]);
+
+// The address the trust panel speaks about: the first card that resolved a
+// genuinely usable public IP, in card order, so the panel agrees with the card
+// directly under it instead of picking a different answer.
+const primaryIpCard = computed(() =>
+  ipDataCards.find((card) => card.ip && isUsablePublicIP(card.ip)) || null);
 
 // Default ASN information
 const asnInfos = ref({

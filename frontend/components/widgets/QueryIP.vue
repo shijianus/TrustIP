@@ -9,13 +9,13 @@
 
     <!-- Query Dialog -->
     <Dialog :open="isOpen" @update:open="onOpenChange">
-        <DialogContent :title="t('ipcheck.Title')" class="max-w-2xl min-h-50">
-            <DialogHeader :icon="Search" :title="t('ipcheck.Title')" />
+        <DialogContent :title="t('trustip.Title')" class="max-w-2xl min-h-50">
+            <DialogHeader :icon="Search" :title="t('trustip.Title')" />
 
             <div class="space-y-4">
                 <!-- Input Group -->
                 <div class="flex items-center gap-2">
-                    <Input type="text" id="inputIP" name="inputIP" :placeholder="t('ipcheck.Placeholder')"
+                    <Input type="text" id="inputIP" name="inputIP" :placeholder="t('trustip.Placeholder')"
                         v-model="inputIP" @keyup.enter="submitQuery" :aria-invalid="modalQueryError !== ''"
                         autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-1p-ignore
                         data-lpignore="true" class="font-mono" />
@@ -41,6 +41,13 @@
                                 <Monitor class="inline size-5 align-middle text-muted-foreground mr-2 mb-1" />
                             </template>
                         </FitText>
+                    </div>
+
+                    <!-- The trust assessment reads the address itself, not the
+                         geo answer above, so it appears for any queried address
+                         and cannot be steered by what the client already has. -->
+                    <div class="px-4 pb-4">
+                        <TrustScorePanel :ip="inputIP" :geo="modalQueryResult" />
                     </div>
 
                     <IpDetailPanel :data="modalQueryResult" :ip-geo-source="ipGeoSource" :asn-infos="asnInfos"
@@ -76,6 +83,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
 import IpDetailPanel from '../ip-infos/IpDetailPanel.vue';
+import TrustScorePanel from '../ip-infos/TrustScorePanel.vue';
 import { Monitor, Search } from '@lucide/vue';
 
 const { t } = useI18n();
@@ -112,10 +120,10 @@ const rejectQuery = (message) => {
 };
 
 const submitQuery = async () => {
-    if (!isValidIP(inputIP.value)) return rejectQuery(t('ipcheck.Error'));
+    if (!isValidIP(inputIP.value)) return rejectQuery(t('trustip.Error'));
     // Only publicly routable space has geolocation, so answer here rather
     // than walking every geo source to collect the same "no data" from each.
-    if (!isUsablePublicIP(inputIP.value)) return rejectQuery(t('ipcheck.reservedIP'));
+    if (!isUsablePublicIP(inputIP.value)) return rejectQuery(t('trustip.reservedIP'));
 
     modalQueryError.value = '';
     modalQueryResult.value = null;
@@ -173,7 +181,7 @@ const fetchIPForModal = async (ip) => {
     // Every source exhausted with real failures — surface a user-facing
     // error instead of leaving the spinner running forever.
     isChecking.value = 'idle';
-    modalQueryError.value = t('ipcheck.NoData');
+    modalQueryError.value = t('trustip.NoData');
 };
 
 defineExpose({ openModal });

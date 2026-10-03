@@ -20,12 +20,7 @@
         </Button>
         <a href="#" @click="handleLogoClick"
           class="inline-flex items-center gap-1.5 rounded-md px-1 py-1 text-lg font-semibold text-foreground no-underline hover:opacity-80 transition-opacity">
-          <brandIcon />
-          <span class="tracking-tight truncate">
-            <span class="font-bold">IP</span><span class="font-extralight">Check.</span>
-            <span class="font-extralight"
-              :class="{ 'jn-shimmer-light': !loaded && !isDarkMode, 'jn-shimmer-dark': !loaded && isDarkMode }">ing</span>
-          </span>
+          <BrandWordmark :loading="!loaded" />
         </a>
       </div>
 
@@ -83,6 +78,10 @@
       <div class="ml-auto flex items-center gap-2">
         <!-- Earth Online entry (code name: pulse) -->
         <Pulse />
+
+        <!-- Theme mode — reachable from the header on every page, not only
+             from inside the preferences sheet. -->
+        <ThemeToggle />
 
         <!-- Docs assistant entry point (ask box on desktop, icon on mobile) -->
         <DocsSearch />
@@ -288,8 +287,9 @@ import {
 } from '@lucide/vue';
 import DocsSearch from '@/components/widgets/DocsSearch.vue';
 import Pulse from '@/components/widgets/Pulse.vue';
+import ThemeToggle from '@/components/widgets/ThemeToggle.vue';
 import { Icon } from '@iconify/vue';
-import brandIcon from './svgicons/Brand.vue';
+import BrandWordmark from '@/components/widgets/BrandWordmark.vue';
 import { SECTION_IDS } from '@/data/sections';
 import { ADVANCED_TOOLS } from '@/data/tools.js';
 import { fetchWithTimeout } from '@/utils/fetch-with-timeout.js';
@@ -300,7 +300,6 @@ const { t, locale } = useI18n();
 const store = useMainStore();
 const router = useRouter();
 
-const isDarkMode = computed(() => store.isDarkMode);
 const isMobile = computed(() => store.isMobile);
 const currentSection = computed(() => store.currentSection);
 const loaded = computed(() => store.allHasLoaded);
@@ -477,41 +476,3 @@ onBeforeUnmount(() => {
   clearTimeout(openToolTimer);
 });
 </script>
-
-<style scoped>
-.jn-shimmer-light,
-.jn-shimmer-dark {
-  position: relative;
-  overflow: hidden;
-  display: inline-flex;
-}
-
-.jn-shimmer-light::before,
-.jn-shimmer-dark::before {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: -100%;
-  width: 100%;
-  height: 10%;
-  animation: jn-shimmer-slide 1s linear infinite;
-}
-
-.jn-shimmer-light::before {
-  background-color: rgb(0, 0, 0);
-}
-
-.jn-shimmer-dark::before {
-  background-color: rgb(255, 255, 255);
-}
-
-@keyframes jn-shimmer-slide {
-  from {
-    left: -100%;
-  }
-
-  to {
-    left: 100%;
-  }
-}
-</style>
