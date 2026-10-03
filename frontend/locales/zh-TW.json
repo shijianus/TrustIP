@@ -36,7 +36,7 @@
     "Benefits": {
       "Title": "權益與用量",
       "Benefit": "權益",
-      "Note1": "作為一個開源產品，你使用 IPCheck.ing 的過程是免費的。我們維護這個開源產品付出大量的精力和成本。",
+      "Note1": "作為一個開源產品，你使用 TrustMy.IP 的過程是免費的。我們維護這個開源產品付出大量的精力和成本。",
       "Note2": "為了讓這個專案可以長期穩定地執行，避免濫用，部分進階功能需要登入才能使用。我們對每個登入使用者設定了足夠使用的每月額度，如果你覺得額度不夠，可以考慮贊助我們，贊助後可以獲得更高的額度。",
       "Current": "目前",
       "Tiers": {
@@ -69,7 +69,7 @@
     },
     "Achievements": {
       "Title": "成就",
-      "Note": "在使用 IPCheck.ing 的過程中，你可能會觸發一些成就，在這裡，你可以看到你所有的成就。",
+      "Note": "在使用 TrustMy.IP 的過程中，你可能會觸發一些成就，在這裡，你可以看到你所有的成就。",
       "Get": "已獲得",
       "GetCount": "已獲得的成就數量",
       "NotGet": "未獲得",
@@ -81,7 +81,7 @@
       "Type": {
         "IAmHuman": {
           "Title": "有頭有臉",
-          "Meet": "登入後使用 IPCheck.ing"
+          "Meet": "登入後使用 TrustMy.IP"
         },
         "BarelyEnough": {
           "Title": "湊湊合合",
@@ -149,7 +149,7 @@
         },
         "GenerousDonor": {
           "Title": "慷慨解囊",
-          "Meet": "給 IPCheck.ing 專案捐贈過"
+          "Meet": "給 TrustMy.IP 專案捐贈過"
         },
         "ItIsOpen": {
           "Title": "是開放的",
@@ -157,7 +157,7 @@
         },
         "CuriousCat": {
           "Title": "好奇的貓",
-          "Meet": "在 Whois 查詢中，查詢了 IPCheck.ing 的資訊"
+          "Meet": "在 Whois 查詢中，查詢了 ipcheck.ing 網域名稱"
         },
         "CrossingTheWall": {
           "Title": "八仙過牆",
@@ -192,7 +192,6 @@
   },
   "nav": {
     "id": "nav",
-    "Title": "IPCheck.ing",
     "Navigation": "導覽",
     "IPInfo": "IP 資訊",
     "Connectivity": "網路連線",
@@ -212,14 +211,14 @@
     "AskIPilot": "詢問 IPilot",
     "OpenDocs": "開啟文件",
     "DocsGreetingTitle": "有什麼可以幫你？",
-    "DocsGreetingSubtitle": "關於 MyIP 的工具、測試結果或自行部署，都可以問我。",
+    "DocsGreetingSubtitle": "關於 TrustMy.IP 的工具、測試結果或自行部署，都可以問我。",
     "DocsQuestions": [
       "我的 VPN 洩漏真實 IP 了嗎？",
       "為什麼我的 IP 位置不正確？",
       "比較我的 WebRTC 測試與 DNS 洩漏測試結果，並給我一些建議",
       "要如何閱讀 MTR 結果？",
-      "要如何部署自己的 MyIP？",
-      "我想贊助 MyIP 專案"
+      "要如何部署自己的 TrustMy.IP？",
+      "我想贊助 TrustMy.IP 專案"
     ],
     "pulse": {
       "title": "地球線上",
@@ -296,8 +295,7 @@
         "aprilfools": "我的 IP 是 127.0.0.1",
         "earthday": "臨時下線，摸草去了",
         "turing": "本狀態由人類傳送（大概）",
-        "emojiday": "📶🌍🎉✨",
-        "birthday": "IPCheck.ing 生日快樂"
+        "emojiday": "📶🌍🎉✨"
       },
       "festivalDesc": {
         "prgday": "程式設計師節 · 一年的第 256 天，十六進位制寫作 0x100",
@@ -314,8 +312,7 @@
         "aprilfools": "愚人節 · 金窩銀窩不如自己的 localhost",
         "earthday": "世界地球日（4 月 22 日）· 地球線上也建議你偶爾地球離線",
         "turing": "艾倫·圖靈誕辰（1912 年 6 月 23 日）· 圖靈測試之父",
-        "emojiday": "世界 Emoji 日（7 月 17 日）· 文字是上個世紀的事了",
-        "birthday": "IPCheck.ing 生日 · v1.0 釋出於 2020 年 11 月 6 日"
+        "emojiday": "世界 Emoji 日（7 月 17 日）· 文字是上個世紀的事了"
       }
     },
     "preferences": {
@@ -387,7 +384,7 @@
     "Note2_1": "你可以在終端裡，透過",
     "Note2_2": "命令取得本機的 IP 位址",
     "Note3": "是可選路徑，新增後可取得到 IP 的地理資訊",
-    "Note4": "請使用你申請的 IPCheck.ing API 金鑰",
+    "Note4": "請使用你申請的 TrustMy.IP API 金鑰",
     "getIPv4": "取得本機 IPv4 位址",
     "getIPv6": "取得本機 IPv6 位址",
     "get6and4": "取得本機優先網路出口的 IP 位址",
@@ -1110,7 +1107,7 @@
   "ruletest": {
     "Title": "分流測試",
     "Name": "檢測",
-    "Note": "分流測試用於判斷代理軟體基於網域名稱的規則設定是否正確。在進行測試之前，你需要先參考下方的卡片，在你的代理軟體裡對 IPCheck.ing 的 8 個不同的 URL 設定不同的網域名稱分流規則。通常，設定規則可能會使用類似於：DOMAIN, ptest-3.ipcheck.ing, POLICY 這樣的寫法，具體寫法不同的代理軟體可能會有所不同。",
+    "Note": "分流測試用於判斷代理軟體基於網域名稱的規則設定是否正確。在進行測試之前，你需要先參考下方的卡片，在你的代理軟體裡對 ipcheck.ing 的 8 個不同的測試 URL 設定不同的網域名稱分流規則。通常，設定規則可能會使用類似於：DOMAIN, ptest-3.ipcheck.ing, POLICY 這樣的寫法，具體寫法不同的代理軟體可能會有所不同。",
     "StatusWait": "待檢測",
     "StatusTesting": "檢測中…",
     "StatusError": "檢測出錯",
@@ -1159,8 +1156,8 @@
     "CopiedTitle": "已複製",
     "CopiedMessage": "報告已複製，可直接貼上給任意 AI 助手。",
     "ai": {
-      "Heading": "MyIP 網路診斷報告",
-      "Intro": "本報告由 MyIP（{origin}）於 {time} 產生，資料來自在使用者瀏覽器中執行的網路測試。欄位名為穩定的 schema 識別符號；所有延遲數值單位為毫秒。",
+      "Heading": "TrustMy.IP 網路診斷報告",
+      "Intro": "本報告由 TrustMy.IP（{origin}）於 {time} 產生，資料來自在使用者瀏覽器中執行的網路測試。TrustMy.IP 由 EpoCanvas 發行。欄位名為穩定的 schema 識別符號；所有延遲數值單位為毫秒。",
       "Masked": "注意：出於隱私考慮，報告中的 IP 位址已遮蓋尾段（IPv4 末段、IPv6 介面位，以 \"x\" 表示）。",
       "Instruction": "請基於以上資料分析該網路的健康狀況，指出異常項（DNS 洩漏、WebRTC 暴露、代理/VPN 特徵、封包遺失、高延遲、路由問題等），並給出具體的疑難排解建議。",
       "Sections": {
@@ -1600,7 +1597,7 @@
     "id": "pingtest",
     "Title": "全球延遲測試",
     "Note": "Ping 測試是一種網路工具，用於測量封包從兩個目標（伺服器）之間的往返時間。是評估網路效能的關鍵指標。",
-    "Note2": "在下面的測試過程中，IPCheck.ing 會利用 Globalping 全球探針從世界各地的伺服器傳送小型封包到你的 IP 位址，然後測量這些封包從伺服器傳送到你的裝置，再傳回伺服器所需的時間。透過這些不同地理位置的 Ping 測試，你可以獲得一個全面的檢視，了解你的裝置與全球網路連線的速度和穩定性。",
+    "Note2": "在下面的測試過程中，TrustMy.IP 會利用 Globalping 全球探針從世界各地的伺服器傳送小型封包到你的 IP 位址，然後測量這些封包從伺服器傳送到你的裝置，再傳回伺服器所需的時間。透過這些不同地理位置的 Ping 測試，你可以獲得一個全面的檢視，了解你的裝置與全球網路連線的速度和穩定性。",
     "Note3": "請選取你的 IP 位址進行測試：",
     "SelectIP": "選擇一個 IP 位址",
     "Region": "地區",
@@ -1639,12 +1636,73 @@
     "ColJitter": "抖動",
     "NoReply": "無回應"
   },
-  "ipcheck": {
-    "Title": "IP 查詢",
-    "Placeholder": "例如 1.1.1.1",
-    "Error": "請輸入有效的 IPv4 或 IPv6 位址。",
-    "reservedIP": "內網、迴環等保留位址沒有地理位置資訊，無法查詢。",
-    "NoData": "無法查詢到該 IP 的資訊。可能是不可路由位址（如 0.0.0.0、私有位址）或資料來源沒有該 IP 的記錄。"
+  "trustip": {
+    "title": "信任評分",
+    "signalsTitle": "信任信號",
+    "confidence": "已測量 {measured}/{total} 項信號",
+    "nonPublic": "非公网位址",
+    "fetchFailed": "暫時無法取得信任評估。",
+    "retry": "重試",
+    "notMeasured": "本專案未測量：{gaps}。無法查詢的信號一律標為「未測量」，不會顯示為安全。",
+    "band": {
+      "1": "高風險",
+      "2": "需謹慎",
+      "3": "一般",
+      "4": "良好",
+      "5": "優"
+    },
+    "meter": {
+      "low": "風險",
+      "high": "可信",
+      "disqualified": "已封頂",
+      "evidence": "證據不足"
+    },
+    "signal": {
+      "registryClass": "網路類型",
+      "rdns": "反向 DNS",
+      "announcement": "路由宣告",
+      "rpki": "RPKI 驗證",
+      "allocationAge": "網段登記年限",
+      "nativeness": "原生分配",
+      "nonPublic": "公网可路由性"
+    },
+    "verdict": {
+      "good": "相符",
+      "flagged": "有疑慮",
+      "neutral": "中性",
+      "notMeasured": "未測量"
+    },
+    "gap": {
+      "proxyVpnDb": "代理與 VPN 資料庫",
+      "anonymityNetworks": "Tor 出口名錄",
+      "blocklists": "黑名單",
+      "botTrafficRatio": "人機流量占比",
+      "historicalAbuseReports": "歷史濫用報告"
+    },
+    "value": {
+      "datacenter": "機房",
+      "isp": "接入營運商",
+      "mobile": "行動網路",
+      "education": "教育機構",
+      "government": "政府機構",
+      "anycast": "公共解析服務",
+      "unknown": "無法歸類",
+      "residential": "用戶線路",
+      "none": "无反向解析",
+      "neutral": "無指示性",
+      "failed": "查詢失敗",
+      "valid": "有效",
+      "invalid": "無效",
+      "invalid_asn": "來源不符",
+      "invalid_length": "超長宣告",
+      "not-found": "無 ROA",
+      "native": "原生",
+      "pool": "拆分位址池",
+      "transit": "大段宣告",
+      "single": "少量網段",
+      "mixed": "混合",
+      "not-applicable": "不適用"
+    }
   },
   "alert": {
     "refreshEverythingMessage": "正在重新整理所有資料，請等待...",
@@ -1678,7 +1736,7 @@
     "MTRTest": "開啟 MTR 測試面板",
     "RuleTest": "開啟規則測試面板",
     "DNSResolver": "開啟 DNS 解析器面板",
-    "IPCheck": "IP 查詢",
+    "TrustIP": "IP 查詢",
     "ToggleInfoMask": "切換資訊隱藏",
     "IPHistory": "開啟 IP 歷史記錄面板",
     "ShareReport": "開啟分享報告面板",
@@ -1701,13 +1759,13 @@
     "PersonaCheck": "開啟深度畫像檢測面板"
   },
   "page": {
-    "title": "IPCheck.ing - 查詢我的 IP 位址與地理位置 - IP 洩漏測試 - DNS 洩漏測試 - IP 品質檢查 - 網路速度測試 - 全方位 IP 工具箱",
+    "title": "TrustMy.IP - 查詢我的 IP 位址與地理位置 - IP 洩漏測試 - DNS 洩漏測試 - IP 品質檢查 - 網路速度測試 - 全方位 IP 工具箱",
     "description": "更完善的開源 IP 工具箱：查詢 IP 位址與地理位置、測試 WebRTC 與 DNS IP 洩漏、執行 IP 品質檢查、瀏覽器指紋檢查，還有網速測試、全球延遲測試、MTR 測試、Whois 查詢等。",
-    "keywords": "MyIP, IP 工具, IP 檢查, IP 洩漏檢查, IP 品質檢查, IP 查詢, DNS 洩漏測試, WebRTC 洩漏測試, 瀏覽器指紋檢查, 網速測試, 全球延遲測試, MTR 測試, DNS 查詢, Whois 查詢",
-    "footerLink": "https://github.com/jason5ng32/MyIP",
-    "copyRightName": "原始來源：",
-    "copyRightLink": "https://ipcheck.ing",
-    "copyRightLinkName": "IPCheck.ing"
+    "keywords": "TrustMy.IP, 我的 IP, IP 工具, IP 檢查, IP 洩漏檢查, IP 品質檢查, IP 查詢, DNS 洩漏測試, WebRTC 洩漏測試, 瀏覽器指紋檢查, 網速測試, 全球延遲測試, MTR 測試, DNS 查詢, Whois 查詢",
+    "footerLink": "https://github.com/shijianus/TrustIP",
+    "copyRightName": "發佈方：",
+    "copyRightLink": "https://epocanvas.com",
+    "copyRightLinkName": "EpoCanvas"
   },
   "helpModal": {
     "Title": "鍵盤快速鍵"
@@ -1715,7 +1773,7 @@
   "about": {
     "Title": "關於",
     "project": [
-      "IPCheck.ing 是一個免費的多合一 IP 工具箱，可以協助你檢視自己的 IP 資訊，檢測網站的可用性，檢視 DNS 出口資訊，進行網速測試，全球延遲測試，MTR 測試等。",
+      "TrustMy.IP 是一個免費的多合一 IP 工具箱，可以協助你檢視自己的 IP 資訊，檢測網站的可用性，檢視 DNS 出口資訊，進行網速測試，全球延遲測試，MTR 測試等。TrustMy.IP 由 EpoCanvas 發行。",
       "這是一個開源專案，你可以點選頁面底部的 GitHub 圖示檢視原始碼。",
       "如果你對於產品中功能使用不理解，可以透過底部的「說明中心」取得協助，我們已經寫了非常詳細的協助文件，除了功能介紹，也能協助你理解各種網路概念和如何排查網路問題。",
       "如果你有興趣參與到開源專案中，可以點選頁面底部的「貢獻程式碼」按鈕，檢視如何貢獻程式碼。"
@@ -1728,9 +1786,9 @@
     ],
     "contactTitle": "聯絡我們",
     "contact": [
-      "如果你在使用 IPCheck.ing 或者部署 MyIP 專案的時候，遇到問題，可以先前往「說明中心」尋找答案。如果找不到答案，而你無法解決，可以在 Github 上給我們提 issue 或透過郵件和我們聯絡。",
+      "如果你在使用 TrustMy.IP 或者自行部署的時候，遇到問題，可以先前往「說明中心」尋找答案。如果找不到答案，而你無法解決，可以在 Github 上給我們提 issue 或透過郵件和我們聯絡。",
       "當然了，如果你遇到了一個 bug，而你又喜歡程式設計（或者使用 AI 程式設計），非常歡迎你將你的最佳化方案直接提交 PR 給我們。",
-      "我們的電子郵件信箱： i[AT]ipcheck.ing。"
+      "我們的電子郵件信箱： hello[AT]epocanvas.com。"
     ],
     "personal": "個人網站",
     "blog": "可能吧部落格",
@@ -1754,6 +1812,6 @@
   },
   "pwa": {
     "appDescription": "一站式 IP 工具箱",
-    "installDescription": "這已經是你第 {count} 次使用 IPCheck.ing 了，將它安裝為應用程式，可以獲得更好的使用體驗，開啟也更方便。"
+    "installDescription": "這已經是你第 {count} 次使用 TrustMy.IP 了，將它安裝為應用程式，可以獲得更好的使用體驗，開啟也更方便。"
   }
 }

@@ -36,7 +36,7 @@
     "Benefits": {
       "Title": "Avantages et utilisation",
       "Benefit": "Avantages",
-      "Note1": "En tant que produit open source, IPCheck.ing est gratuit. Sa maintenance demande des efforts et des coûts considérables.",
+      "Note1": "En tant que produit open source, TrustMy.IP est gratuit. Sa maintenance demande des efforts et des coûts considérables.",
       "Note2": "Pour assurer la pérennité du projet et éviter les abus, certaines fonctionnalités avancées nécessitent une connexion. Chaque utilisateur connecté dispose d'un quota mensuel largement suffisant — s'il ne vous suffit pas, envisagez de nous sponsoriser pour obtenir des limites plus élevées.",
       "Current": "Actuel",
       "Tiers": {
@@ -69,7 +69,7 @@
     },
     "Achievements": {
       "Title": "Succès",
-      "Note": "En utilisant IPCheck.ing, vous pouvez déclencher certains succès. Ici, vous pouvez voir tous vos succès.",
+      "Note": "En utilisant TrustMy.IP, vous pouvez déclencher certains succès. Ici, vous pouvez voir tous vos succès.",
       "Get": "obtenus",
       "GetCount": "Succès obtenus:",
       "NotGet": "non obtenus",
@@ -81,7 +81,7 @@
       "Type": {
         "IAmHuman": {
           "Title": "Je suis humain",
-          "Meet": "Utiliser IPCheck.ing après s'être connecté"
+          "Meet": "Utiliser TrustMy.IP après s'être connecté"
         },
         "BarelyEnough": {
           "Title": "Tout juste suffisant",
@@ -149,7 +149,7 @@
         },
         "GenerousDonor": {
           "Title": "Généreux donateur",
-          "Meet": "Avoir fait un don au projet IPCheck.ing"
+          "Meet": "Avoir fait un don au projet TrustMy.IP"
         },
         "ItIsOpen": {
           "Title": "C'est ouvert",
@@ -157,7 +157,7 @@
         },
         "CuriousCat": {
           "Title": "Chat curieux",
-          "Meet": "Rechercher les informations de IPCheck.ing dans la recherche Whois"
+          "Meet": "Rechercher le domaine ipcheck.ing dans la recherche Whois"
         },
         "CrossingTheWall": {
           "Title": "Huit personnes traversent la muraille",
@@ -192,7 +192,6 @@
   },
   "nav": {
     "id": "nav",
-    "Title": "IPCheck.ing",
     "Navigation": "Navigation",
     "IPInfo": "Infos IP",
     "Connectivity": "Connectivité",
@@ -212,14 +211,14 @@
     "AskIPilot": "Demander à IPilot",
     "OpenDocs": "Ouvrir la doc",
     "DocsGreetingTitle": "Comment puis-je vous aider ?",
-    "DocsGreetingSubtitle": "Posez vos questions sur MyIP : les outils, vos résultats ou l'auto-hébergement.",
+    "DocsGreetingSubtitle": "Posez vos questions sur TrustMy.IP : les outils, vos résultats ou l'auto-hébergement.",
     "DocsQuestions": [
       "Mon VPN fuit-il ma vraie IP ?",
       "Pourquoi ma localisation IP est-elle fausse ?",
       "Comparer mes résultats de test WebRTC et de fuite DNS et me donner des suggestions",
       "Comment lire les résultats MTR ?",
-      "Comment déployer mon propre MyIP ?",
-      "Je veux financer le projet MyIP"
+      "Comment déployer mon propre TrustMy.IP ?",
+      "Je veux financer le projet TrustMy.IP"
     ],
     "pulse": {
       "title": "La Terre en ligne",
@@ -296,8 +295,7 @@
         "aprilfools": "Mon IP est 127.0.0.1",
         "earthday": "Déconnexion — je vais toucher de l'herbe",
         "turing": "Ce statut a été envoyé par un humain. Probablement.",
-        "emojiday": "📶🌍🎉✨",
-        "birthday": "Joyeux anniversaire IPCheck.ing !"
+        "emojiday": "📶🌍🎉✨"
       },
       "festivalDesc": {
         "prgday": "Jour du programmeur — le 256ᵉ jour de l'année, 0x100 en hexadécimal",
@@ -314,8 +312,7 @@
         "aprilfools": "1ᵉʳ avril — rien ne vaut 127.0.0.1",
         "earthday": "Jour de la Terre (22 avril) — même la Terre en ligne conseille un peu de Terre hors ligne",
         "turing": "Anniversaire d'Alan Turing (23 juin 1912) — le père du test de Turing",
-        "emojiday": "Journée mondiale des emojis (17 juillet) — les mots, c'était le siècle dernier",
-        "birthday": "Anniversaire d'IPCheck.ing — la v1.0 est sortie le 6 novembre 2020"
+        "emojiday": "Journée mondiale des emojis (17 juillet) — les mots, c'était le siècle dernier"
       }
     },
     "preferences": {
@@ -387,7 +384,7 @@
     "Note2_1": "Tu peux, dans le terminal, via",
     "Note2_2": "commande, obtenir l'adresse IP de cette machine",
     "Note3": "est un chemin optionnel, son ajout permettra d'obtenir les informations géographiques de l'IP",
-    "Note4": "est votre clé API IPCheck.ing",
+    "Note4": "est votre clé API TrustMy.IP",
     "getIPv4": "Obtenir l'adresse IPv4 de la machine locale",
     "getIPv6": "Obtenir l'adresse IPv6 de la machine locale",
     "get6and4": "Obtenir l'adresse IP de sortie de réseau préférée de la machine locale",
@@ -1110,7 +1107,7 @@
   "ruletest": {
     "Title": "Test de règles",
     "Name": "Test",
-    "Note": "Le test de règles est utilisé pour déterminer si les paramètres de règles basées sur le nom de domaine de votre logiciel proxy sont corrects. Avant de procéder au test, veuillez vous référer à la carte ci-dessous et configurer des règles de redirection de domaine différentes pour les 8 URL différentes d'IPCheck.ing dans votre logiciel proxy. Généralement, les paramètres de règles peuvent utiliser un format comme : DOMAIN, ptest-3.ipcheck.ing, POLICY. Le format spécifique peut varier en fonction du logiciel proxy que vous utilisez.",
+    "Note": "Le test de règles est utilisé pour déterminer si les paramètres de règles basées sur le nom de domaine de votre logiciel proxy sont corrects. Avant de procéder au test, veuillez vous référer à la carte ci-dessous et configurer des règles de redirection de domaine différentes pour les 8 URL de test ipcheck.ing dans votre logiciel proxy. Généralement, les paramètres de règles peuvent utiliser un format comme : DOMAIN, ptest-3.ipcheck.ing, POLICY. Le format spécifique peut varier en fonction du logiciel proxy que vous utilisez.",
     "StatusWait": "En attente du test",
     "StatusTesting": "Test en cours…",
     "StatusError": "Erreur de test",
@@ -1159,8 +1156,8 @@
     "CopiedTitle": "Copié",
     "CopiedMessage": "Rapport copié — collez-le dans n'importe quel assistant IA.",
     "ai": {
-      "Heading": "Rapport de diagnostic réseau MyIP",
-      "Intro": "Ce rapport a été généré par MyIP ({origin}) le {time} à partir de tests réseau exécutés dans le navigateur de l'utilisateur. Les noms de champs sont des identifiants stables du schéma ; toutes les latences sont en millisecondes.",
+      "Heading": "Rapport de diagnostic réseau TrustMy.IP",
+      "Intro": "Ce rapport a été généré par TrustMy.IP ({origin}) le {time} à partir de tests réseau exécutés dans le navigateur de l'utilisateur. TrustMy.IP est publié par EpoCanvas. Les noms de champs sont des identifiants stables du schéma ; toutes les latences sont en millisecondes.",
       "Masked": "Remarque : les adresses IP sont partiellement masquées pour la confidentialité (IPv4 : dernier octet, IPv6 : moitié d'interface, indiqués par « x »).",
       "Instruction": "À partir des données ci-dessus, analysez l'état de ce réseau. Signalez les anomalies (fuites DNS, exposition WebRTC, traits de proxy/VPN, pertes de paquets, latence élevée, problèmes de routage) et proposez des pistes de dépannage concrètes.",
       "Sections": {
@@ -1600,7 +1597,7 @@
     "id": "pingtest",
     "Title": "Test de latence mondiale",
     "Note": "Le test de ping est un outil réseau utilisé pour mesurer le temps aller-retour des paquets de données entre deux cibles (serveurs). Il s'agit d'une mesure clé pour évaluer les performances du réseau.",
-    "Note2": "Au cours du test ci-dessous, IPCheck.ing s'appuie sur les sondes mondiales de Globalping pour envoyer de petits paquets de données depuis des serveurs du monde entier vers votre adresse IP et mesurer le temps qu'il faut à ces paquets pour voyager du serveur à votre appareil et vice versa. Grâce à ces tests de ping depuis différentes localisations géographiques, vous pouvez obtenir une vue complète de la vitesse et de la stabilité de la connexion de votre appareil au réseau mondial.",
+    "Note2": "Au cours du test ci-dessous, TrustMy.IP s'appuie sur les sondes mondiales de Globalping pour envoyer de petits paquets de données depuis des serveurs du monde entier vers votre adresse IP et mesurer le temps qu'il faut à ces paquets pour voyager du serveur à votre appareil et vice versa. Grâce à ces tests de ping depuis différentes localisations géographiques, vous pouvez obtenir une vue complète de la vitesse et de la stabilité de la connexion de votre appareil au réseau mondial.",
     "Note3": "Veuillez sélectionner votre adresse IP pour le test.",
     "SelectIP": "Choisissez un IP",
     "Region": "Région",
@@ -1639,12 +1636,73 @@
     "ColJitter": "Gigue",
     "NoReply": "Aucune réponse"
   },
-  "ipcheck": {
-    "Title": "Vérification IP",
-    "Placeholder": "ex. 1.1.1.1",
-    "Error": "Veuillez entrer une adresse IPv4 ou IPv6 valide.",
-    "reservedIP": "Les adresses privées, de bouclage et autres adresses réservées n'ont pas de géolocalisation, il n'y a donc rien à consulter.",
-    "NoData": "Impossible de récupérer les informations pour cette IP. Elle peut être non routable (ex. 0.0.0.0, adresse privée) ou la source amont n'a pas de données pour celle-ci."
+  "trustip": {
+    "title": "Score de confiance",
+    "signalsTitle": "Signaux de confiance",
+    "confidence": "{measured} signaux mesurés sur {total}",
+    "nonPublic": "Adresse non publique",
+    "fetchFailed": "L'évaluation de confiance est indisponible pour le moment.",
+    "retry": "Réessayer",
+    "notMeasured": "Non mesuré ici : {gaps}. Un signal que nous n'avons pas pu consulter reste marqué « non mesuré », jamais « sain ».",
+    "band": {
+      "1": "Très risqué",
+      "2": "Risqué",
+      "3": "Mitigé",
+      "4": "Sain",
+      "5": "Solide"
+    },
+    "meter": {
+      "low": "risque",
+      "high": "confiance",
+      "disqualified": "plafonné",
+      "evidence": "peu d'éléments"
+    },
+    "signal": {
+      "registryClass": "Type de réseau",
+      "rdns": "DNS inverse",
+      "announcement": "Annonces de routage",
+      "rpki": "Validation RPKI",
+      "allocationAge": "Ancienneté de l'allocation",
+      "nativeness": "Allocation native",
+      "nonPublic": "Routable sur Internet"
+    },
+    "verdict": {
+      "good": "Cohérent",
+      "flagged": "Préoccupant",
+      "neutral": "Neutre",
+      "notMeasured": "Non mesuré"
+    },
+    "gap": {
+      "proxyVpnDb": "bases de proxys et VPN",
+      "anonymityNetworks": "appartenance aux sorties Tor",
+      "blocklists": "listes de blocage",
+      "botTrafficRatio": "trafic humain versus robot",
+      "historicalAbuseReports": "rapports d'abus historiques"
+    },
+    "value": {
+      "datacenter": "Centre de données",
+      "isp": "Fournisseur d'accès",
+      "mobile": "Réseau mobile",
+      "education": "Enseignement",
+      "government": "Administration",
+      "anycast": "Résolveur public",
+      "unknown": "Non classé",
+      "residential": "Ligne d'abonné",
+      "none": "Aucun nom inverse",
+      "neutral": "Sans indication",
+      "failed": "Échec de recherche",
+      "valid": "Valide",
+      "invalid": "Invalide",
+      "invalid_asn": "Origine incorrecte",
+      "invalid_length": "Sur-délégation",
+      "not-found": "Aucun ROA",
+      "native": "Native",
+      "pool": "Pool déagrégé",
+      "transit": "Gros blocs",
+      "single": "Peu de blocs",
+      "mixed": "Mixte",
+      "not-applicable": "Non applicable"
+    }
   },
   "alert": {
     "refreshEverythingMessage": "Actualisation de toutes les données, veuillez patienter...",
@@ -1678,7 +1736,7 @@
     "MTRTest": "Ouvrir le Test MTR",
     "RuleTest": "Ouvrir le Test de régles",
     "DNSResolver": "Ouvrir le Résolution DNS",
-    "IPCheck": "Vérification IP",
+    "TrustIP": "Vérification IP",
     "ToggleInfoMask": "Masquer/Démasquer les informations",
     "IPHistory": "Ouvrir l'historique des IP",
     "ShareReport": "Ouvrir le partage de rapport",
@@ -1701,13 +1759,13 @@
     "PersonaCheck": "Ouvrir le panneau Vérification de persona approfondie"
   },
   "page": {
-    "title": "IPCheck.ing - Vérifier mon adresse IP et géolocalisation - Test de fuite IP - Test de fuite DNS - Vérification de la qualité IP - Test de vitesse réseau - Boîte à outils IP tout-en-un",
+    "title": "TrustMy.IP - Vérifier mon adresse IP et géolocalisation - Test de fuite IP - Test de fuite DNS - Vérification de la qualité IP - Test de vitesse réseau - Boîte à outils IP tout-en-un",
     "description": "Une boîte à outils IP open source et tout-en-un : vérifiez votre adresse IP et sa géolocalisation, testez les fuites IP via WebRTC et DNS, effectuez une vérification de la qualité IP, une vérification de l'empreinte du navigateur, ainsi qu'un test de vitesse, un test de latence mondiale, un test MTR, une recherche Whois, et plus encore.",
-    "keywords": "MonIP, Outil IP, Vérification IP, Test de fuite IP, Test de fuite DNS, Qualité IP, Test de fuite WebRTC, Empreinte du navigateur, Test de vitesse, Test de latence mondiale, Test MTR, Recherche DNS, Recherche Whois",
-    "footerLink": "https://github.com/jason5ng32/MyIP",
-    "copyRightName": "Originalement de ",
-    "copyRightLink": "https://ipcheck.ing",
-    "copyRightLinkName": "IPCheck.ing"
+    "keywords": "TrustMy.IP, Outil IP, Vérification IP, Test de fuite IP, Test de fuite DNS, Qualité IP, Test de fuite WebRTC, Empreinte du navigateur, Test de vitesse, Test de latence mondiale, Test MTR, Recherche DNS, Recherche Whois",
+    "footerLink": "https://github.com/shijianus/TrustIP",
+    "copyRightName": "Publié par ",
+    "copyRightLink": "https://epocanvas.com",
+    "copyRightLinkName": "EpoCanvas"
   },
   "helpModal": {
     "Title": "Raccourcis"
@@ -1715,7 +1773,7 @@
   "about": {
     "Title": "À propos",
     "project": [
-      "IPCheck.ing est une boîte à outils IP tout-en-un et gratuite : elle vous aide à consulter vos informations IP, à tester la disponibilité des sites web, à examiner les informations de sortie DNS, à mesurer votre débit, à tester la latence mondiale, à lancer des tests MTR, et bien plus encore.",
+      "TrustMy.IP est une boîte à outils IP tout-en-un et gratuite : elle vous aide à consulter vos informations IP, à tester la disponibilité des sites web, à examiner les informations de sortie DNS, à mesurer votre débit, à tester la latence mondiale, à lancer des tests MTR, et bien plus encore. Elle est publiée par EpoCanvas.",
       "Il s'agit d'un projet open source : cliquez sur l'icône GitHub en bas de la page pour consulter le code source.",
       "Si vous ne comprenez pas comment utiliser une fonctionnalité, ouvrez le « Centre d'aide » en bas de la page. Notre documentation est très détaillée : en plus de présenter chaque fonctionnalité, elle vous aide à comprendre les différents concepts réseau et à diagnostiquer vos problèmes de connexion.",
       "Si vous souhaitez participer au projet open source, cliquez sur le bouton « Contribuer au code » en bas de la page pour découvrir comment faire."
@@ -1728,9 +1786,9 @@
     ],
     "contactTitle": "Nous contacter",
     "contact": [
-      "Si vous rencontrez un problème en utilisant IPCheck.ing ou en déployant le projet MyIP, commencez par chercher la réponse dans le « Centre d'aide ». Si vous ne la trouvez pas et que vous restez bloqué, ouvrez une issue sur GitHub ou écrivez-nous par email.",
+      "Si vous rencontrez un problème en utilisant TrustMy.IP ou en l'auto-hébergeant, commencez par chercher la réponse dans le « Centre d'aide ». Si vous ne la trouvez pas et que vous restez bloqué, ouvrez une issue sur GitHub ou écrivez-nous par email.",
       "Et si vous tombez sur un bug et que vous aimez coder (ou coder avec l'IA), n'hésitez surtout pas à nous envoyer directement une PR avec votre correctif.",
-      "Notre email : i[AT]ipcheck.ing."
+      "Notre email : hello[AT]epocanvas.com."
     ],
     "personal": "Site personnel",
     "blog": "Articles de blog",
@@ -1754,6 +1812,6 @@
   },
   "pwa": {
     "appDescription": "La boîte à outils IP tout-en-un",
-    "installDescription": "Vous avez déjà utilisé IPCheck.ing {count} fois — installez-le comme application pour une expérience plus fluide et un accès plus rapide."
+    "installDescription": "Vous avez déjà utilisé TrustMy.IP {count} fois — installez-le comme application pour une expérience plus fluide et un accès plus rapide."
   }
 }

@@ -2,7 +2,7 @@
   "privacy": {
     "Title": "Política de Privacidade",
     "UpdatedLabel": "Última atualização",
-    "Intro": "O IPCheck.ing é um conjunto de ferramentas de IP gratuito e de código aberto. Nós o criamos para ajudar você a entender o que sua rede e seu navegador revelam a seu respeito, por isso respeitar sua privacidade é importante para nós. Esta página explica o que acontece com seus dados quando você usa o site.",
+    "Intro": "O TrustMy.IP é um conjunto de ferramentas de IP gratuito e de código aberto. Nós o criamos para ajudar você a entender o que sua rede e seu navegador revelam a seu respeito, por isso respeitar sua privacidade é importante para nós. Esta página explica o que acontece com seus dados quando você usa o site.",
     "sections": {
       "tools": {
         "title": "Como as ferramentas funcionam",
@@ -97,7 +97,7 @@
         "title": "Se você estiver na UE/EEE ou no Reino Unido",
         "paragraphs": [
           "No momento, não exibimos um banner de consentimento de cookies. Se você preferir não ser incluído na análise, poderá desativá-la a qualquer momento usando os métodos abaixo — bloquear o cookie de análise não afeta nenhuma ferramenta do site.",
-          "Para desativar a coleta: use um bloqueador de conteúdo (como o uBlock Origin) ou a extensão oficial do Google para desativar o Google Analytics, bloqueie cookies de terceiros ou limpe os cookies deste site. Cópias auto-hospedadas do IPCheck.ing só executam a análise se o operador a configurar."
+          "Para desativar a coleta: use um bloqueador de conteúdo (como o uBlock Origin) ou a extensão oficial do Google para desativar o Google Analytics, bloqueie cookies de terceiros ou limpe os cookies deste site. Cópias auto-hospedadas do TrustMy.IP só executam a análise se o operador a configurar."
         ]
       },
       "retention": {

@@ -105,8 +105,6 @@ describe('festival windows', () => {
         assert.deepEqual(ids('2026-10-30'), ['internetday', 'halloween']);
         // prgday's window covers leap years, where day 256 is Sep 12.
         assert.ok(ids('2028-09-12').includes('prgday'));
-        // IPCheck.ing's own birthday (v1.0 shipped Nov 6, 2020).
-        assert.ok(ids('2031-11-06').includes('birthday'));
     });
 
     it('the newyear window wraps the year boundary', () => {

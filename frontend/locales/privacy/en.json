@@ -2,7 +2,7 @@
   "privacy": {
     "Title": "Privacy Policy",
     "UpdatedLabel": "Last updated",
-    "Intro": "IPCheck.ing is a free, open-source IP toolbox. We built it to help you see what your network and browser reveal about you, so respecting your own privacy matters to us. This page explains what happens to your data when you use the site.",
+    "Intro": "TrustMy.IP is a free, open-source IP toolbox. We built it to help you see what your network and browser reveal about you, so respecting your own privacy matters to us. This page explains what happens to your data when you use the site.",
     "sections": {
       "tools": {
         "title": "How the tools work",
@@ -97,7 +97,7 @@
         "title": "If you are in the EU/EEA or UK",
         "paragraphs": [
           "We currently do not show a cookie consent banner. If you would rather not be measured by analytics, you can opt out at any time using the methods below — blocking the analytics cookie does not affect any tool on the site.",
-          "To opt out: use a content blocker (such as uBlock Origin) or Google's official opt-out browser add-on, block third-party cookies, or clear this site's cookies. Self-hosted copies of IPCheck.ing only run analytics if their operator configures it."
+          "To opt out: use a content blocker (such as uBlock Origin) or Google's official opt-out browser add-on, block third-party cookies, or clear this site's cookies. Self-hosted copies of TrustMy.IP only run analytics if their operator configures it."
         ]
       },
       "retention": {

@@ -43,7 +43,6 @@ export const FESTIVAL_STATUSES = [
     { id: 'prgday', emoji: '⌨️', yearly: { from: '09-12', to: '09-14' } },
     { id: 'internetday', emoji: '🌐', yearly: { from: '10-28', to: '10-30' } },
     { id: 'halloween', emoji: '🎃', effect: 'fall', yearly: { from: '10-30', to: '11-01' } },
-    { id: 'birthday', emoji: '🎂', effect: 'fireworks', yearly: { from: '11-05', to: '11-07' } },
     {
         id: 'diwali', emoji: '🪔', effect: 'fireworks',
         windows: [

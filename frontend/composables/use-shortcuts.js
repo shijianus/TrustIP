@@ -178,7 +178,7 @@ const buildShortcutConfig = ({ refs, store, t, configs, userPreferences }) => {
             // Async components (see Home.vue): ref is null until the chunk
             // lands, so these actions optional-chain instead of throwing.
             action: () => { queryIPRef.value?.openModal(); trackEvent('ShortCut', 'ShortCut', 'QueryIP'); },
-            description: t('shortcutKeys.IPCheck'),
+            description: t('shortcutKeys.TrustIP'),
         },
         {
             keys: 'h',

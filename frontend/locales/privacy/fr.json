@@ -2,7 +2,7 @@
   "privacy": {
     "Title": "Politique de confidentialité",
     "UpdatedLabel": "Dernière mise à jour",
-    "Intro": "IPCheck.ing est une boîte à outils IP gratuite et open source. Nous l'avons conçue pour vous aider à voir ce que votre réseau et votre navigateur révèlent sur vous ; à ce titre, le respect de votre vie privée nous tient à cœur. Cette page explique ce qu'il advient de vos données lorsque vous utilisez le site.",
+    "Intro": "TrustMy.IP est une boîte à outils IP gratuite et open source. Nous l'avons conçue pour vous aider à voir ce que votre réseau et votre navigateur révèlent sur vous ; à ce titre, le respect de votre vie privée nous tient à cœur. Cette page explique ce qu'il advient de vos données lorsque vous utilisez le site.",
     "sections": {
       "tools": {
         "title": "Comment fonctionnent les outils",
@@ -97,7 +97,7 @@
         "title": "Si vous êtes dans l'UE/EEE ou au Royaume-Uni",
         "paragraphs": [
           "Nous n'affichons pas actuellement de bannière de consentement aux cookies. Si vous préférez ne pas être mesuré par les outils d'analyse, vous pouvez vous y opposer à tout moment via les méthodes ci-dessous — bloquer le cookie d'analyse n'affecte aucun outil du site.",
-          "Pour vous désinscrire : utilisez un bloqueur de contenu (tel qu'uBlock Origin) ou le module complémentaire officiel de désactivation de Google, bloquez les cookies tiers, ou effacez les cookies de ce site. Les copies auto-hébergées d'IPCheck.ing n'exécutent l'analyse que si leur exploitant la configure."
+          "Pour vous désinscrire : utilisez un bloqueur de contenu (tel qu'uBlock Origin) ou le module complémentaire officiel de désactivation de Google, bloquez les cookies tiers, ou effacez les cookies de ce site. Les copies auto-hébergées d'TrustMy.IP n'exécutent l'analyse que si leur exploitant la configure."
         ]
       },
       "retention": {

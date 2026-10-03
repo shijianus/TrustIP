@@ -2164,5 +2164,44 @@
         }
       }
     ]
+  },
+  {
+    "version": "v0.1.0",
+    "date": "Beta",
+    "content": [
+      {
+        "type": "add",
+        "change": {
+          "en": "Rebranded to TrustMy.IP, published by EpoCanvas: new product name, logo and wording throughout the interface, in every language",
+          "zh": "品牌更名为 TrustMy.IP，由 EpoCanvas 发行：产品名称、标识与全部界面文案同步更新，覆盖所有语言",
+          "zh-TW": "品牌更名為 TrustMy.IP，由 EpoCanvas 發行：產品名稱、識別與全部介面文案同步更新，涵蓋所有語言",
+          "fr": "Nouvelle identité : TrustMy.IP, édité par EpoCanvas — nom du produit, logo et textes renouvelés dans toute l'interface, dans toutes les langues",
+          "ru": "Новое имя: TrustMy.IP, издатель — EpoCanvas. Название продукта, логотип и тексты обновлены по всему интерфейсу, на всех языках",
+          "pt-BR": "Nova marca: TrustMy.IP, publicado pela EpoCanvas — nome do produto, logotipo e textos atualizados em toda a interface, em todos os idiomas"
+        }
+      },
+      {
+        "type": "improve",
+        "change": {
+          "en": "Redesigned the interface: new layout, spacing and color tokens, so your results read more clearly",
+          "zh": "界面重新设计：全新的布局、间距与色彩令牌，结果读起来更清晰",
+          "zh-TW": "介面重新設計：全新的版面、間距與色彩令牌，解讀結果更清晰",
+          "fr": "Interface repensée : nouvelle mise en page, espacement et jetons de couleur pour lire vos résultats plus clairement",
+          "ru": "Интерфейс переработан: новая вёрстка, отступы и цветовые токены — результаты читаются отчётливее",
+          "pt-BR": "Interface redesenhada: novo layout, espaçamento e tokens de cor para ler seus resultados com mais clareza"
+        }
+      },
+      {
+        "type": "fix",
+        "change": {
+          "en": "Fixed some issues",
+          "zh": "修复了一些问题",
+          "zh-TW": "修正了一些問題",
+          "fr": "Correction de divers problèmes",
+          "ru": "Исправлены некоторые проблемы",
+          "pt-BR": "Corrigidos alguns problemas"
+        }
+      }
+    ]
   }
 ]
