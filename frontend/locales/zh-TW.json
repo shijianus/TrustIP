@@ -352,6 +352,32 @@
     "DocsSignInTitle": "需要登入",
     "DocsSignInMessage": "登入後即可詢問 IPilot"
   },
+  "rail": {
+    "full": {
+      "home": "我的 IP",
+      "ip": "IP 檔案",
+      "link": "網路連通性",
+      "webrtc": "WebRTC 洩漏測試",
+      "dns": "DNS 洩漏測試",
+      "speedtest": "網速測試",
+      "ping": "全球延遲",
+      "status": "服務狀態",
+      "whois": "Whois 查詢",
+      "tools": "進階工具"
+    },
+    "short": {
+      "home": "我的 IP",
+      "ip": "檔案",
+      "link": "連通",
+      "webrtc": "WebRTC",
+      "dns": "DNS",
+      "speedtest": "網速",
+      "ping": "延遲",
+      "status": "可用性",
+      "whois": "Whois",
+      "tools": "工具"
+    }
+  },
   "securitychecklist": {
     "Title": "安全檢查清單",
     "Note": "這是一份非常全面的網路安全檢查清單，涵蓋密碼安全、瀏覽安全、行動裝置安全等方面的內容。在目前環境下，資訊外洩可能會導致重大的損失，因此，確保我們在連線網際網路的時候，我們儘可能地保護自己的隱私、提高存取的安全性是很有必要的。",
@@ -1813,5 +1839,129 @@
   "pwa": {
     "appDescription": "一站式 IP 工具箱",
     "installDescription": "這已經是你第 {count} 次使用 TrustMy.IP 了，將它安裝為應用程式，可以獲得更好的使用體驗，開啟也更方便。"
+  },
+  "dossier": {
+    "title": "IP 檔案",
+    "subtitle": "本實例能查证的關於一個位址的全部資訊，以及查不到的部分。",
+    "placeholder": "如 8.8.8.8 或 2606:4700:4700::1111",
+    "go": "查詢",
+    "hint": "在上方輸入位址；留空直接開啟即查詢你自己的位址。",
+    "retry": "重試",
+    "failed": "無法產生檔案，註冊資料來源可能回應緩慢或不可達。",
+    "usage": {
+      "title": "用途與類型",
+      "class": "網路類別",
+      "anycast": "公共解析服務",
+      "anycastYes": "是——定位僅為服務節點",
+      "anycastNo": "否",
+      "provider": "營運方",
+      "allocation": "位址分配",
+      "rirStatus": "註冊局狀態",
+      "humanBot": "人機流量"
+    },
+    "asn": {
+      "title": "ASN 與營運商",
+      "asn": "ASN",
+      "org": "所屬機構",
+      "country": "註冊地",
+      "registered": "分配登記時間",
+      "customers": "採購轉發的網路數",
+      "tier1": "Tier 1",
+      "tier1Yes": "Tier 1",
+      "tier1No": "非 Tier 1"
+    },
+    "technical": {
+      "title": "技術指標",
+      "public": "公網可路由",
+      "publicYes": "是",
+      "rdns": "反向 DNS",
+      "ports": "開啟埠",
+      "prefix": "宣告前綴"
+    },
+    "threat": {
+      "title": "威脅指標",
+      "abuse": "濫用歷史",
+      "honeypot": "蜜罐命中",
+      "needs": "濫用情報訂閱；公開註冊資料不含逐位址的濫用歷史",
+      "rpki": "RPKI 狀態"
+    },
+    "deep": {
+      "title": "深度風險檢測",
+      "note": "此處不判定 VPN、代理、Tor 出口與爬蟲身分。",
+      "needs": "付費匿名度情報源。黑名單查詢曾嘗試後放棄：攔截式解析器會對每個查詢都回傳命中，等同無證據指控一個位址"
+    },
+    "latency": {
+      "title": "全球延遲",
+      "note": "來自全球各網路的往返時延在延遲頁面實測，探測節點由該頁面負責。",
+      "cta": "對該位址執行"
+    },
+    "heat": {
+      "title": "網段活躍度",
+      "note": "本實例未按網段留存任何觀測記錄，因此沒有趨勢可畫。",
+      "needs": "一個依 /24 逐日計數的本地觀測儲存"
+    },
+    "map": {
+      "title": "地圖定位",
+      "none": "沒有資料來源回傳經緯度。",
+      "from": "座標來自 {source}"
+    },
+    "geo": {
+      "title": "地理位置（多源對比）",
+      "none": "沒有地理資料來源應答。",
+      "map": "在 Google 地圖檢視",
+      "noCoords": "僅至多一個資料來源回傳了座標，無法測量彼此偏差。",
+      "consensus": "共識定位：{place}。各資料來源最大相差 {km} 公里——同一 IP 的城市本就是多家各自估算的結果。",
+      "agreeing": "一致",
+      "diverging": "存在分歧",
+      "single-fix": "單一座標",
+      "single-source": "單一資料來源",
+      "agree": "共識定位：{place}。所有回傳座標的資料來源都把該位址落在同一地點 100 公里以內。"
+    },
+    "related": {
+      "title": "關聯網域",
+      "note": "此處不列舉反解至該位址的網域。",
+      "needs": "對整個所屬前綴做反向 DNS 遍歷，屬於對第三方位址空間的主動掃描"
+    },
+    "history": {
+      "title": "位置歷史",
+      "note": "不追蹤該位址在時間上的歸屬變化。",
+      "needs": "逐位址的觀測歷史；本應用程式儲存的 IP 歷史是訪客自己的，不是被查位址的"
+    },
+    "topology": {
+      "title": "BGP 鄰居",
+      "source": "CAIDA 快照",
+      "noAsn": "未能解析出該位址的 ASN。",
+      "origin": "本網路",
+      "providers": "上游（轉發）",
+      "peers": "對等",
+      "noProviders": "未記錄上游——該網路自帶轉發能力。",
+      "noPeers": "未記錄免結算對等。",
+      "legend": "藍色標記為 Tier 1，依定義沒有上游。末尾數字是該網路出售轉發的下游數量。連線粗細需要「誰實際承載該前綴」的看路檢視，本專案不做此類查詢。",
+      "unknownOrg": "快照中未收錄",
+      "customersTip": "向該網路採購轉發的 AS 數量"
+    },
+    "blocklists": {
+      "title": "黑名單",
+      "note": "不查詢任何黑名單。",
+      "needs": "一個能如實應答 DNSBL 查詢的遞迴解析器；公共解析器會拒絕或捏造"
+    },
+    "colocated": {
+      "title": "同機房客戶",
+      "note": "不列出該機房的其他客戶。",
+      "needs": "資料中心到客戶的目錄資料"
+    },
+    "cross": {
+      "title": "前往第三方平台核驗",
+      "link": "開啟"
+    },
+    "slot": {
+      "missing": "此處未顯示：",
+      "needs": "補齊需要：",
+      "badge": {
+        "placeholder": "未測量",
+        "delegated": "見其他分區",
+        "partial": "部分已測量"
+      }
+    }
   }
 }

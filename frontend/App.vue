@@ -18,6 +18,7 @@ import Alert from '@/components/widgets/Toast.vue';
 import DocsAssistant from '@/components/widgets/DocsAssistant.vue';
 import { shouldOfferPwaInstall } from '@/utils/pwa.js';
 import { sendVisitBeacon } from '@/utils/pulse-beacon.js';
+import { STANDALONE_RAIL_NAMES } from '@/data/rail.js';
 import { useTheme } from '@/composables/use-theme.js';
 
 // PWA install prompt — async and eligibility-gated: ineligible visits (too
@@ -38,12 +39,17 @@ import { useAchievementEngine } from '@/composables/use-achievement-engine.js';
 import { useReportCollector } from '@/composables/use-report-collector.js';
 import { useAppPersonaCollector } from '@/composables/use-persona-collector.js';
 
-// The standalone pages (/tools/:slug, /privacy) carry their own header, so they
-// drop the homepage's fixed-Nav body padding (see the `body.jn-standalone-page`
-// rule in index.html) — otherwise a blank strip shows above their header. Toggle
-// the marker class as the route changes. NB: "standalone" here is unrelated to
-// PWA display mode — that's `isRunningAsPwa()` in utils/pwa.js.
-const STANDALONE_ROUTES = new Set(['tool', 'privacy', 'report']);
+// The standalone pages (/tools/:slug, the rail's own destinations, /privacy)
+// carry their own header, so they drop the homepage's fixed-Nav body padding
+// (see the `body.jn-standalone-page` rule in index.html) — otherwise a blank
+// strip shows above their header. Toggle the marker class as the route changes.
+// The rail set comes from data/rail.js so a new rail page can't be left out.
+// NB: "standalone" here is unrelated to PWA display mode — that's
+// `isRunningAsPwa()` in utils/pwa.js.
+// The dossier is named here rather than derived from the rail registry because
+// it is the one rail destination that is neither a dashboard section nor an
+// existing tool, and so has no generated route to inherit the flag from.
+const STANDALONE_ROUTES = new Set(['tool', 'privacy', 'report', 'ip-address', ...STANDALONE_RAIL_NAMES]);
 const route = useRoute();
 watch(
     () => STANDALONE_ROUTES.has(route.name),

@@ -352,6 +352,32 @@
     "DocsSignInTitle": "请先登录",
     "DocsSignInMessage": "登录后即可向 IPilot 提问"
   },
+  "rail": {
+    "full": {
+      "home": "我的 IP",
+      "ip": "IP 档案",
+      "link": "网络连通性",
+      "webrtc": "WebRTC 泄露测试",
+      "dns": "DNS 泄露测试",
+      "speedtest": "网速测试",
+      "ping": "全球延迟",
+      "status": "服务可用性",
+      "whois": "Whois 查询",
+      "tools": "高级工具"
+    },
+    "short": {
+      "home": "我的 IP",
+      "ip": "档案",
+      "link": "连通",
+      "webrtc": "WebRTC",
+      "dns": "DNS",
+      "speedtest": "网速",
+      "ping": "延迟",
+      "status": "可用性",
+      "whois": "Whois",
+      "tools": "工具"
+    }
+  },
   "securitychecklist": {
     "Title": "安全检查清单",
     "Note": "这是一份非常全面的网络安全检查清单，涵盖密码安全、浏览安全、移动设备安全等方面的内容。在当前环境下，信息泄露可能会导致重大的损失，因此，确保我们在连接互联网的时候，我们尽可能地保护自己的隐私、提高访问的安全性是很有必要的。",
@@ -1813,5 +1839,129 @@
   "pwa": {
     "appDescription": "一站式 IP 工具箱",
     "installDescription": "这已经是你第 {count} 次使用 TrustMy.IP 了，把它安装为应用，可以获得更好的使用体验，打开也更方便。"
+  },
+  "dossier": {
+    "title": "IP 档案",
+    "subtitle": "本实例能查实的关于一个地址的全部信息，以及查不到的部分。",
+    "placeholder": "如 8.8.8.8 或 2606:4700:4700::1111",
+    "go": "查询",
+    "hint": "在上方输入地址；不填直接打开即查询你自己的地址。",
+    "retry": "重试",
+    "failed": "无法生成档案，注册数据源可能响应缓慢或不可达。",
+    "usage": {
+      "title": "用途与类型",
+      "class": "网络类别",
+      "anycast": "公共解析服务",
+      "anycastYes": "是——定位仅为服务节点",
+      "anycastNo": "否",
+      "provider": "运营方",
+      "allocation": "地址分配",
+      "rirStatus": "注册局状态",
+      "humanBot": "人机流量"
+    },
+    "asn": {
+      "title": "ASN 与运营商",
+      "asn": "ASN",
+      "org": "归属机构",
+      "country": "注册地",
+      "registered": "分配登记时间",
+      "customers": "采购转发的网络数",
+      "tier1": "Tier 1",
+      "tier1Yes": "Tier 1",
+      "tier1No": "非 Tier 1"
+    },
+    "technical": {
+      "title": "技术指标",
+      "public": "公网可路由",
+      "publicYes": "是",
+      "rdns": "反向 DNS",
+      "ports": "开放端口",
+      "prefix": "宣告前缀"
+    },
+    "threat": {
+      "title": "威胁指标",
+      "abuse": "滥用历史",
+      "honeypot": "蜜罐命中",
+      "needs": "滥用情报订阅；公开注册数据不含逐地址的滥用历史",
+      "rpki": "RPKI 状态"
+    },
+    "deep": {
+      "title": "深度风险检测",
+      "note": "此处不判定 VPN、代理、Tor 出口与爬虫身份。",
+      "needs": "付费匿名度情报源。黑名单查询曾尝试后放弃：拦截式解析器会对每个查询都返回命中，等于无证据指控一个地址"
+    },
+    "latency": {
+      "title": "全球延迟",
+      "note": "来自全球各网络的往返时延在延迟页面实测，探测节点由该页面负责。",
+      "cta": "对该地址执行"
+    },
+    "heat": {
+      "title": "网段活跃度",
+      "note": "本实例未按网段留存任何观测记录，因此没有趋势可画。",
+      "needs": "一个按 /24 逐日计数的本地观测存储"
+    },
+    "map": {
+      "title": "地图定位",
+      "none": "没有数据源返回经纬度。",
+      "from": "坐标来自 {source}"
+    },
+    "geo": {
+      "title": "地理位置（多源对比）",
+      "none": "没有地理数据源应答。",
+      "map": "在 Google 地图查看",
+      "noCoords": "仅至多一个数据源返回了坐标，无法测量彼此偏差。",
+      "consensus": "共识定位：{place}。各数据源最大相差 {km} 公里——同一 IP 的城市本就是多家各自估算的结果。",
+      "agreeing": "一致",
+      "diverging": "存在分歧",
+      "single-fix": "单一坐标",
+      "single-source": "单一数据源",
+      "agree": "共识定位：{place}。所有返回坐标的数据源都把该地址落在同一地点 100 公里以内。"
+    },
+    "related": {
+      "title": "关联域名",
+      "note": "此处不枚举反解到该地址的域名。",
+      "needs": "对整个所属前缀做反向 DNS 遍历，属于对第三方地址空间的主动扫描"
+    },
+    "history": {
+      "title": "位置历史",
+      "note": "不追踪该地址在时间上的归属变化。",
+      "needs": "逐地址的观测历史；本应用保存的 IP 历史是访客自己的，不是被查地址的"
+    },
+    "topology": {
+      "title": "BGP 邻居",
+      "source": "CAIDA 快照",
+      "noAsn": "未能解析出该地址的 ASN。",
+      "origin": "本网络",
+      "providers": "上游（转发）",
+      "peers": "对等",
+      "noProviders": "未记录上游——该网络自带转发能力。",
+      "noPeers": "未记录免结算对等。",
+      "legend": "蓝色标记为 Tier 1，按定义没有上游。末尾数字是该网络出售转发的下游数量。连线粗细需要「谁实际承载该前缀」的看路视图，本项目不做此类查询。",
+      "unknownOrg": "快照中未收录",
+      "customersTip": "向该网络采购转发的 AS 数量"
+    },
+    "blocklists": {
+      "title": "黑名单",
+      "note": "不查询任何黑名单。",
+      "needs": "一个能如实应答 DNSBL 查询的递归解析器；公共解析器会拒绝或伪造"
+    },
+    "colocated": {
+      "title": "同机房客户",
+      "note": "不列出该机房的其他客户。",
+      "needs": "数据中心到客户的目录数据"
+    },
+    "cross": {
+      "title": "前往第三方平台核验",
+      "link": "打开"
+    },
+    "slot": {
+      "missing": "此处未展示：",
+      "needs": "补齐需要：",
+      "badge": {
+        "placeholder": "未测量",
+        "delegated": "见其他分区",
+        "partial": "部分已测量"
+      }
+    }
   }
 }

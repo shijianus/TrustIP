@@ -352,6 +352,32 @@
     "DocsSignInTitle": "Connexion requise",
     "DocsSignInMessage": "Connectez-vous pour interroger IPilot"
   },
+  "rail": {
+    "full": {
+      "home": "Mon IP",
+      "ip": "Dossier IP",
+      "link": "Connectivité réseau",
+      "webrtc": "Test de fuite WebRTC",
+      "dns": "Test de fuite DNS",
+      "speedtest": "Test de vitesse",
+      "ping": "Latence mondiale",
+      "status": "État des services",
+      "whois": "Recherche Whois",
+      "tools": "Outils avancés"
+    },
+    "short": {
+      "home": "Mon IP",
+      "ip": "Dossier",
+      "link": "Accès",
+      "webrtc": "WebRTC",
+      "dns": "DNS",
+      "speedtest": "Débit",
+      "ping": "Ping",
+      "status": "Services",
+      "whois": "Whois",
+      "tools": "Outils"
+    }
+  },
   "securitychecklist": {
     "Title": "Liste de vérification de sécurité",
     "Note": "Ceci est une liste de vérification de cybersécurité très complète, couvrant des aspects tels que la sécurité des mots de passe, la sécurité de navigation, et la sécurité des dispositifs mobiles. Dans l'environnement actuel, une fuite d'informations peut entraîner des pertes significatives, il est donc nécessaire de s'assurer que nous protégeons notre vie privée et augmentons la sécurité de nos accès lors de la connexion à Internet.",
@@ -1813,5 +1839,129 @@
   "pwa": {
     "appDescription": "La boîte à outils IP tout-en-un",
     "installDescription": "Vous avez déjà utilisé TrustMy.IP {count} fois — installez-le comme application pour une expérience plus fluide et un accès plus rapide."
+  },
+  "dossier": {
+    "title": "Dossier IP",
+    "subtitle": "Tout ce que cette instance peut établir sur une adresse, et ce qu'elle ne peut pas.",
+    "placeholder": "ex. 8.8.8.8 ou 2606:4700:4700::1111",
+    "go": "Consulter",
+    "hint": "Saisissez une adresse ci-dessus, ou ouvrez la page sans rien pour consulter la vôtre.",
+    "retry": "Réessayer",
+    "failed": "Le dossier n'a pas pu être constitué. Les registres sont peut-être lents ou injoignables.",
+    "usage": {
+      "title": "Usage et type",
+      "class": "Catégorie de réseau",
+      "anycast": "Résolveur public",
+      "anycastYes": "Oui — la localisation est un point de présence",
+      "anycastNo": "Non",
+      "provider": "Opérateur",
+      "allocation": "Allocation",
+      "rirStatus": "Statut au registre",
+      "humanBot": "Trafic humain / robot"
+    },
+    "asn": {
+      "title": "ASN et opérateur",
+      "asn": "ASN",
+      "org": "Organisation",
+      "country": "Enregistré dans",
+      "registered": "Allocation enregistrée le",
+      "customers": "Réseaux achetant du transit",
+      "tier1": "Tier 1",
+      "tier1Yes": "Tier 1",
+      "tier1No": "Non Tier 1"
+    },
+    "technical": {
+      "title": "Indicateurs techniques",
+      "public": "Routable sur Internet",
+      "publicYes": "Oui",
+      "rdns": "DNS inverse",
+      "ports": "Ports ouverts",
+      "prefix": "Préfixes annoncés"
+    },
+    "threat": {
+      "title": "Indicateurs de menace",
+      "abuse": "antécédents d'abus",
+      "honeypot": "passages en honeypot",
+      "needs": "un flux d'intelligence sur les abus ; les registres ouverts n'en portent aucun",
+      "rpki": "État RPKI"
+    },
+    "deep": {
+      "title": "Contrôle de risque approfondi",
+      "note": "L'appartenance à un VPN, un proxy, une sortie Tor ou un crawler n'est pas établie ici.",
+      "needs": "un flux d'anonymat payant. Les listes de blocage ont été essayées puis abandonnées : un résolveur interceptant répond présent à chaque requête, ce qui accuse une adresse sans preuve"
+    },
+    "latency": {
+      "title": "Latence mondiale",
+      "note": "Les temps d'aller-retour depuis les réseaux du monde entier sont mesurés sur la page de latence, qui possède les sondes.",
+      "cta": "Lancer pour cette adresse"
+    },
+    "heat": {
+      "title": "Activité du préfixe",
+      "note": "Rien n'est enregistré par préfixe sur cette instance ; aucune tendance à tracer.",
+      "needs": "un magasin d'observations local comptant chaque /24 jour par jour"
+    },
+    "map": {
+      "title": "Localisation",
+      "none": "Aucune source n'a renvoyé de coordonnées.",
+      "from": "Coordonnées issues de {source}"
+    },
+    "geo": {
+      "title": "Géolocalisation, source par source",
+      "none": "Aucune source de géolocalisation n'a répondu.",
+      "map": "Voir dans Google Maps",
+      "noCoords": "Une seule source au plus a renvoyé des coordonnées : l'écart reste impossible à mesurer.",
+      "consensus": "Consensus : {place}. Les sources divergent jusqu'à {km} km — la ville d'une adresse est une estimation que chaque fournisseur fait différemment.",
+      "agreeing": "Concordantes",
+      "diverging": "Divergentes",
+      "single-fix": "Une seule position",
+      "single-source": "Source unique",
+      "agree": "Consensus : {place}. Chaque source ayant renvoyé des coordonnées place l'adresse à moins de 100 km du même point."
+    },
+    "related": {
+      "title": "Domaines associés",
+      "note": "Les domaines résolus vers cette adresse ne sont pas énumérés ici.",
+      "needs": "un balayage DNS inverse sur tout le préfixe, soit une analyse active de l'espace d'autrui"
+    },
+    "history": {
+      "title": "Historique de localisation",
+      "note": "L'évolution dans le temps de cette adresse n'est pas suivie.",
+      "needs": "un historique d'observations par adresse ; l'historique IP de l'app est celui du visiteur, pas celui de l'adresse"
+    },
+    "topology": {
+      "title": "Voisinage BGP",
+      "source": "Instantané CAIDA",
+      "noAsn": "Aucun ASN n'a pu être résolu pour cette adresse.",
+      "origin": "Ce réseau",
+      "providers": "Fournisseurs (transit)",
+      "peers": "Pairs",
+      "noProviders": "Aucun amont enregistré — ce réseau s'autofournit.",
+      "noPeers": "Aucun pair sans facturation enregistré.",
+      "legend": "Un badge bleu marque une Tier 1, qui par définition n'a pas d'amont. Le nombre final est le nombre de réseaux achetant du transit à celui-ci. L'épaisseur des liens exigerait une vue depuis un regard d'observatoire sur qui porte le préfixe, que nous ne consultons pas.",
+      "unknownOrg": "Absent de l'instantané",
+      "customersTip": "ASN achetant du transit à ce réseau"
+    },
+    "blocklists": {
+      "title": "Listes de blocage",
+      "note": "Aucune liste de blocage n'est consultée.",
+      "needs": "un résolveur récursif qui répond honnêtement aux requêtes DNSBL ; les résolveurs publics refusent ou fabriquent"
+    },
+    "colocated": {
+      "title": "Même salle",
+      "note": "Les autres clients de ce centre de données ne sont pas listés.",
+      "needs": "un annuaire centre de données → clients"
+    },
+    "cross": {
+      "title": "Vérifier ailleurs",
+      "link": "Ouvrir"
+    },
+    "slot": {
+      "missing": "Non affiché ici :",
+      "needs": "Pour compléter :",
+      "badge": {
+        "placeholder": "Non mesuré",
+        "delegated": "Sur une autre page",
+        "partial": "Partiellement mesuré"
+      }
+    }
   }
 }

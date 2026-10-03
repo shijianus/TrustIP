@@ -352,6 +352,32 @@
     "DocsSignInTitle": "Login necessário",
     "DocsSignInMessage": "Faça login para perguntar ao IPilot"
   },
+  "rail": {
+    "full": {
+      "home": "Meu IP",
+      "ip": "Dossiê de IP",
+      "link": "Conectividade de rede",
+      "webrtc": "Teste de vazamento WebRTC",
+      "dns": "Teste de vazamento de DNS",
+      "speedtest": "Teste de velocidade",
+      "ping": "Latência global",
+      "status": "Status dos serviços",
+      "whois": "Pesquisa Whois",
+      "tools": "Ferramentas avançadas"
+    },
+    "short": {
+      "home": "Meu IP",
+      "ip": "Dossiê",
+      "link": "Acesso",
+      "webrtc": "WebRTC",
+      "dns": "DNS",
+      "speedtest": "Velocidade",
+      "ping": "Ping",
+      "status": "Status",
+      "whois": "Whois",
+      "tools": "Ferramentas"
+    }
+  },
   "securitychecklist": {
     "Title": "Checklist de segurança",
     "Note": "Esta é uma checklist abrangente de cibersegurança, cobrindo aspectos como segurança de senhas, segurança de navegação e segurança de dispositivos móveis. No ambiente atual, vazamentos de informações podem causar perdas significativas; portanto, é necessário garantir que protegemos nossa privacidade e reforçamos a segurança do nosso acesso enquanto estamos conectados à internet.",
@@ -1813,5 +1839,129 @@
   "pwa": {
     "appDescription": "Caixa de ferramentas de IP tudo em um",
     "installDescription": "Você já usou o TrustMy.IP {count} vezes — instale-o como app para uma experiência mais fluida e acesso mais rápido."
+  },
+  "dossier": {
+    "title": "Dossiê do IP",
+    "subtitle": "Tudo que esta instância consegue estabelecer sobre um endereço, e o que não consegue.",
+    "placeholder": "ex. 8.8.8.8 ou 2606:4700:4700::1111",
+    "go": "Consultar",
+    "hint": "Digite um endereço acima, ou abra a página em branco para consultar o seu.",
+    "retry": "Tentar de novo",
+    "failed": "Não foi possível montar o dossiê. Os registros podem estar lentos ou inacessíveis.",
+    "usage": {
+      "title": "Uso e tipo",
+      "class": "Classe de rede",
+      "anycast": "Resolvedor público",
+      "anycastYes": "Sim — a localização é um ponto de presença",
+      "anycastNo": "Não",
+      "provider": "Operadora",
+      "allocation": "Alocação",
+      "rirStatus": "Status no registro",
+      "humanBot": "Tráfego humano ou de robô"
+    },
+    "asn": {
+      "title": "ASN e operadora",
+      "asn": "ASN",
+      "org": "Organização",
+      "country": "Registrado em",
+      "registered": "Alocação registrada em",
+      "customers": "Redes que compram trânsito",
+      "tier1": "Tier 1",
+      "tier1Yes": "Tier 1",
+      "tier1No": "Não é Tier 1"
+    },
+    "technical": {
+      "title": "Indicadores técnicos",
+      "public": "Roteável na internet",
+      "publicYes": "Sim",
+      "rdns": "DNS reverso",
+      "ports": "Portas abertas",
+      "prefix": "Prefixos anunciados"
+    },
+    "threat": {
+      "title": "Indicadores de ameaça",
+      "abuse": "histórico de abuso",
+      "honeypot": "ocorrências em honeypot",
+      "needs": "uma base de inteligência sobre abuso; os registros abertos não trazem histórico por endereço",
+      "rpki": "Estado do RPKI"
+    },
+    "deep": {
+      "title": "Verificação de risco aprofundada",
+      "note": "Afiliação a VPN, proxy, saída Tor ou rastreador não é estabelecida aqui.",
+      "needs": "uma base paga de anonimato. Listas de bloqueio foram tentadas e descartadas: um resolvedor que intercepta responde «sim» a toda consulta, o que acusa um endereço sem prova"
+    },
+    "latency": {
+      "title": "Latência global",
+      "note": "Os tempos de ida e volta a partir de redes do mundo todo são medidos na página de latência, que é dona das sondas.",
+      "cta": "Executar para este endereço"
+    },
+    "heat": {
+      "title": "Atividade do prefixo",
+      "note": "Nada é registrado por prefixo nesta instância, então não há tendência a traçar.",
+      "needs": "um armazenamento local de observações com contagem diária por /24"
+    },
+    "map": {
+      "title": "Localização",
+      "none": "Nenhuma fonte devolveu coordenadas.",
+      "from": "Coordenadas de {source}"
+    },
+    "geo": {
+      "title": "Geolocalização, fonte por fonte",
+      "none": "Nenhuma fonte de geolocalização respondeu.",
+      "map": "Ver no Google Maps",
+      "noCoords": "No máximo uma fonte devolveu coordenadas: não dá para medir a distância entre elas.",
+      "consensus": "Consenso: {place}. As fontes divergem até {km} km — a cidade de um endereço é uma estimativa que cada fornecedor faz do seu jeito.",
+      "agreeing": "Concordam",
+      "diverging": "Divergem",
+      "single-fix": "Uma posição",
+      "single-source": "Fonte única",
+      "agree": "Consenso: {place}. Toda fonte que devolveu coordenadas coloca o endereço a menos de 100 km do mesmo ponto."
+    },
+    "related": {
+      "title": "Domínios relacionados",
+      "note": "Domínios que resolvem para este endereço não são enumerados aqui.",
+      "needs": "varredura de DNS reverso pelo prefixo inteiro, o que é varredura ativa do espaço de terceiros"
+    },
+    "history": {
+      "title": "Histórico de localização",
+      "note": "Onde este endereço apareceu ao longo do tempo não é acompanhado.",
+      "needs": "um histórico de observações por endereço; o histórico de IP do app é o do visitante, não o do endereço"
+    },
+    "topology": {
+      "title": "Vizinhança BGP",
+      "source": "Instantâneo da CAIDA",
+      "noAsn": "Nenhum ASN foi resolvido para este endereço.",
+      "origin": "Esta rede",
+      "providers": "Provedores (trânsito)",
+      "peers": "Pares",
+      "noProviders": "Nenhum montante registrado — esta rede provê a si mesma.",
+      "noPeers": "Nenhum par sem cobrança registrado.",
+      "legend": "Um selo azul marca uma Tier 1, que por definição não tem montante. O número no fim é quantas redes compram trânsito dela. A espessura das ligações exigiria uma visão de looking-glass sobre quem carrega o prefixo, que não consultamos.",
+      "unknownOrg": "Fora do instantâneo",
+      "customersTip": "ASes que compram trânsito desta rede"
+    },
+    "blocklists": {
+      "title": "Listas de bloqueio",
+      "note": "Nenhuma lista de bloqueio é consultada.",
+      "needs": "um resolvedor recursivo que responda às consultas DNSBL com honestidade; os públicos recusam ou inventam"
+    },
+    "colocated": {
+      "title": "Mesmo datacenter",
+      "note": "Outros clientes deste datacenter não são listados.",
+      "needs": "um diretório datacenter → clientes"
+    },
+    "cross": {
+      "title": "Confira em outros lugares",
+      "link": "Abrir"
+    },
+    "slot": {
+      "missing": "Não aparece aqui:",
+      "needs": "Para preencher:",
+      "badge": {
+        "placeholder": "Não medido",
+        "delegated": "Em outra página",
+        "partial": "Parcialmente medido"
+      }
+    }
   }
 }

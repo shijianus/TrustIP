@@ -112,13 +112,15 @@
 
     /* Reserve space at the top of the body for: (a) the iOS safe-area
        (transparent status bar) — `env()` resolves to 0 on non-notch
-       platforms, and (b) the fixed Nav (3.5rem = h-14 in Nav.vue). The Nav
-       used to be `position: sticky` and lived in the normal flow, so no
-       padding was needed; switching it to `fixed` lets the body rubber-band
-       bounce on iOS without dragging the Nav along, but now we have to
-       compensate for the Nav's lost flow height here. */
+       platforms, and (b) the fixed Nav: its brand row (3.5rem = h-14) plus the
+       route rail row (2.5rem = h-10) below it, i.e. the HEADER_HEIGHT the app
+       subtracts when it scrolls to a section (utils/scroll-to.js). The Nav used
+       to be `position: sticky` and lived in the normal flow, so no padding was
+       needed; switching it to `fixed` lets the body rubber-band bounce on iOS
+       without dragging the Nav along, but now we have to compensate for the
+       Nav's lost flow height here. */
     body {
-      padding-top: calc(env(safe-area-inset-top) + 3.5rem);
+      padding-top: calc(env(safe-area-inset-top) + 6rem);
     }
 
     /* Standalone pages (/tools/:slug, /privacy, /r/:id) have their own in-flow

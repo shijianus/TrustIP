@@ -68,6 +68,7 @@ import { useInfoMask } from '@/composables/use-info-mask.js';
 import { useRefreshOrchestrator } from '@/composables/use-refresh-orchestrator.js';
 import { useShortcuts } from '@/composables/use-shortcuts.js';
 import { useSectionTracking } from '@/composables/use-section-tracking.js';
+import { useSectionHashScroll } from '@/composables/use-section-hash.js';
 import { useDocumentMeta } from '@/composables/use-document-meta.js';
 
 const { t } = useI18n();
@@ -109,6 +110,9 @@ const { loadShortcuts } = useShortcuts({
 
 // Scroll monitoring + section tracking (logic from widgets/Patch.vue)
 useSectionTracking();
+
+// `/#<SectionId>` deep links — the anchors the rail replaced with routes.
+useSectionHashScroll();
 
 // Localized homepage head. Provide title/description explicitly via t() rather
 // than leaning on use-document-meta's DEFAULT_META snapshot: that snapshot is

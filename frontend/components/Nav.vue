@@ -24,46 +24,11 @@
         </a>
       </div>
 
-      <!-- Middle: Desktop nav links + GitHub star badge (left aligned, next to brand) -->
+      <!-- GitHub repo link + star count from our own /api/github-stars
+           (edge-cached). The count is hidden until it lands / on error, so the
+           link itself never depends on the fetch. It used to sit beside the
+           in-page anchor row; that row is the route rail on the next line. -->
       <div v-if="!isMobile" class="flex items-center gap-0.5">
-        <template v-for="item in navItems" :key="item">
-          <!-- Advanced Tools: hover reveals the sub-tools, click scrolls to the
-               section (disable-click-trigger frees the click from toggling the
-               menu; viewport=false anchors the panel under the trigger). -->
-          <NavigationMenu v-if="item === 'AdvancedTools'" as="div" :viewport="false" :disable-click-trigger="true"
-            class="flex-none">
-            <NavigationMenuList>
-              <NavigationMenuItem>
-                <NavigationMenuTrigger :class="['h-auto bg-transparent', navLinkClass(item)]"
-                  @click="scrollToSection('AdvancedTools'); trackEvent('Nav', 'NavClick', item)">
-                  {{ t(`nav.${item}`) }}
-                </NavigationMenuTrigger>
-                <NavigationMenuContent class="z-50">
-                  <!-- Two-column grid on PC -->
-                  <ul class="relative grid grid-cols-2 gap-x-4 gap-y-0.5 min-w-[28rem]">
-                    <span aria-hidden="true"
-                      class="pointer-events-none absolute inset-y-1 left-1/2 w-px -translate-x-1/2 bg-border"></span>
-                    <li v-for="tool in advancedTools" :key="tool.slug">
-                      <NavigationMenuLink as-child class="cursor-pointer">
-                        <button type="button" class="w-full text-left leading-snug" @click="openTool(tool.slug)">
-                          {{ t(tool.titleKey) }}
-                        </button>
-                      </NavigationMenuLink>
-                    </li>
-                  </ul>
-                </NavigationMenuContent>
-              </NavigationMenuItem>
-            </NavigationMenuList>
-          </NavigationMenu>
-          <!-- All other sections stay plain smooth-scroll anchors. -->
-          <a v-else href="#" :class="navLinkClass(item)"
-            @click.prevent="scrollToSection(item); trackEvent('Nav', 'NavClick', item)">
-            {{ t(`nav.${item}`) }}
-          </a>
-        </template>
-        <!-- GitHub repo link + star count from our own /api/github-stars
-             (edge-cached). The count is hidden until it lands / on error, so the
-             link itself never depends on the fetch. -->
         <Badge variant="outline" v-if="githubStarsLabel">
           <a :href="t('page.footerLink')" target="_blank" rel="noopener" class="inline-flex items-center gap-1"
             aria-label="Star on GitHub" title="Star on GitHub">
@@ -199,6 +164,13 @@
       </div>
     </nav>
 
+    <!-- The flat route rail, on its own row under the brand row. It replaces
+         the old in-page anchor row: the destinations are pages now, one per
+         tool, and the dashboard keeps every section inline underneath it.
+         Its own row (rather than squeezed into the brand row) is what lets the
+         same ten items read at 1440px and scroll as a strip at 390px. -->
+    <NavRail />
+
     <!-- Mobile navigation drawer. Flex column so the link list scrolls instead
          of clipping on short screens when Advanced Tools is expanded. -->
     <Sheet v-if="isMobile" :open="isNavMenuOpen" @update:open="onNavMenuChange">
@@ -263,14 +235,6 @@ import { trackEvent } from '@/utils/analytics';
 import { unixToDateTime } from '@/utils/time-utils';
 import { Sheet, SheetContent, SheetClose } from '@/components/ui/sheet';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
-import {
-  NavigationMenu,
-  NavigationMenuList,
-  NavigationMenuItem,
-  NavigationMenuTrigger,
-  NavigationMenuContent,
-  NavigationMenuLink,
-} from '@/components/ui/navigation-menu';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { JnTooltip } from '@/components/ui/tooltip';
@@ -286,6 +250,7 @@ import {
   LogOut, Menu, Cog,
 } from '@lucide/vue';
 import DocsSearch from '@/components/widgets/DocsSearch.vue';
+import NavRail from '@/components/NavRail.vue';
 import Pulse from '@/components/widgets/Pulse.vue';
 import ThemeToggle from '@/components/widgets/ThemeToggle.vue';
 import { Icon } from '@iconify/vue';
@@ -294,6 +259,7 @@ import { SECTION_IDS } from '@/data/sections';
 import { ADVANCED_TOOLS } from '@/data/tools.js';
 import { fetchWithTimeout } from '@/utils/fetch-with-timeout.js';
 import { formatStarCount } from '@/utils/format-star-count.js';
+import { HEADER_HEIGHT } from '@/utils/scroll-to.js';
 import { isRunningAsPwa } from '@/utils/pwa.js';
 
 const { t, locale } = useI18n();
@@ -397,8 +363,9 @@ const handleLogoClick = (e) => {
   trackEvent('Nav', 'NavClick', 'Logo');
 };
 
-// Menu scroll (leave space for sticky header)
-const scrollToSection = (el, offset = 70) => {
+// Menu scroll (clear the fixed header: brand row + route rail, plus a little
+// breathing room so the section's own heading isn't flush against it)
+const scrollToSection = (el, offset = HEADER_HEIGHT + 14) => {
   const element = typeof el === 'string' ? document.getElementById(el) : el;
   if (!element) return;
   const y = element.getBoundingClientRect().top + window.scrollY - offset;

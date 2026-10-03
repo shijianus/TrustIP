@@ -2201,6 +2201,17 @@
           "ru": "Исправлены некоторые проблемы",
           "pt-BR": "Corrigidos alguns problemas"
         }
+      },
+      {
+        "type": "improve",
+        "change": {
+          "en": "New top tool rail: one page per tool (IP dossier, connectivity, WebRTC, DNS leak, speed, latency, service status, Whois, all tools), reachable in one click with short labels on phones",
+          "zh": "全新的顶部工具栏：每个工具一页（IP 档案、网络连通性、WebRTC、DNS 泄露、网速、全球延迟、服务状态、Whois、全部工具），一键直达，手机端使用精简标签",
+          "zh-TW": "全新的頂部工具列：每個工具一頁（IP 檔案、網路連通性、WebRTC、DNS 洩漏、網速、全球延遲、服務狀態、Whois、全部工具），一鍵直達，手機端使用精簡標籤",
+          "fr": "Nouvelle barre d'outils en haut : un outil par page (dossier IP, connectivité, WebRTC, fuite DNS, vitesse, latence, état des services, Whois, tous les outils), accessible en un clic, avec des libellés courts sur mobile",
+          "ru": "Новая панель инструментов сверху: по странице на каждый инструмент (досье IP, подключение, WebRTC, утечки DNS, скорость, задержка, состояние сервисов, Whois, все инструменты) — переход в один клик, на телефоне короткие подписи",
+          "pt-BR": "Nova barra de ferramentas no topo: uma página por ferramenta (dossiê de IP, conectividade, WebRTC, vazamento de DNS, velocidade, latência, status dos serviços, Whois, todas as ferramentas) em um clique, com rótulos curtos no celular"
+        }
       }
     ]
   }

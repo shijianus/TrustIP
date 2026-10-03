@@ -16,7 +16,31 @@ Roughly one handler file per route: IP-geolocation sources (`ipinfo-io` /
 `maxmind`), tool backends (`get-whois` / `dns-resolver` / `mac-checker` /
 `cf-radar` / `asn-history` / `asn-connectivity` /
 `ooni-blocking` / `globalping-probes` / `service-status` / `google-map` /
-`github-stars` / `invisibility-test` / `dns-leak-test` / `persona`), user
+`github-stars` / `invisibility-test` / `dns-leak-test` / `persona` /
+`trust-score` / `ip-dossier`).
+
+### Trust score and dossier
+
+`trust-score` answers one question about one address; `ip-dossier` answers the
+whole IP page in one request. Neither is a handler-shaped upstream proxy: the
+logic lives in `common/trust-score.js` (pure — classification and arithmetic, no
+I/O, fully unit-tested with literals) and `common/trust-signals.js` /
+`common/ip-dossier.js` (the gathering). The handler files stay thin shells.
+
+Consequences worth knowing before touching this pair:
+
+- Everything is key-free by design — public registries, DoH, RIPEstat, and the
+  CAIDA snapshots already on disk. No `requiredEnv`, so both work on a blank
+  `.env`.
+- One visitor request fans out into ~6 registry reads, so each route carries its
+  own tight per-IP limiter plus `cacheable(24 * 60 * 60)`. Do not remove either:
+  RIPEstat's fair use is about one request per second per `sourceapp`.
+- Nothing connects to the queried address. Active probing would turn the
+  endpoint into an amplification vector and would let the target shape the
+  answer.
+- A signal that cannot be measured is reported as such, never as a pass. The
+  engine's `GAPS` / the dossier's `SLOTS` are the contract the UI renders
+  against; a section that silently disappears is a bug, not a simplification., user
 proxies (`get-user-info` / `update-user-achievement`), platform
 (`configs` / `sentry-tunnel` / `share-report`). Each file's header comment
 states its route and purpose — read those for specifics.

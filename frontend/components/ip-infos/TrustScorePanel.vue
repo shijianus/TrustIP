@@ -111,6 +111,7 @@ import {
     TriangleAlert, RotateCw,
 } from '@lucide/vue';
 import { fetchWithTimeout } from '@/utils/fetch-with-timeout.js';
+import { formatIsoDate } from '@/utils/time-utils.js';
 import { useStatusTone } from '@/composables/use-status-tone.js';
 import Button from '@/components/ui/button/Button.vue';
 import SectionTitle from '@/components/widgets/SectionTitle.vue';
@@ -125,7 +126,7 @@ const props = defineProps({
     geo: { type: Object, default: null },
 });
 
-const { t, te } = useI18n();
+const { t, te, locale } = useI18n();
 const { chipClass } = useStatusTone();
 
 const ICONS = {
@@ -191,10 +192,21 @@ const chipTone = (signal) => ({
 // contradicting verdict.
 const evidenceOf = (signal) => {
     if (signal.state === 'unknown') return '';
-    if (signal.matched) return signal.matched;
+    if (signal.matched) return formatEvidence(signal.id, signal.matched);
     const detail = signal.detail;
     if (!detail || detail === 'not-applicable' || detail === 'unknown') return '';
     return softT(`trustip.value.${detail}`, detail);
+};
+
+// The engine reports the literal registry string it read, which for an
+// allocation date is an RIR timestamp. Evidence has to stay checkable, so the
+// value is reformatted rather than replaced — same date, visitor's calendar.
+const formatEvidence = (id, value) => {
+    if (id === 'allocationAge') {
+        const match = /^\d{4}-\d{2}-\d{2}/.exec(value);
+        return match ? formatIsoDate(match[0], locale.value) : value;
+    }
+    return value;
 };
 
 async function run() {

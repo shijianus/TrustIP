@@ -41,6 +41,7 @@ import macChecker from './api/mac-checker.js';
 import githubStarsHandler from './api/github-stars.js';
 import personaEvaluateHandler from './api/persona.js';
 import trustScoreHandler from './api/trust-score.js';
+import ipDossierHandler from './api/ip-dossier.js';
 // User
 import validateConfigs from './api/configs.js';
 import getUserinfo from './api/get-user-info.js';
@@ -292,6 +293,16 @@ const trustScoreLimiter = rateLimit({
     message: 'Too Many Requests',
 });
 app.get('/api/trustscore', requirePublicIP(), trustScoreLimiter, cacheable(24 * 60 * 60), trustScoreHandler);
+// The IP page's single request. Same fan-out concern as /api/trustscore, one
+// step worse: it answers the registry evidence plus two extra geolocation
+// sources, so it gets its own budget rather than sharing the smaller one and
+// starving the endpoint the home page depends on.
+const dossierLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 10,
+    message: 'Too Many Requests',
+});
+app.get('/api/dossier', requirePublicIP(), dossierLimiter, cacheable(24 * 60 * 60), ipDossierHandler);
 // Long Cache
 app.get('/api/map', cacheable(ONE_YEAR_CACHE), mapHandler);
 // Non-cacheable routes — auth-context, debug tools, or per-request lookups.

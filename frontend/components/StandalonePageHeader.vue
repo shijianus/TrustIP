@@ -1,12 +1,13 @@
 <template>
-  <!-- Slim sticky header shared by the standalone pages (/tools/:slug,
-       /privacy, /r/:id). Brand → home, an optional breadcrumb title, and a
-       back-to-home button. This is NOT the homepage nav (Nav.vue) — that one
-       carries the full navigation, user menu, mobile drawer, and hides on
-       scroll; this one stays pinned. It carries the iOS safe-area inset itself
-       (body.jn-standalone-page in index.html reserves nothing), so when sticky
-       pins it at the viewport top the row sits below the Dynamic Island and
-       the blurred background paints the status-bar strip. -->
+  <!-- Slim sticky header shared by the standalone pages (/tools/:slug, the rail
+       pages, /privacy, /r/:id). Brand → home, an optional breadcrumb title, a
+       back-to-home button, and the route rail for pages that opt in. This is NOT
+       the homepage nav (Nav.vue) — that one carries the full navigation, user
+       menu, mobile drawer, and hides on scroll; this one stays pinned. It carries
+       the iOS safe-area inset itself (body.jn-standalone-page in index.html
+       reserves nothing), so when sticky pins it at the viewport top the row sits
+       below the Dynamic Island and the blurred background paints the status-bar
+       strip. -->
   <header class="sticky top-0 z-40 border-b bg-background/80 supports-[backdrop-filter:blur(0px)]:bg-background/60 backdrop-blur pt-[env(safe-area-inset-top)]">
     <div class="mx-auto flex w-full max-w-[1600px] items-center gap-2 px-4 h-14">
       <RouterLink to="/"
@@ -34,6 +35,11 @@
         </RouterLink>
       </Button>
     </div>
+    <!-- The route rail, for the pages that are part of it. A page opts in —
+         /privacy and a shared report (/r/:id) are documents, not tools, and
+         offering a tool picker on them would invite a click that loses the
+         visitor's place. -->
+    <NavRail v-if="rail" />
   </header>
 </template>
 
@@ -42,6 +48,7 @@
 // `title` (already localized by the caller); everything else is fixed chrome.
 import { useI18n } from 'vue-i18n';
 import BrandWordmark from '@/components/widgets/BrandWordmark.vue';
+import NavRail from '@/components/NavRail.vue';
 import { ArrowLeft } from '@lucide/vue';
 import { Button } from '@/components/ui/button';
 
@@ -49,6 +56,8 @@ defineProps({
     // Breadcrumb text shown after the brand (e.g. "🌐 MTR Test" or "Privacy").
     // Empty string renders just the brand + back button.
     title: { type: String, default: '' },
+    // Render the rail row below the brand row (default off — see above).
+    rail: { type: Boolean, default: false },
 });
 
 const { t } = useI18n();

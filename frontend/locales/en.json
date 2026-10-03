@@ -352,6 +352,32 @@
     "DocsSignInTitle": "Sign In Required",
     "DocsSignInMessage": "Sign in to ask IPilot"
   },
+  "rail": {
+    "full": {
+      "home": "My IP",
+      "ip": "IP Dossier",
+      "link": "Network Connectivity",
+      "webrtc": "WebRTC Leak Test",
+      "dns": "DNS Leak Test",
+      "speedtest": "Speed Test",
+      "ping": "Global Latency",
+      "status": "Service Status",
+      "whois": "Whois Lookup",
+      "tools": "Advanced Tools"
+    },
+    "short": {
+      "home": "My IP",
+      "ip": "Dossier",
+      "link": "Reach",
+      "webrtc": "WebRTC",
+      "dns": "DNS",
+      "speedtest": "Speed",
+      "ping": "Ping",
+      "status": "Status",
+      "whois": "Whois",
+      "tools": "Tools"
+    }
+  },
   "securitychecklist": {
     "Title": "Security Checklist",
     "Note": "This is a very comprehensive cybersecurity checklist covering aspects such as password security, browsing security, and mobile device security. In the current environment, information leaks can lead to significant losses, thus it is necessary to ensure that we protect our privacy and enhance the security of our access while connected to the internet.",
@@ -1813,5 +1839,129 @@
   "pwa": {
     "appDescription": "All in one IP Toolbox",
     "installDescription": "You've already used TrustMy.IP {count} times — install it as an app for a smoother experience and quicker access."
+  },
+  "dossier": {
+    "title": "IP dossier",
+    "subtitle": "Everything this instance can establish about one address, and what it cannot.",
+    "placeholder": "e.g. 8.8.8.8 or 2606:4700:4700::1111",
+    "go": "Look up",
+    "hint": "Enter an address above, or open this page without one to see your own.",
+    "retry": "Try again",
+    "failed": "The dossier could not be assembled. The registry sources may be slow or unreachable.",
+    "usage": {
+      "title": "Usage and type",
+      "class": "Network class",
+      "anycast": "Public resolver",
+      "anycastYes": "Yes — location is a point of presence",
+      "anycastNo": "No",
+      "provider": "Operator",
+      "allocation": "Allocation",
+      "rirStatus": "Registry status",
+      "humanBot": "Human / bot traffic"
+    },
+    "asn": {
+      "title": "ASN and operator",
+      "asn": "ASN",
+      "org": "Organisation",
+      "country": "Registered in",
+      "registered": "Allocation registered",
+      "customers": "Networks buying transit",
+      "tier1": "Tier 1",
+      "tier1Yes": "Tier 1",
+      "tier1No": "Not tier 1"
+    },
+    "technical": {
+      "title": "Technical",
+      "public": "Publicly routable",
+      "publicYes": "Yes",
+      "rdns": "Reverse DNS",
+      "ports": "Open ports",
+      "prefix": "Announced prefixes"
+    },
+    "threat": {
+      "title": "Threat indicators",
+      "abuse": "abuse history",
+      "honeypot": "honeypot hits",
+      "needs": "an abuse-intelligence feed; open registries carry no per-address abuse history",
+      "rpki": "RPKI state"
+    },
+    "deep": {
+      "title": "Deep risk check",
+      "note": "VPN, proxy, Tor exit and crawler membership are not established here.",
+      "needs": "a paid anonymity feed. Blocklist lookups were tried and dropped: an intercepting resolver answers every query with a hit, which accuses an address without evidence"
+    },
+    "latency": {
+      "title": "Global latency",
+      "note": "Round-trip times from networks around the world are measured on the latency page, which owns the probes.",
+      "cta": "Run for this address"
+    },
+    "heat": {
+      "title": "Prefix activity",
+      "note": "Nothing is recorded per prefix on this instance, so there is no trend to draw.",
+      "needs": "a local observation store that keeps a daily count per /24"
+    },
+    "map": {
+      "title": "Location",
+      "none": "No source returned coordinates.",
+      "from": "Coordinates from {source}"
+    },
+    "geo": {
+      "title": "Geolocation, source by source",
+      "none": "No geolocation source answered.",
+      "map": "Open in Google Maps",
+      "noCoords": "At most one source returned coordinates, so the spread between them cannot be measured.",
+      "consensus": "Consensus: {place}. The sources disagree by up to {km} km — an address's city is an estimate several vendors make differently.",
+      "agreeing": "Agreeing",
+      "diverging": "Diverging",
+      "single-fix": "One fix",
+      "single-source": "Single source",
+      "agree": "Consensus: {place}. Every source that returned coordinates put the address within 100 km of the same point."
+    },
+    "related": {
+      "title": "Related domains",
+      "note": "Domains resolving back to this address are not enumerated here.",
+      "needs": "reverse DNS sweeping across the containing prefix, which is active scanning of third-party address space"
+    },
+    "history": {
+      "title": "Location history",
+      "note": "Where this address has appeared over time is not tracked.",
+      "needs": "a per-address observation history; the IP history this app keeps is the visitor's own, not the address's"
+    },
+    "topology": {
+      "title": "BGP neighbourhood",
+      "source": "CAIDA snapshot",
+      "noAsn": "No ASN was resolved for this address.",
+      "origin": "This network",
+      "providers": "Upstream (transit)",
+      "peers": "Peers",
+      "noProviders": "No upstream recorded — this network is self-transiting.",
+      "noPeers": "No settlement-free peers recorded.",
+      "legend": "A blue badge marks a Tier 1, which has no upstream by definition. The trailing number is how many networks buy transit from that one. Edge widths would need a looking-glass view of who carries the prefix, which is not queried.",
+      "unknownOrg": "Unlisted in the snapshot",
+      "customersTip": "ASes buying transit from this network"
+    },
+    "blocklists": {
+      "title": "Blocklists",
+      "note": "No blocklist is queried.",
+      "needs": "a recursive resolver that answers DNSBL queries truthfully; public resolvers refuse or fabricate"
+    },
+    "colocated": {
+      "title": "Same facility",
+      "note": "Other customers of this datacenter are not listed.",
+      "needs": "a datacenter-to-customer directory"
+    },
+    "cross": {
+      "title": "Cross-check elsewhere",
+      "link": "Open"
+    },
+    "slot": {
+      "missing": "Not shown here:",
+      "needs": "To fill this in:",
+      "badge": {
+        "placeholder": "Not measured",
+        "delegated": "On another page",
+        "partial": "Partly measured"
+      }
+    }
   }
 }

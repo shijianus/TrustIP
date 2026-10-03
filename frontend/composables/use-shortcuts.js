@@ -27,7 +27,7 @@ import { trackEvent } from '../utils/analytics.js';
 import { emitAppEvent } from '../utils/app-events.js';
 import { dispatchAppCommand } from '../utils/app-commands.js';
 import { registerShortcuts, keyMap, navigateCards } from '../utils/shortcut.js';
-import { scrollToElement } from '../utils/scroll-to.js';
+import { scrollToElement, HEADER_HEIGHT } from '../utils/scroll-to.js';
 import { hasPulseBackend } from '../utils/pulse-beacon.js';
 
 // A shortcut only kicks the run off — completion is the owner's business —
@@ -37,6 +37,13 @@ const runCommand = (name, payload) => {
         console.warn(`[shortcuts] ${name} failed:`, error);
     });
 };
+
+// Scrolling targets sit under the fixed header (brand row + route rail), so
+// every one of them clears HEADER_HEIGHT first. Two values, because a section
+// heading wants more air than a card: 24px and 14px respectively, the same
+// breathing room these targets had under the single-row nav.
+const SECTION_OFFSET = HEADER_HEIGHT + 24;
+const CARD_OFFSET = HEADER_HEIGHT + 14;
 
 const buildShortcutConfig = ({ refs, store, t, configs, userPreferences }) => {
     const {
@@ -49,7 +56,7 @@ const buildShortcutConfig = ({ refs, store, t, configs, userPreferences }) => {
     } = refs;
 
     const goToAdvancedTool = (slug, trackName) => {
-        scrollToElement('AdvancedTools', 80);
+        scrollToElement('AdvancedTools', SECTION_OFFSET);
         advancedToolsRef.value.openTool(slug);
         trackEvent('Nav', 'NavClick', trackName);
     };
@@ -120,7 +127,7 @@ const buildShortcutConfig = ({ refs, store, t, configs, userPreferences }) => {
             type: 'regex',
             action: (num) => {
                 if (num > userPreferences.value.ipCardsToShow) return;
-                scrollToElement('IPInfoCard-' + num, 70);
+                scrollToElement('IPInfoCard-' + num, CARD_OFFSET);
                 runCommand('ipinfo:refresh', { index: num - 1 });
                 trackEvent('ShortCut', 'ShortCut', 'IPCheck');
             },
@@ -129,7 +136,7 @@ const buildShortcutConfig = ({ refs, store, t, configs, userPreferences }) => {
         {
             keys: 'c',
             action: () => {
-                scrollToElement('Connectivity', 80);
+                scrollToElement('Connectivity', SECTION_OFFSET);
                 runCommand('connectivity:run', { trigger: 'manual' });
                 trackEvent('ShortCut', 'ShortCut', 'Connectivity');
             },
@@ -138,7 +145,7 @@ const buildShortcutConfig = ({ refs, store, t, configs, userPreferences }) => {
         {
             keys: 'w',
             action: () => {
-                scrollToElement('WebRTC', 80);
+                scrollToElement('WebRTC', SECTION_OFFSET);
                 runCommand('webrtc:run', { isRefresh: false });
                 trackEvent('ShortCut', 'ShortCut', 'WebRTC');
             },
@@ -147,7 +154,7 @@ const buildShortcutConfig = ({ refs, store, t, configs, userPreferences }) => {
         {
             keys: 'd',
             action: () => {
-                scrollToElement('DNSLeakTest', 80);
+                scrollToElement('DNSLeakTest', SECTION_OFFSET);
                 runCommand('dnsleak:run', { isRefresh: true });
                 trackEvent('ShortCut', 'ShortCut', 'DNSLeakTest');
             },
@@ -156,7 +163,7 @@ const buildShortcutConfig = ({ refs, store, t, configs, userPreferences }) => {
         {
             keys: 's',
             action: () => {
-                scrollToElement('SpeedTest', 80);
+                scrollToElement('SpeedTest', SECTION_OFFSET);
                 runCommand('speedtest:toggle');
                 trackEvent('ShortCut', 'ShortCut', 'SpeedTest');
             },

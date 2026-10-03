@@ -1,16 +1,17 @@
 <template>
   <!-- Standalone page for a single advanced tool, reached at /tools/:slug
-       (new-window / shareable / crawlable). Renders the exact same tool
-       component the drawer does, just inside a minimal page chrome instead of
-       the homepage + drawer. -->
+       (new-window / shareable / crawlable) or at the rail's short alias of it
+       (`/ping`, `/status`, `/whois`). Renders the exact same tool component
+       the drawer does, just inside a minimal page chrome instead of the
+       homepage + drawer. -->
   <div class="flex min-h-screen flex-col">
     <!-- User system dialogs host (Benefits & Usage) — the sign-in gated tools
          link to it from their quota hints, and it fetches the user's usage
          snapshot so their frontend quota gate works here too. -->
     <User />
 
-    <!-- Slim header: brand → home, current tool breadcrumb, back link. -->
-    <StandalonePageHeader :title="tool ? `${tool.emoji} ${t(tool.titleKey)}` : ''" />
+    <!-- Slim header: brand → home, current tool breadcrumb, back link, rail. -->
+    <StandalonePageHeader :title="tool ? `${tool.emoji} ${t(tool.titleKey)}` : ''" rail />
 
     <!-- Content: an <h1> for the tool (SEO), then the tool body itself -->
     <main class="flex-1">
@@ -44,7 +45,12 @@ const router = useRouter();
 
 // noStandalone tools are blacklisted from this page entirely — they depend on
 // homepage state, so the drawer on the homepage is their only home.
-const registered = TOOL_BY_SLUG.get(route.params.slug) || null;
+//
+// The slug arrives either from the path (`/tools/:slug`) or from `meta.tool`
+// (the rail's short alias, e.g. `/ping` → `pingtest` — see data/rail.js and
+// router/index.js). The alias is the same route record, so nothing else here
+// branches on which form the visitor used.
+const registered = TOOL_BY_SLUG.get(route.params.slug ?? route.meta.tool) || null;
 const tool = computed(() => (registered && !registered.noStandalone ? registered : null));
 
 // The skeleton covers the chunk download — same treatment as the homepage

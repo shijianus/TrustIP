@@ -22,6 +22,27 @@ frontend/
 
 Every file opens with a header comment stating its purpose — read those.
 
+## Routing
+
+The rail at the top of every page is generated, not hand-written: `data/rail.js`
+is the single registry of destinations and `router/index.js` builds one route per
+entry that is backed by a dashboard section or an advanced tool. Add a rail item
+there and the route, the header row and the standalone-chrome flag follow;
+adding a `<router-link>` by hand is how the row and the table disagree.
+
+- `/` renders `Home.vue` with the fixed `Nav` and every section inline. The
+  section components are shared with their own pages, so a section change lands
+  on both halves in one build rather than in a copied file.
+- `/<section>` renders one section in standalone chrome (`StandaloneSection`).
+- `/<tool alias>` renders an existing `/tools/:slug` page under a short path;
+  the canonical stays on `/tools/<slug>`, which is what makes the alias safe.
+- `/ip` and `/ip/:ip` render the dossier (`components/dossier/IpDossier.vue`).
+  It is the one rail entry with neither `section` nor `tool`, so its route is
+  written out and its name is added to `App.vue`'s standalone set by hand.
+
+`/#<SectionId>` stays Home's own concern — the router returns `false` for it so
+the dashboard's hash composable owns the timing.
+
 ## Conventions
 
 - **Composition API** everywhere; no Options API. Alias `@` → `frontend/`.
