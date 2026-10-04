@@ -24,7 +24,12 @@
             </div>
 
             <div class="overflow-x-auto">
-                <table class="w-full table-fixed border-collapse text-sm">
+                <!-- A fixed four-column table cannot fit a phone, and letting it
+                     try makes the IP column overflow into the geolocation one.
+                     The minimum keeps every column's proportion and lets the
+                     card scroll instead — the alignment down the IP column is
+                     the whole point of a table, so it is not what gets dropped. -->
+                <table class="w-full min-w-[620px] table-fixed border-collapse text-sm">
                     <thead>
                         <tr class="border-b text-left text-xs text-muted-foreground">
                             <th class="w-[38%] px-4 py-2.5 font-medium">{{ t('home.split.colSite') }}</th>
@@ -69,7 +74,15 @@
                             </td>
                             <td class="px-4 py-2.5">
                                 <span class="block truncate text-[13px] text-muted-foreground" :title="geoLine(row)">
-                                    {{ geoLine(row) || (row.state === 'pending' ? '…' : t('home.split.unknown')) }}
+                                    <template v-if="geoLine(row)">{{ geoLine(row) }}</template>
+                                    <span v-else-if="row.state === 'pending'" class="jn-queued">{{ t('home.split.waiting') }}</span>
+                                    <!-- An answered row whose geolocation has not
+                                         landed is still in flight, not unknown.
+                                         Saying 未知 here would blame the
+                                         destination for a lookup that has not
+                                         come back yet. -->
+                                    <span v-else-if="running" class="jn-queued">{{ t('home.split.waiting') }}</span>
+                                    <template v-else>{{ t('home.split.unknown') }}</template>
                                 </span>
                             </td>
                         </tr>

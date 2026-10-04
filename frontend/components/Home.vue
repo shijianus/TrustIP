@@ -14,7 +14,7 @@
       <SiteSplitTest
         :rows="splitRows"
         :geolocations="splitGeos"
-        :running="splitRunning"
+        :running="splitRunning || splitLocating > 0"
         @run="runSplit" />
       <IPCheck />
       <Connectivity />
@@ -123,7 +123,7 @@ const geoLookup = async (ip) => {
 };
 
 const {
-    rows: splitRows, geolocations: splitGeos, running: splitRunning, run: runSplit,
+    rows: splitRows, geolocations: splitGeos, running: splitRunning, locating: splitLocating, run: runSplit,
 } = useSiteSplit({ sites: SPLIT_SITES, geoLookup });
 
 const egressIps = computed(() => [...new Set(splitRows.value.filter((r) => r.ip).map((r) => r.ip))]);

@@ -79,21 +79,35 @@ export function useSiteSplit({ sites, geoLookup } = {}) {
     let cancelled = false;
     let inflight = null;
 
-    // One lookup per distinct egress address, not per row — a split network
-    // answers forty-four destinations with two addresses, and asking twice for
-    // either is forty-two wasted requests.
-    const locate = async (ips) => {
-        const missing = ips.filter((ip) => ip && !geolocations.value[ip] && !cancelled);
-        await pooled(missing, async (ip) => {
-            try {
-                return [ip, await geoLookup(ip)];
-            } catch {
-                return [ip, null];
-            }
-        }, (_i, [ip, geo]) => {
-            if (cancelled) return;
-            geolocations.value = { ...geolocations.value, [ip]: geo };
-        }, CONCURRENCY);
+    // One lookup per distinct egress address, fired the moment that address is
+    // first seen rather than batched after every destination has answered. A
+    // split network produces two or three exits out of forty-four rows, so this
+    // is two or three requests — and batching them to the end meant the
+    // Geolocation column sat empty until the slowest destination in the list
+    // replied, which reads as "this site reports nothing" when the truth is
+    // "we have not looked yet".
+    const pendingLookups = new Set();
+    // Reactive mirror of the set's size: the table needs to know that an
+    // answered row may still be waiting on its geolocation, which is a
+    // different state from "the destination reports nothing".
+    const locating = ref(0);
+    const locate = (ip) => {
+        if (!ip || cancelled || geolocations.value[ip] || pendingLookups.has(ip)) return;
+        pendingLookups.add(ip);
+        locating.value = pendingLookups.size;
+        geoLookup(ip)
+            .then((geo) => {
+                if (!cancelled) geolocations.value = { ...geolocations.value, [ip]: geo };
+            })
+            .catch(() => {
+                // Absent, not false: a row with no geo says so rather than
+                // showing an address that looks like it was never resolved.
+                if (!cancelled) geolocations.value = { ...geolocations.value, [ip]: null };
+            })
+            .finally(() => {
+                pendingLookups.delete(ip);
+                locating.value = pendingLookups.size;
+            });
     };
 
     const run = async () => {
@@ -103,16 +117,13 @@ export function useSiteSplit({ sites, geoLookup } = {}) {
         done.value = false;
         const current = rows.value.map((r) => ({ ...r, state: 'pending' }));
         rows.value = current;
-        const seen = new Set();
 
-        inflight = pooled(current, (row) => traceOne(row.host), async (i, result) => {
+        inflight = pooled(current, (row) => traceOne(row.host), (i, result) => {
             if (cancelled) return;
             current[i] = { ...current[i], ...result };
             rows.value = [...current];
-            if (result.state === 'ok') seen.add(result.ip);
-        }, CONCURRENCY).then(async () => {
-            if (cancelled) return;
-            await locate([...seen]);
+            if (result.state === 'ok') locate(result.ip);
+        }, CONCURRENCY).then(() => {
             if (cancelled) return;
             running.value = false;
             done.value = true;
@@ -125,11 +136,12 @@ export function useSiteSplit({ sites, geoLookup } = {}) {
         cancelled = true;
         running.value = false;
         inflight = null;
+        pendingLookups.clear();
     };
 
     onScopeDispose(cancel);
 
-    return { rows, geolocations, running, done, run, cancel };
+    return { rows, geolocations, running, locating, done, run, cancel };
 }
 
 export { parseTrace };

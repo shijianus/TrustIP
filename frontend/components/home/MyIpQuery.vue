@@ -60,7 +60,12 @@
                                 {{ t('home.query.viewMore') }}
                             </RouterLink>
                         </div>
-                        <div class="grid grid-cols-2 gap-2 md:grid-cols-3">
+                        <!-- One column on a phone: two made every cell ~170px,
+                             and after the monogram and the figure that left
+                             about four characters of name — "Te…" is not a
+                             label. A taller strip that reads is worth more
+                             than a compact one that has to be guessed. -->
+                        <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3">
                             <div
                                 v-for="probe in probes" :key="probe.host"
                                 class="flex items-center gap-2 rounded-lg border px-2.5 py-2">
@@ -73,7 +78,7 @@
                                             :icon="'circle-flags:' + probe.country.toLowerCase()"
                                             class="size-3.5 shrink-0 rounded-[1px]" />
                                     </div>
-                                    <div class="mt-1 flex items-center gap-[3px]" :aria-label="t('home.query.samples')">
+                                    <div class="mt-1 flex min-w-0 items-center gap-[3px] overflow-hidden" :aria-label="t('home.query.samples')">
                                         <span
                                             v-for="(dot, i) in probe.dots" :key="i"
                                             class="h-1.5 w-1.5 shrink-0 rounded-full"
