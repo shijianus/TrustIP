@@ -1892,8 +1892,25 @@
     },
     "latency": {
       "title": "Latence mondiale",
-      "note": "Les temps d'aller-retour depuis les réseaux du monde entier sont mesurés sur la page de latence, qui possède les sondes.",
-      "cta": "Lancer pour cette adresse"
+      "note": "Une sonde de datacenter fixe par région, six paquets chacun ; seul le trajet aller-retour le plus rapide de chaque série est affiché.",
+      "cta": "Lancer pour cette adresse",
+      "matrixTitle": "Latence mondiale vers cette adresse",
+      "queued": "en file",
+      "ok": "aucune donnée",
+      "timeout": "expiré",
+      "failed": "échec",
+      "pending": "en file",
+      "unsupported": "non mesuré",
+      "v6Unsupported": "IPv6 non sondé",
+      "v6Note": "Le réseau de sondes ne répond pas pour les cibles IPv6 dans cette version.",
+      "others": "{n} autres sources",
+      "needs": "un réseau de sondes externe placé dans chaque région, plus un jeton d’API pour réserver son quota",
+      "run": "Mesurer depuis 8 régions",
+      "runAgain": "Mesurer à nouveau",
+      "measuring": "Sondage en cours…",
+      "cost": "Le trafic de sondes est émis par votre navigateur et décompté de votre propre quota horaire Globalping : rien ne part de ce serveur.",
+      "runFailed": "Le réseau de sondes n’a pas répondu.",
+      "experimental": "Globalping qualifie encore les cibles IPv6 d’expérimentales : prenez ces chiffres comme indicatifs."
     },
     "heat": {
       "title": "Activité du préfixe",
@@ -1903,7 +1920,11 @@
     "map": {
       "title": "Localisation",
       "none": "Aucune source n'a renvoyé de coordonnées.",
-      "from": "Coordonnées issues de {source}"
+      "from": "Coordonnées issues de {source}",
+      "panelTitle": "Localisation",
+      "primary": "Position principale · {source}",
+      "others": "{n} autres",
+      "aria": "Position de {place} sur une grille de coordonnées"
     },
     "geo": {
       "title": "Géolocalisation, source par source",
@@ -1936,9 +1957,11 @@
       "peers": "Pairs",
       "noProviders": "Aucun amont enregistré — ce réseau s'autofournit.",
       "noPeers": "Aucun pair sans facturation enregistré.",
-      "legend": "Un badge bleu marque une Tier 1, qui par définition n'a pas d'amont. Le nombre final est le nombre de réseaux achetant du transit à celui-ci. L'épaisseur des liens exigerait une vue depuis un regard d'observatoire sur qui porte le préfixe, que nous ne consultons pas.",
+      "legend": "Un cadre bleu marque une réseau de niveau 1, qui n’a pas amont par définition ; un cadre pointillé est un pair sans facturation, et non un fournisseur de transit payant. Le nombre à droite compte les réseaux achetant du transit à celui-ci. Des traits d’épaisseur variable exigeraient une vue « looking glass » de qui porte le préfixe, que nous n’interrogeons pas.",
       "unknownOrg": "Absent de l'instantané",
-      "customersTip": "ASN achetant du transit à ce réseau"
+      "customersTip": "ASN achetant du transit à ce réseau",
+      "secondHop": "Deuxième saut",
+      "noSecondHop": "Ses amonts sont tous de niveau 1 — rien au-dessus."
     },
     "blocklists": {
       "title": "Listes de blocage",
@@ -1961,7 +1984,78 @@
         "placeholder": "Non mesuré",
         "delegated": "Sur une autre page",
         "partial": "Partiellement mesuré"
-      }
+      },
+      "vpntraceNote": "L'appartenance de cette adresse à un service VPN n'est pas établie ici.",
+      "vpntraceNeeds": "un annuaire commercial de sorties VPN ; aucune source publique fiable ne les énumère",
+      "companyHistoryNote": "L'évolution de l'organisation enregistrée pour ce bloc n'est pas suivie.",
+      "companyHistoryNeeds": "un jeu d'historique d'enregistrement ; RDAP du RIR ne répond que pour l'objet courant"
+    },
+    "gauge": {
+      "low": "risque",
+      "high": "confiance"
+    },
+    "anycast": {
+      "title": "Service public anycast",
+      "note": "Cette adresse appartient à un résolveur public. Sa géolocalisation est le point de présence qui vous a été attribué, non le lieu d'exécution du service ; les sections position, historique et colocataires décrivent donc cette bordure, pas l'opérateur."
+    },
+    "sec": {
+      "usage": "Usage et type",
+      "asn": "ASN et opérateur",
+      "technical": "Indicateurs techniques",
+      "threat": "Renseignements de menace",
+      "deep": "Contrôle de risque approfondi",
+      "vpntrace": "Traçabilité VPN",
+      "heat": "Activité du préfixe",
+      "related": "Domaines associés",
+      "locationHistory": "Historique de localisation",
+      "neighbours": "Activité du même site",
+      "blocklists": "Listes de blocage",
+      "asnHistory": "Historique de l'ASN",
+      "companyHistory": "Historique sociétaire",
+      "colocated": "Fournisseurs et clients du même site",
+      "actions": "Continuer dans cette application"
+    },
+    "row": {
+      "native": "Allocation native",
+      "nativeYes": "IP native",
+      "nativeNo": "IP diffusée (enregistrée ailleurs)",
+      "tags": "Marqueurs",
+      "ispType": "Type d'opérateur",
+      "humanBot": "Trafic humain / robot",
+      "scene": "Évaluation de scénario",
+      "asnOrg": "Organisation de l'ASN",
+      "company": "Entreprise",
+      "provider": "Fournisseur",
+      "asn": "ASN",
+      "asnKind": "Type déclaré par l'ASN",
+      "asnSize": "Total IPv4 de l'ASN",
+      "bandwidth": "Bande passante estimée",
+      "registered": "Allocation enregistrée le",
+      "cidr": "CIDR de l'allocation",
+      "bogon": "Bogon / diffusion",
+      "bogonNo": "Non (joignable)",
+      "rdns": "DNS inverse",
+      "ports": "Ports ouverts",
+      "announce": "Préfixes annoncés",
+      "riskFlags": "Marqueurs de risque",
+      "abuseLevel": "Niveau d'abus",
+      "honeypot": "Honeypot HTTP",
+      "rpki": "État RPKI",
+      "vpn": "VPN",
+      "proxy": "Proxy",
+      "tor": "Tor",
+      "crawler": "Robot / rastilleur"
+    },
+    "asnHistory": {
+      "empty": "Aucun historique d'annonce pour l'instant.",
+      "failed": "Le registre de routage n’a pas répondu à temps pour ce préfixe.",
+      "note": "Triées selon la proximité de chaque annonce avec ce bloc, puis par ancienneté. Le préfixe final est ce que ce réseau a réellement annoncé."
+    },
+    "act": {
+      "dnsleak": "Test de fuite DNS",
+      "webrtc": "Test de fuite WebRTC",
+      "ping": "Ping mondial",
+      "whois": "Recherche Whois"
     }
   }
 }

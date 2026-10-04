@@ -1,6 +1,6 @@
 <template>
     <div class="flex items-baseline justify-between gap-4 py-1.5" :class="wide ? 'min-w-0' : ''">
-        <dt class="shrink-0 font-normal text-muted-foreground">
+        <dt class="min-w-0 font-normal text-muted-foreground">
             <slot name="label">{{ label }}</slot>
         </dt>
         <dd
@@ -27,6 +27,11 @@
 // Dividers belong to the group, not the row: put these inside
 // `<dl class="divide-y divide-dashed divide-border">` and the last row loses
 // its rule automatically.
+//
+// Neither half carries `shrink-0`. A flex item that refuses to shrink falls
+// back to its max-content width, so a two-word label would hold the row open
+// past a phone's screen and push the whole card sideways; both sides are free
+// to wrap instead, which costs a line on narrow screens and nothing on wide.
 //
 // `wide` trades weight for room — a value that can be arbitrarily long (an
 // ISP name, a PTR, a CIDR list) ellipsises instead of pushing the row open, and

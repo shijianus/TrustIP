@@ -1892,8 +1892,25 @@
     },
     "latency": {
       "title": "全球延遲",
-      "note": "來自全球各網路的往返時延在延遲頁面實測，探測節點由該頁面負責。",
-      "cta": "對該位址執行"
+      "note": "每個區域固定一台資料中心探針，各發六個封包；僅顯示每次量測中最快的一次往返。",
+      "cta": "對該位址執行",
+      "matrixTitle": "全球主要地區至該位址的延遲",
+      "queued": "測試中",
+      "ok": "無資料",
+      "timeout": "逾時",
+      "failed": "失敗",
+      "pending": "測試中",
+      "unsupported": "未測量",
+      "v6Unsupported": "不探測 IPv6",
+      "v6Note": "本構建的探測網路不對 IPv6 目標回傳結果。",
+      "others": "其他來源 {n} 個",
+      "needs": "需要涵蓋各区域的第三方探查網路，以及用於保留配額的量測 API 權杖",
+      "run": "從 8 个地区量测",
+      "runAgain": "重新量测",
+      "measuring": "探查中…",
+      "cost": "探查流量由你的瀏覽器發起，並計入你在 Globalping 的每小時配額；本伺服器不會發出任何探查封包。",
+      "runFailed": "探查網路未回應。",
+      "experimental": "Globalping 仍將 IPv6 目標標記為實驗性，這些數值僅供參考。"
     },
     "heat": {
       "title": "網段活躍度",
@@ -1903,7 +1920,11 @@
     "map": {
       "title": "地圖定位",
       "none": "沒有資料來源回傳經緯度。",
-      "from": "座標來自 {source}"
+      "from": "座標來自 {source}",
+      "panelTitle": "地圖定位",
+      "primary": "主定位 · {source}",
+      "others": "其他 {n} 個",
+      "aria": "{place} 在經緯網格上的位置"
     },
     "geo": {
       "title": "地理位置（多源對比）",
@@ -1936,9 +1957,11 @@
       "peers": "對等",
       "noProviders": "未記錄上游——該網路自帶轉發能力。",
       "noPeers": "未記錄免結算對等。",
-      "legend": "藍色標記為 Tier 1，依定義沒有上游。末尾數字是該網路出售轉發的下游數量。連線粗細需要「誰實際承載該前綴」的看路檢視，本專案不做此類查詢。",
+      "legend": "藍色方框表示 Tier 1，依定義它沒有上游；虛線方框是免結算對等互連，而非付費傳輸。右側數字表示從該網路購買傳輸的自治系統數量。連線粗細需要查看該前綴實際由誰承載的路由反射資料，本實例未查詢。",
       "unknownOrg": "快照中未收錄",
-      "customersTip": "向該網路採購轉發的 AS 數量"
+      "customersTip": "向該網路採購轉發的 AS 數量",
+      "secondHop": "二級上游",
+      "noSecondHop": "其上游全為 Tier 1，再無更上層。"
     },
     "blocklists": {
       "title": "黑名單",
@@ -1961,7 +1984,78 @@
         "placeholder": "未測量",
         "delegated": "見其他分區",
         "partial": "部分已測量"
-      }
+      },
+      "vpntraceNote": "此處不判定該位址是哪個 VPN 服務的出口。",
+      "vpntraceNeeds": "商業 VPN 出口名錄；公開資料無法可靠列舉",
+      "companyHistoryNote": "不追蹤該網段註冊歸屬機構的歷史變更。",
+      "companyHistoryNeeds": "註冊變更資料集；RIR RDAP 只回答當前物件"
+    },
+    "gauge": {
+      "low": "高危",
+      "high": "可信"
+    },
+    "anycast": {
+      "title": "公共任播服務",
+      "note": "該位址屬於公共 DNS 解析服務。其地理位置是您被調度到的服務節點，而非服務實際執行地，因此下方的位置、歷史與同機房分區描述的是該邊緣節點，不是營運方。"
+    },
+    "sec": {
+      "usage": "使用場景 / 類型",
+      "asn": "ASN / 營運商",
+      "technical": "技術指標",
+      "threat": "IP 情報（威脅指標）",
+      "deep": "風險深度檢測",
+      "vpntrace": "VPN 溯源",
+      "heat": "網段熱度趨勢",
+      "related": "關聯網域",
+      "locationHistory": "位置歷史",
+      "neighbours": "同機房 / 客戶活躍",
+      "blocklists": "黑名單",
+      "asnHistory": "ASN 歷史",
+      "companyHistory": "企業歷史",
+      "colocated": "同機房供應商 / 客戶",
+      "actions": "在本應用內繼續"
+    },
+    "row": {
+      "native": "IP 原生性",
+      "nativeYes": "原生 IP",
+      "nativeNo": "廣播 IP（註冊在他地）",
+      "tags": "標記",
+      "ispType": "營運商類型",
+      "humanBot": "人機流量",
+      "scene": "場景評估",
+      "asnOrg": "ASN 歸屬",
+      "company": "企業資訊",
+      "provider": "服務商",
+      "asn": "ASN",
+      "asnKind": "ASN 自報類型",
+      "asnSize": "ASN IPv4 總量",
+      "bandwidth": "預估頻寬",
+      "registered": "網段登記時間",
+      "cidr": "分配 CIDR",
+      "bogon": "Bogon / 廣播",
+      "bogonNo": "否（公網可達）",
+      "rdns": "反向 DNS",
+      "ports": "開啟埠",
+      "announce": "宣告前綴",
+      "riskFlags": "風險標記",
+      "abuseLevel": "濫用等級",
+      "honeypot": "HTTP 蜜罐",
+      "rpki": "RPKI 狀態",
+      "vpn": "VPN",
+      "proxy": "代理 (Proxy)",
+      "tor": "Tor",
+      "crawler": "爬蟲 / 機器人"
+    },
+    "asnHistory": {
+      "empty": "暫無宣告變更記錄。",
+      "failed": "路由註冊庫未在時限內回傳該網段的結果。",
+      "note": "依各次宣告與本網段的吻合程度排序，其次依時間。行末的前綴是該網路實際宣告的範圍。"
+    },
+    "act": {
+      "dnsleak": "DNS 洩漏檢測",
+      "webrtc": "WebRTC 洩漏檢測",
+      "ping": "全球 Ping",
+      "whois": "Whois 查詢"
     }
   }
 }

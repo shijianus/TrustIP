@@ -17,9 +17,9 @@
                 <div
                     v-for="(s, i) in sources"
                     :key="s.id"
-                    class="flex items-baseline justify-between gap-4 border-b border-dashed py-1.5 text-sm last:border-b-0 max-sm:border-b-0"
+                    class="flex min-w-0 items-baseline justify-between gap-4 border-b border-dashed py-1.5 text-sm last:border-b-0 max-sm:border-b-0"
                     :class="{ 'sm:border-b': true }">
-                    <dt class="flex shrink-0 items-center gap-1.5 font-normal text-muted-foreground">
+                    <dt class="flex min-w-0 items-center gap-1.5 font-normal text-muted-foreground">
                         <Icon
                             :icon="'circle-flags:' + (s.country_code || '??').toLowerCase()"
                             class="size-4 shrink-0 rounded-sm" />

@@ -1892,8 +1892,25 @@
     },
     "latency": {
       "title": "Global latency",
-      "note": "Round-trip times from networks around the world are measured on the latency page, which owns the probes.",
-      "cta": "Run for this address"
+      "note": "One fixed datacenter probe per region, six packets each; only the fastest round trip of a run is shown.",
+      "cta": "Run for this address",
+      "matrixTitle": "Global latency to this address",
+      "queued": "queued",
+      "ok": "no data",
+      "timeout": "timeout",
+      "failed": "failed",
+      "pending": "queued",
+      "unsupported": "not measured",
+      "v6Unsupported": "IPv6 not probed",
+      "v6Note": "The probe network does not answer for IPv6 targets on this build.",
+      "others": "{n} other sources",
+      "needs": "an off-host probe network with vantage points in each region, plus a measurement-API token to reserve its quota",
+      "run": "Measure from 8 regions",
+      "runAgain": "Measure again",
+      "measuring": "Probing…",
+      "cost": "Probe traffic is created by your browser and charged against your own hourly quota with Globalping — nothing leaves this server.",
+      "runFailed": "The probe network did not answer.",
+      "experimental": "Globalping still labels IPv6 targets experimental, so treat these figures as indicative."
     },
     "heat": {
       "title": "Prefix activity",
@@ -1903,7 +1920,11 @@
     "map": {
       "title": "Location",
       "none": "No source returned coordinates.",
-      "from": "Coordinates from {source}"
+      "from": "Coordinates from {source}",
+      "panelTitle": "Location",
+      "primary": "Primary fix · {source}",
+      "others": "{n} other",
+      "aria": "Position of {place} on a latitude/longitude grid"
     },
     "geo": {
       "title": "Geolocation, source by source",
@@ -1936,9 +1957,11 @@
       "peers": "Peers",
       "noProviders": "No upstream recorded — this network is self-transiting.",
       "noPeers": "No settlement-free peers recorded.",
-      "legend": "A blue badge marks a Tier 1, which has no upstream by definition. The trailing number is how many networks buy transit from that one. Edge widths would need a looking-glass view of who carries the prefix, which is not queried.",
+      "legend": "A blue box marks a Tier 1, which has no upstream by definition; a dashed box is a settlement-free peer rather than a paid transit provider. The trailing number counts the networks buying transit from that one. Edge widths would need a looking-glass view of who carries the prefix, which is not queried.",
       "unknownOrg": "Unlisted in the snapshot",
-      "customersTip": "ASes buying transit from this network"
+      "customersTip": "ASes buying transit from this network",
+      "secondHop": "Second hop",
+      "noSecondHop": "Its upstreams are all Tier 1 — nothing above them."
     },
     "blocklists": {
       "title": "Blocklists",
@@ -1961,7 +1984,78 @@
         "placeholder": "Not measured",
         "delegated": "On another page",
         "partial": "Partly measured"
-      }
+      },
+      "vpntraceNote": "Which VPN service an address is the exit of is not established here.",
+      "vpntraceNeeds": "a commercial VPN exit directory; nothing public lists them reliably",
+      "companyHistoryNote": "How this block's registered organisation has changed is not tracked.",
+      "companyHistoryNeeds": "a registration-history dataset; RIR RDAP answers only for the current object"
+    },
+    "gauge": {
+      "low": "risk",
+      "high": "trust"
+    },
+    "anycast": {
+      "title": "Public anycast service",
+      "note": "This address belongs to a public resolver. Its geolocation is the point of presence you were routed to, not where the service runs, so the location, history and neighbour sections describe that edge rather than the operator."
+    },
+    "sec": {
+      "usage": "Usage and type",
+      "asn": "ASN and operator",
+      "technical": "Technical",
+      "threat": "Threat indicators",
+      "deep": "Deep risk check",
+      "vpntrace": "VPN traceability",
+      "heat": "Prefix activity",
+      "related": "Related domains",
+      "locationHistory": "Location history",
+      "neighbours": "Same facility activity",
+      "blocklists": "Blocklists",
+      "asnHistory": "ASN history",
+      "companyHistory": "Company history",
+      "colocated": "Same facility providers and customers",
+      "actions": "Continue in this app"
+    },
+    "row": {
+      "native": "Native allocation",
+      "nativeYes": "Native IP",
+      "nativeNo": "Broadcast (registered elsewhere)",
+      "tags": "Tags",
+      "ispType": "Operator type",
+      "humanBot": "Human / bot traffic",
+      "scene": "Scenario assessment",
+      "asnOrg": "ASN organisation",
+      "company": "Company",
+      "provider": "Provider",
+      "asn": "ASN",
+      "asnKind": "ASN declared type",
+      "asnSize": "ASN IPv4 total",
+      "bandwidth": "Estimated bandwidth",
+      "registered": "Allocation registered",
+      "cidr": "Allocation CIDR",
+      "bogon": "Bogon / broadcast",
+      "bogonNo": "No (publicly reachable)",
+      "rdns": "Reverse DNS",
+      "ports": "Open ports",
+      "announce": "Announced prefixes",
+      "riskFlags": "Risk flags",
+      "abuseLevel": "Abuse level",
+      "honeypot": "HTTP honeypot",
+      "rpki": "RPKI state",
+      "vpn": "VPN",
+      "proxy": "Proxy",
+      "tor": "Tor",
+      "crawler": "Crawler / bot"
+    },
+    "asnHistory": {
+      "empty": "No announcement history yet.",
+      "failed": "The routing registry did not answer in time for this prefix.",
+      "note": "Ordered by how closely each announcement matched this block, then by recency. The trailing prefix is what that network actually advertised."
+    },
+    "act": {
+      "dnsleak": "DNS leak test",
+      "webrtc": "WebRTC leak test",
+      "ping": "Global ping",
+      "whois": "Whois lookup"
     }
   }
 }

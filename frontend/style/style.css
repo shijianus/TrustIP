@@ -292,6 +292,11 @@
 .jn-card {
   box-shadow: var(--shadow-card);
   height: 100%;
+  /* A grid or flex item's default `min-width: auto` resolves to its
+     min-content size, so one long unbreakable value inside a card would widen
+     the whole track and push the page sideways on a phone. Cards are content
+     boxes, not layout anchors: they take the width they are given. */
+  min-width: 0;
   border: 1px solid #9c9c9c2e;
 }
 

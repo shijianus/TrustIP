@@ -1,8 +1,5 @@
 <template>
     <div class="min-h-screen">
-        <!-- The rail rides in the header so the dossier is reachable from every
-             page and every page is reachable from this one — the flat tool row
-             is the shape the whole redesign is aligned to. -->
         <StandalonePageHeader :rail="true" :title="t('dossier.title')" />
 
         <main class="mx-auto w-full max-w-[1100px] px-4 py-6 md:px-6">
@@ -11,9 +8,6 @@
             </h1>
             <p class="mb-4 text-sm text-muted-foreground md:text-base">{{ t('dossier.subtitle') }}</p>
 
-            <!-- The query belongs to the page, not to a floating button: this
-                 is a lookup tool, and the address being asked about should be
-                 the second thing you see. -->
             <div class="mb-6 flex gap-2">
                 <Input
                     v-model="draft"
@@ -22,9 +16,7 @@
                     autocomplete="off" autocorrect="off" autocapitalize="off"
                     spellcheck="false" data-1p-ignore data-lpignore="true"
                     @keyup.enter="lookup" />
-                <Button variant="action" :disabled="!looksLikeIp || busy" @click="lookup">
-                    {{ t('dossier.go') }}
-                </Button>
+                <Button variant="action" :disabled="!looksLikeIp" @click="lookup">{{ t('dossier.go') }}</Button>
             </div>
 
             <div v-if="!target" class="jn-card rounded-[var(--radius)] p-6 text-sm text-muted-foreground">
@@ -36,204 +28,282 @@
                 <Button variant="ghost" size="sm" class="ms-2" @click="load(target)">{{ t('dossier.retry') }}</Button>
             </div>
 
-            <!-- Loading sits between "has an address" and "has an answer":
-                 without this branch the content below renders while `dossier`
-                 is still null, and Vue swallows the throw as a blank card
-                 rather than telling anyone the page broke. -->
             <div v-else-if="!dossier" class="space-y-4">
                 <div class="jn-card rounded-[var(--radius)] p-4">
-                    <div class="jn-skeleton mb-3 h-4 w-40"></div>
-                    <div class="space-y-2">
-                        <div v-for="n in 5" :key="n" class="jn-skeleton h-4 w-full"></div>
-                    </div>
+                    <div class="jn-skeleton mb-3 h-5 w-52"></div>
+                    <div class="space-y-2"><div v-for="n in 5" :key="n" class="jn-skeleton h-4 w-full"></div></div>
                 </div>
                 <div class="grid gap-4 md:grid-cols-2">
-                    <div v-for="n in 2" :key="n" class="jn-card rounded-[var(--radius)] p-4">
+                    <div v-for="n in 4" :key="n" class="jn-card rounded-[var(--radius)] p-4">
                         <div class="jn-skeleton mb-3 h-4 w-32"></div>
-                        <div v-for="m in 4" :key="m" class="jn-skeleton mb-2 h-4 w-full"></div>
+                        <div v-for="m in 5" :key="m" class="jn-skeleton mb-2 h-4 w-full"></div>
                     </div>
                 </div>
             </div>
 
             <template v-else>
-                <!-- 1 — hero: the address, its verdict, and the evidence that
-                     produced it. -->
-                <TrustScorePanel class="mb-4" :ip="target" :geo="heroGeo" />
+                <!-- Anycast public service: its geolocation is the point of
+                     presence the visitor reached, so the location, history and
+                     neighbour sections below would be noise. Say that once, up
+                     front, and keep them — a page that silently drops sections
+                     looks broken rather than deliberate. -->
+                <div v-if="identity.anycast" class="mb-4 rounded-[var(--radius)] border border-info-soft bg-info-soft px-4 py-3">
+                    <p class="text-sm font-semibold text-info-soft-fg">{{ t('dossier.anycast.title') }}</p>
+                    <p class="mt-1 text-xs leading-relaxed text-info-soft-fg/90">{{ t('dossier.anycast.note') }}</p>
+                </div>
 
-                <!-- 2 — usage/type beside ASN/provider: the two questions every
-                     lookup starts with. -->
+                <!-- 1 — hero -->
+                <div class="mb-4">
+                    <DossierHero :ip="target" :trust="trust" :place="placeLine" :country-code="countryCode">
+                        <TrustSignals :signals="trust.signals" :confidence="trust.confidence" :gaps="trust.gaps" />
+                    </DossierHero>
+                </div>
+
+                <!-- 2 — usage/type | ASN/provider -->
                 <div class="mb-4 grid gap-4 md:grid-cols-2">
                     <div class="jn-card rounded-[var(--radius)] p-4">
-                        <SectionTitle :title="t('dossier.usage.title')" />
+                        <SectionTitle :title="t('dossier.sec.usage')" />
                         <dl class="divide-y divide-dashed divide-border">
-                            <KeyRow :label="t('dossier.usage.class')" :nums="false">
-                                <VerdictChip :tone="classTone" :label="t(`trustip.value.${network.cls || 'unknown'}`)" />
+                            <KeyRow :label="t('dossier.row.native')">
+                                <span class="inline-flex items-center gap-1.5">
+                                    <Icon v-if="countryCode" :icon="'circle-flags:' + countryCode" class="size-4 rounded-sm" />
+                                    <VerdictChip :tone="nativeness.tone" :label="nativeness.label" />
+                                </span>
                             </KeyRow>
-                            <KeyRow :label="t('dossier.usage.anycast')">
-                                <VerdictChip
-                                    :tone="trust.anycast ? 'info' : 'ok'"
-                                    :label="trust.anycast ? t('dossier.usage.anycastYes') : t('dossier.usage.anycastNo')" />
+                            <KeyRow :label="t('dossier.row.tags')">
+                                <span class="flex flex-wrap justify-end gap-1">
+                                    <VerdictChip
+                                        v-for="tag in tags" :key="tag.label"
+                                        :tone="tag.tone" :label="tag.label" />
+                                    <VerdictChip v-if="!tags.length" tone="muted" :label="t('trustip.verdict.notMeasured')" />
+                                </span>
                             </KeyRow>
-                            <KeyRow :label="t('dossier.usage.provider')" :value="network.asOrg || network.asName" wide />
-                            <KeyRow :label="t('dossier.usage.allocation')" wide :nums="false">
-                                <span class="font-mono text-xs">{{ network.cidr || '—' }}</span>
+                            <KeyRow :label="t('dossier.row.ispType')">
+                                <span class="font-semibold" :class="classTextTone">{{ operatorType }}</span>
                             </KeyRow>
-                            <KeyRow :label="t('dossier.usage.rirStatus')" :value="network.status || network.netType" />
-                            <KeyRow :label="t('dossier.usage.humanBot')">
-                                <VerdictChip tone="muted" :label="t('dossier.slot.badge.placeholder')" />
+                            <KeyRow :label="t('dossier.row.humanBot')">
+                                <VerdictChip tone="muted" :label="t('trustip.verdict.notMeasured')" />
                             </KeyRow>
+                            <KeyRow :label="t('dossier.row.scene')">
+                                <VerdictChip tone="muted" :label="t('trustip.verdict.notMeasured')" />
+                            </KeyRow>
+                            <KeyRow :label="t('dossier.row.company')">
+                                <VerdictChip tone="muted" :label="t('trustip.verdict.notMeasured')" />
+                            </KeyRow>
+                            <KeyRow :label="t('dossier.row.provider')" :value="network.asOrg || network.asName" wide />
                         </dl>
                     </div>
 
                     <div class="jn-card rounded-[var(--radius)] p-4">
-                        <SectionTitle :title="t('dossier.asn.title')" />
+                        <SectionTitle :title="t('dossier.sec.asn')" />
                         <dl class="divide-y divide-dashed divide-border">
-                            <KeyRow :label="t('dossier.asn.asn')" :nums="false">
-                                <span v-if="network.asn" class="font-mono font-semibold">AS{{ network.asn }}</span>
-                                <span v-else>—</span>
+                            <KeyRow :label="t('dossier.row.asn')">
+                                <span class="inline-flex items-center gap-1.5">
+                                    <span class="jn-nums font-mono font-semibold">{{ network.asn ? 'AS' + network.asn : '—' }}</span>
+                                    <CopyButton v-if="network.asn" :value="'AS' + network.asn" />
+                                </span>
                             </KeyRow>
-                            <KeyRow :label="t('dossier.asn.org')" :value="network.asName || network.asOrg" wide />
-                            <KeyRow :label="t('dossier.asn.country')">
-                                <template v-if="network.country">
-                                    <Icon :icon="'circle-flags:' + network.country.toLowerCase()" class="me-1 inline size-4 align-[-3px]" />
-                                    {{ network.country }}
-                                </template>
-                                <span v-else>—</span>
+                            <KeyRow :label="t('dossier.row.asnOrg')" :value="network.asName || network.asOrg" wide />
+                            <KeyRow :label="t('dossier.row.asnKind')">
+                                <VerdictChip tone="muted" :label="t('trustip.verdict.notMeasured')" />
                             </KeyRow>
-                            <KeyRow :label="t('dossier.asn.registered')" :value="allocationDate" />
-                            <KeyRow :label="t('dossier.asn.customers')" :nums="true">
-                                {{ topology ? formatCount(topology.origin.customers) : '—' }}
+                            <KeyRow :label="t('dossier.row.asnSize')">
+                                <VerdictChip tone="muted" :label="t('trustip.verdict.notMeasured')" />
                             </KeyRow>
-                            <KeyRow :label="t('dossier.asn.tier1')">
-                                <VerdictChip
-                                    :tone="topology?.origin?.tier1 ? 'info' : 'muted'"
-                                    :label="topology?.origin?.tier1 ? t('dossier.asn.tier1Yes') : t('dossier.asn.tier1No')" />
+                            <KeyRow :label="t('dossier.row.bandwidth')">
+                                <VerdictChip tone="muted" :label="t('trustip.verdict.notMeasured')" />
+                            </KeyRow>
+                            <KeyRow :label="t('dossier.row.registered')" :value="allocationDate" />
+                            <KeyRow :label="t('dossier.row.cidr')" :nums="true">
+                                <span class="font-mono text-xs">{{ network.cidr || '—' }}</span>
                             </KeyRow>
                         </dl>
                     </div>
                 </div>
 
-                <!-- 3 — three dense columns: what the address is technically,
-                     what threatens it, and what we cannot see. -->
+                <!-- 3 — three dense columns -->
                 <div class="mb-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                     <div class="jn-card rounded-[var(--radius)] p-4">
-                        <SectionTitle :title="t('dossier.technical.title')" />
+                        <SectionTitle :title="t('dossier.sec.technical')" />
                         <dl class="divide-y divide-dashed divide-border">
-                            <KeyRow :label="t('dossier.technical.public')">
-                                <VerdictChip tone="ok" :label="t('dossier.technical.publicYes')" />
+                            <KeyRow :label="t('dossier.row.bogon')">
+                                <VerdictChip tone="ok" :label="t('dossier.row.bogonNo')" />
                             </KeyRow>
-                            <KeyRow :label="t('dossier.technical.rdns')" :value="network.rdns" wide />
-                            <KeyRow :label="t('dossier.technical.ports')">
-                                <VerdictChip tone="muted" :label="t('dossier.slot.badge.placeholder')" />
+                            <!-- A PTR is read from the right — the domain is the
+                                 answer and the host octets are noise — so
+                                 ellipsising it would keep exactly the wrong
+                                 half. It gets the whole line and wraps instead. -->
+                            <KeyRow :label="t('dossier.row.rdns')">
+                                <span class="break-all font-mono text-xs font-normal">{{ network.rdns || '—' }}</span>
                             </KeyRow>
-                            <KeyRow :label="t('dossier.technical.prefix')" :nums="true">
+                            <KeyRow :label="t('dossier.row.ports')">
+                                <VerdictChip tone="muted" :label="t('trustip.verdict.notMeasured')" />
+                            </KeyRow>
+                            <KeyRow :label="t('dossier.row.announce')" :nums="true">
                                 {{ network.announce ? `${network.announce.v4Count} · ${Math.round((network.announce.smallShare || 0) * 100)}% ≤/24` : '—' }}
                             </KeyRow>
                         </dl>
                     </div>
 
-                    <CapabilitySlot
-                        state="partial"
-                        :title="t('dossier.threat.title')"
-                        :missing="[t('dossier.threat.abuse'), t('dossier.threat.honeypot')]"
-                        :needs="t('dossier.threat.needs')">
+                    <div class="jn-card rounded-[var(--radius)] p-4">
+                        <SectionTitle :title="t('dossier.sec.threat')">
+                            <template #aside>
+                                <span class="jn-nums text-xs text-muted-foreground">{{ threatScore }}</span>
+                            </template>
+                        </SectionTitle>
                         <dl class="divide-y divide-dashed divide-border">
-                            <KeyRow :label="t('dossier.threat.rpki')">
+                            <KeyRow :label="t('dossier.row.riskFlags')">
+                                <VerdictChip tone="muted" :label="t('trustip.verdict.notMeasured')" />
+                            </KeyRow>
+                            <KeyRow :label="t('dossier.row.abuseLevel')">
+                                <VerdictChip tone="muted" :label="t('trustip.verdict.notMeasured')" />
+                            </KeyRow>
+                            <KeyRow :label="t('dossier.row.honeypot')">
+                                <VerdictChip tone="muted" :label="t('trustip.verdict.notMeasured')" />
+                            </KeyRow>
+                            <KeyRow :label="t('dossier.row.rpki')">
                                 <VerdictChip :tone="rpkiTone" :label="rpkiLabel" />
                             </KeyRow>
                         </dl>
-                    </CapabilitySlot>
+                    </div>
 
-                    <CapabilitySlot
-                        state="placeholder"
-                        :title="t('dossier.deep.title')"
-                        :note="t('dossier.deep.note')"
-                        :needs="t('dossier.deep.needs')" />
-                </div>
-
-                <!-- 4 — latency and heat: one delegated to the page that owns
-                     the capability, one genuinely absent. -->
-                <div class="mb-4">
-                    <CapabilitySlot
-                        state="delegated"
-                        :title="t('dossier.latency.title')"
-                        :note="t('dossier.latency.note')"
-                        :to="{ path: '/ping', query: { q: target } }"
-                        :cta="t('dossier.latency.cta')" />
-                </div>
-
-                <div class="mb-4 grid gap-4 md:grid-cols-2">
-                    <CapabilitySlot
-                        state="placeholder"
-                        :title="t('dossier.heat.title')"
-                        :note="t('dossier.heat.note')"
-                        :needs="t('dossier.heat.needs')" />
+                    <!-- Deep risk check: four named lookups, each with its own
+                         three-state answer. A row that cannot be answered shows
+                         "not measured" — never the green that would be read as
+                         "checked and clean". -->
                     <div class="jn-card rounded-[var(--radius)] p-4">
-                        <SectionTitle :title="t('dossier.map.title')" />
-                        <p v-if="!hasCoords" class="text-sm text-muted-foreground">{{ t('dossier.map.none') }}</p>
-                        <div v-else class="space-y-2">
-                            <a
-                                :href="`https://www.google.com/maps?q=${primarySource.lat},${primarySource.lon}`"
-                                target="_blank" rel="nofollow noopener"
-                                class="jn-nums block font-mono text-sm font-semibold text-success-soft-fg no-underline hover:underline">
-                                {{ primarySource.lat.toFixed(3) }}, {{ primarySource.lon.toFixed(3) }}
-                            </a>
-                            <p class="text-xs text-muted-foreground">
-                                {{ t('dossier.map.from', { source: primarySource.label }) }}
-                            </p>
-                        </div>
+                        <SectionTitle :title="t('dossier.sec.deep')">
+                            <template #aside>
+                                <span class="jn-nums text-xs text-muted-foreground">0 / 4</span>
+                            </template>
+                        </SectionTitle>
+                        <dl class="divide-y divide-dashed divide-border">
+                            <KeyRow v-for="row in deepRows" :key="row" :label="row">
+                                <VerdictChip tone="muted" :label="t('trustip.verdict.notMeasured')" />
+                            </KeyRow>
+                        </dl>
                     </div>
                 </div>
 
-                <!-- 5 — the multi-source comparison, our strongest section. -->
+                <!-- 4 — VPN traceability -->
+                <div class="mb-4">
+                    <CapabilitySlot
+                        state="placeholder" :title="t('dossier.sec.vpntrace')"
+                        :note="t('dossier.slot.vpntraceNote')" :needs="t('dossier.slot.vpntraceNeeds')" />
+                </div>
+
+                <!-- 5 — global latency matrix -->
+                <div class="mb-4">
+                    <LatencyMatrix :matrix="dossier.latency" />
+                </div>
+
+                <!-- 6 — prefix heat | location map -->
+                <div class="mb-4 grid gap-4 md:grid-cols-2">
+                    <CapabilitySlot
+                        state="placeholder" :title="t('dossier.sec.heat')"
+                        :note="t('dossier.heat.note')" :needs="t('dossier.heat.needs')" />
+                    <MapPanel :geo="dossier.geo" />
+                </div>
+
+                <!-- 7 — multi-source geolocation -->
                 <div class="mb-4">
                     <GeoSources :geo="dossier.geo" />
                 </div>
 
-                <div class="mb-4 grid gap-4 md:grid-cols-2">
-                    <CapabilitySlot
-                        state="placeholder"
-                        :title="t('dossier.related.title')"
-                        :note="t('dossier.related.note')"
-                        :needs="t('dossier.related.needs')" />
-                    <CapabilitySlot
-                        state="placeholder"
-                        :title="t('dossier.history.title')"
-                        :note="t('dossier.history.note')"
-                        :needs="t('dossier.history.needs')" />
-                </div>
-
+                <!-- 8 — related domains -->
                 <div class="mb-4">
-                    <BgpTopology :topology="dossier.topology" />
+                    <CapabilitySlot
+                        state="placeholder" :title="t('dossier.sec.related')"
+                        :note="t('dossier.related.note')" :needs="t('dossier.related.needs')" />
                 </div>
 
+                <!-- 9 — location history | same-facility activity -->
                 <div class="mb-4 grid gap-4 md:grid-cols-2">
                     <CapabilitySlot
-                        state="placeholder"
-                        :title="t('dossier.blocklists.title')"
-                        :note="t('dossier.blocklists.note')"
-                        :needs="t('dossier.blocklists.needs')" />
+                        state="placeholder" :title="t('dossier.sec.locationHistory')"
+                        :note="t('dossier.history.note')" :needs="t('dossier.history.needs')" />
                     <CapabilitySlot
-                        state="placeholder"
-                        :title="t('dossier.colocated.title')"
-                        :note="t('dossier.colocated.note')"
-                        :needs="t('dossier.colocated.needs')" />
+                        state="placeholder" :title="t('dossier.sec.neighbours')"
+                        :note="t('dossier.related.note')" :needs="t('dossier.related.needs')" />
                 </div>
 
-                <!-- 6 — cross-checks. Every link is a third-party view of the
-                     same public facts, so a visitor can disagree with us. -->
-                <div class="jn-card rounded-[var(--radius)] p-4">
-                    <SectionTitle :title="t('dossier.cross.title')" />
-                    <div class="flex flex-wrap gap-2">
-                        <a
-                            v-for="link in crossChecks"
-                            :key="link.label"
-                            :href="link.url"
-                            target="_blank" rel="nofollow noopener"
-                            class="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium text-foreground-secondary no-underline transition-colors hover:bg-accent">
-                            {{ link.label }}
-                            <ArrowUpRight class="size-3" />
-                        </a>
+                <!-- 10 — BGP graph -->
+                <div class="mb-4">
+                    <BgpFan :topology="dossier.topology" />
+                </div>
+
+                <!-- 11 — DNSBL -->
+                <div class="mb-4">
+                    <CapabilitySlot
+                        state="placeholder" :title="t('dossier.sec.blocklists')"
+                        :note="t('dossier.blocklists.note')" :needs="t('dossier.blocklists.needs')" />
+                </div>
+
+                <!-- 12 — ASN history | company history -->
+                <div class="mb-4 grid gap-4 md:grid-cols-2">
+                    <div class="jn-card rounded-[var(--radius)] p-4">
+                        <SectionTitle :title="t('dossier.sec.asnHistory')">
+                            <template #aside>
+                                <span class="jn-nums text-xs text-muted-foreground">{{ asnHistory.length }}</span>
+                            </template>
+                        </SectionTitle>
+                        <dl v-if="asnHistory.length" class="divide-y divide-dashed divide-border">
+                            <KeyRow
+                                v-for="row in asnHistory.slice(0, 8)" :key="row.asn"
+                                :label="historyDate(row.first)" :nums="true">
+                                <span class="text-xs font-normal">
+                                    AS{{ row.asn }} · {{ row.org || t('dossier.topology.unknownOrg') }}
+                                    <span class="jn-nums ms-1 text-muted-foreground">{{ row.prefix }}</span>
+                                </span>
+                            </KeyRow>
+                        </dl>
+                        <p v-else class="text-sm text-muted-foreground">
+                            {{ asnHistoryFailed ? t('dossier.asnHistory.failed') : t('dossier.asnHistory.empty') }}
+                        </p>
+                        <p v-if="asnHistory.length" class="mt-2 text-xs leading-relaxed text-muted-foreground">
+                            {{ t('dossier.asnHistory.note') }}
+                        </p>
+                    </div>
+                    <CapabilitySlot
+                        state="placeholder" :title="t('dossier.sec.companyHistory')"
+                        :note="t('dossier.slot.companyHistoryNote')" :needs="t('dossier.slot.companyHistoryNeeds')" />
+                </div>
+
+                <!-- 13 — same-facility providers / customers -->
+                <div class="mb-4">
+                    <CapabilitySlot
+                        state="placeholder" :title="t('dossier.sec.colocated')"
+                        :note="t('dossier.colocated.note')" :needs="t('dossier.colocated.needs')" />
+                </div>
+
+                <!-- 14 — actions beside cross-checks: the in-app siblings that
+                     answer questions this page cannot, then the third-party
+                     views a visitor can disagree with us against. -->
+                <div class="mb-4 grid gap-4 lg:grid-cols-[auto_1fr]">
+                    <div class="jn-card rounded-[var(--radius)] p-4">
+                        <SectionTitle :title="t('dossier.sec.actions')" />
+                        <div class="flex flex-wrap gap-2 lg:flex-col lg:items-stretch">
+                            <RouterLink
+                                v-for="a in actions" :key="a.to"
+                                :to="a.to"
+                                class="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium text-foreground-secondary no-underline transition-colors hover:bg-accent">
+                                <component :is="a.icon" class="size-4 shrink-0" />
+                                {{ a.label }}
+                            </RouterLink>
+                        </div>
+                    </div>
+
+                    <div class="jn-card rounded-[var(--radius)] p-4">
+                        <SectionTitle :title="t('dossier.cross.title')" />
+                        <div class="flex flex-wrap gap-2">
+                            <a
+                                v-for="link in crossChecks" :key="link.label"
+                                :href="link.url" target="_blank" rel="nofollow noopener"
+                                class="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium text-foreground-secondary no-underline transition-colors hover:bg-accent">
+                                {{ link.label }}
+                                <ArrowUpRight class="size-3" />
+                            </a>
+                        </div>
                     </div>
                 </div>
             </template>
@@ -245,31 +315,36 @@
 
 <script setup>
 // The IP dossier: one address, everything this build can establish about it,
-// laid out in the order a lookup actually reads — identity, then network, then
-// technical facts, then the things we cannot see, then cross-checks.
+// laid out section by section in the order a lookup is read.
 //
-// Sections with no backing data are rendered as declared gaps rather than
-// omitted. A page that silently lacks a section teaches the visitor nothing;
-// a page that says "not measured, and here is what it would take" is honest
-// and gives the next contributor a contract to fill.
+// Sections with no backing data are rendered as declared gaps with their real
+// row shape, not omitted. A page that silently lacks a section teaches the
+// visitor nothing; a row that says "not measured" tells them exactly where the
+// boundary of this build is, and a placeholder naming the source that would
+// fill it is a task rather than a mystery.
 
 import { ref, computed, watch, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
+import { RouterLink } from 'vue-router';
 import { Icon } from '@iconify/vue';
-import { ArrowUpRight } from '@lucide/vue';
+import { ArrowUpRight, Globe2, Activity, Radar, Gauge } from '@lucide/vue';
 import { isValidIP } from '@/utils/valid-ip.js';
 import { formatIsoDate } from '@/utils/time-utils.js';
 import { fetchWithTimeout } from '@/utils/fetch-with-timeout.js';
 import StandalonePageHeader from '@/components/StandalonePageHeader.vue';
 import Footer from '@/components/Footer.vue';
-import TrustScorePanel from '@/components/ip-infos/TrustScorePanel.vue';
+import DossierHero from '@/components/dossier/DossierHero.vue';
+import TrustSignals from '@/components/dossier/TrustSignals.vue';
 import GeoSources from '@/components/ip-infos/GeoSources.vue';
-import BgpTopology from '@/components/ip-infos/BgpTopology.vue';
+import BgpFan from '@/components/dossier/BgpFan.vue';
+import MapPanel from '@/components/dossier/MapPanel.vue';
+import LatencyMatrix from '@/components/dossier/LatencyMatrix.vue';
 import SectionTitle from '@/components/widgets/SectionTitle.vue';
 import KeyRow from '@/components/widgets/KeyRow.vue';
 import VerdictChip from '@/components/widgets/VerdictChip.vue';
 import CapabilitySlot from '@/components/widgets/CapabilitySlot.vue';
+import CopyButton from '@/components/widgets/CopyButton.vue';
 import Button from '@/components/ui/button/Button.vue';
 import Input from '@/components/ui/input/Input.vue';
 
@@ -277,55 +352,85 @@ const route = useRoute();
 const router = useRouter();
 const { t, locale } = useI18n();
 
-// RIRs disagree on the shape of a registration date — ARIN answers `1999-03-02`,
-// RIPE `2020-06-24T14:02:28Z`. Both are dates to the visitor, and neither is
-// shown as the registry's raw string.
-const allocationDate = computed(() => {
-    const raw = network.value.regDate;
-    if (!raw) return '';
-    const match = /^\d{4}-\d{2}-\d{2}/.exec(raw);
-    return match ? formatIsoDate(match[0], locale.value) : raw;
-});
-
 const target = ref(route.params.ip || route.query.q || '');
 const draft = ref(target.value);
 const dossier = ref(null);
 const error = ref('');
-const busy = ref(false);
 
 const looksLikeIp = computed(() => isValidIP((draft.value || '').trim()));
 
+const trust = computed(() => dossier.value?.trust || { signals: [], confidence: {}, gaps: [] });
+const identity = computed(() => dossier.value?.identity || {});
 const network = computed(() => dossier.value?.network || {});
-const trust = computed(() => dossier.value?.trust || {});
-const topology = computed(() => dossier.value?.topology || null);
 
 const sources = computed(() => dossier.value?.geo?.sources || []);
 const primarySource = computed(() => sources.value.find((s) => s.lat != null && s.lon != null) || sources.value[0] || null);
-const hasCoords = computed(() => primarySource.value?.lat != null && primarySource.value?.lon != null);
-
-const heroGeo = computed(() => {
+const countryCode = computed(() => String(identity.value.country_code || primarySource.value?.country_code || '').toLowerCase());
+const placeLine = computed(() => {
     const c = dossier.value?.geo?.consensus || {};
-    const primary = primarySource.value || {};
-    return {
-        country_code: c.country_code || primary.country_code || '',
-        country_name: c.country || primary.country || '',
-        region: primary.region || '',
-        city: c.city || primary.city || '',
-        isp: network.value.asOrg || network.value.asName || '',
-        org: network.value.asOrg || '',
-        asn: network.value.asn || '',
-    };
+    return [c.country, c.city, network.value.asOrg].filter(Boolean).join(' · ');
 });
 
+const CLASS_KEY = { datacenter: 'tags.datacenter', isp: 'tags.isp', mobile: 'tags.mobile', education: 'tags.education', government: 'tags.government', anycast: 'tags.anycast', unknown: null };
 const CLASS_TONE = { datacenter: 'bad', isp: 'ok', mobile: 'ok', education: 'info', government: 'info', anycast: 'info', unknown: 'muted' };
-const classTone = computed(() => CLASS_TONE[trust.value.cls] || 'muted');
+
+const operatorType = computed(() => {
+    const cls = trust.value.cls;
+    if (!cls || cls === 'unknown') return t('trustip.value.unknown');
+    return t(`trustip.value.${cls}`);
+});
+const classTextTone = computed(() => CLASS_TONE[trust.value.cls] === 'ok' ? 'text-success-soft-fg' : '');
+
+const tags = computed(() => {
+    const cls = trust.value.cls;
+    if (!cls || cls === 'unknown') return [];
+    return [{ tone: CLASS_TONE[cls], label: t(`trustip.value.${cls}`) }];
+});
+
+const nativeness = computed(() => {
+    const s = trust.value.signals?.find((x) => x.id === 'nativeness');
+    if (!s || s.state === 'unknown') return { tone: 'muted', label: t('trustip.verdict.notMeasured') };
+    return s.detail === 'native'
+        ? { tone: 'ok', label: t('dossier.row.nativeYes') }
+        : { tone: 'warn', label: t('dossier.row.nativeNo') };
+});
 
 const RPKI_TONE = { valid: 'ok', invalid: 'bad', invalid_asn: 'bad', invalid_length: 'warn', 'not-found': 'warn' };
 const rpkiTone = computed(() => RPKI_TONE[network.value.rpki] || 'muted');
-const rpkiLabel = computed(() => {
-    const r = network.value.rpki;
-    return r ? t(`trustip.value.${r}`) : t('trustip.verdict.notMeasured');
+const rpkiLabel = computed(() => network.value.rpki && network.value.rpki !== 'unknown'
+    ? t(`trustip.value.${network.value.rpki}`)
+    : t('trustip.verdict.notMeasured'));
+
+const threatScore = computed(() => {
+    const measured = network.value.rpki && network.value.rpki !== 'unknown' ? 1 : 0;
+    return `${measured} / 4`;
 });
+
+const deepRows = computed(() => [
+    t('dossier.row.vpn'), t('dossier.row.proxy'), t('dossier.row.tor'), t('dossier.row.crawler'),
+]);
+
+const allocationDate = computed(() => {
+    const raw = network.value.regDate;
+    if (!raw) return '';
+    const m = /^\d{4}-\d{2}-\d{2}/.exec(raw);
+    return m ? formatIsoDate(m[0], locale.value) : raw;
+});
+
+const asnHistory = computed(() => dossier.value?.asnHistory?.entries || []);
+const asnHistoryFailed = computed(() => dossier.value?.asnHistory?.failed === true);
+// RIPEstat timestamps carry a time of day that means nothing at /24
+// granularity, and rendering them verbatim would show an untranslated string.
+const historyDate = (iso) => {
+    const m = /^\d{4}-\d{2}-\d{2}/.exec(iso || '');
+    return m ? formatIsoDate(m[0], locale.value) : (iso || '—');
+};
+const actions = computed(() => [
+    { to: { path: '/dns' }, icon: Activity, label: t('dossier.act.dnsleak') },
+    { to: { path: '/webrtc' }, icon: Radar, label: t('dossier.act.webrtc') },
+    { to: { path: '/ping', query: { q: target.value } }, icon: Globe2, label: t('dossier.act.ping') },
+    { to: { path: '/whois', query: { q: target.value } }, icon: Gauge, label: t('dossier.act.whois') },
+]);
 
 const crossChecks = computed(() => {
     const ip = target.value;
@@ -336,24 +441,21 @@ const crossChecks = computed(() => {
         { label: 'Cloudflare Radar', url: asn ? `https://radar.cloudflare.com/as/${asn}` : 'https://radar.cloudflare.com' },
         { label: 'Hurricane Electric', url: `https://bgp.he.net/ip/${encodeURIComponent(ip)}` },
         { label: 'Shodan', url: `https://www.shodan.io/host/${encodeURIComponent(ip)}` },
+        { label: 'IP2Location', url: `https://www.ip2location.io/${encodeURIComponent(ip)}` },
+        { label: 'Scamalytics', url: `https://scamalytics.com/ip/${encodeURIComponent(ip)}` },
     ];
 });
 
-const formatCount = (n) => (typeof n === 'number' ? new Intl.NumberFormat(undefined, { notation: 'compact' }).format(n) : '—');
-
 async function load(ip) {
     if (!ip) return;
-    busy.value = true;
     error.value = '';
     try {
-        const res = await fetchWithTimeout(`/api/dossier?ip=${encodeURIComponent(ip)}`, { timeoutMs: 25000 });
+        const res = await fetchWithTimeout(`/api/dossier?ip=${encodeURIComponent(ip)}`, { timeoutMs: 30000 });
         if (!res.ok) throw new Error(`dossier ${res.status}`);
         dossier.value = await res.json();
     } catch (err) {
         console.warn('dossier unavailable', err);
         error.value = t('dossier.failed');
-    } finally {
-        busy.value = false;
     }
 }
 
@@ -363,23 +465,14 @@ function lookup() {
     router.push(`/ip/${encodeURIComponent(ip)}`);
 }
 
-// The address lives in the URL, so a dossier view is linkable and a back
-// gesture lands where the visitor expects. `/ip` with no parameter asks about
-// the visitor's own address, which the trust panel resolves on its own; a
-// parameter is taken verbatim and re-loads the whole dossier.
-//
-// One watcher, not two: an earlier draft watched the params and the
-// params-plus-query pair, and every navigation fetched the dossier twice.
-watch(
-  () => [route.params.ip, route.query.q],
-  ([param, query]) => {
+watch(() => [route.params.ip, route.query.q], ([param, query]) => {
     const next = param || query || '';
     if (!next || next === target.value) return;
     target.value = next;
     draft.value = next;
+    dossier.value = null;
     load(next);
-  },
-);
+});
 
 onMounted(() => { if (target.value) load(target.value); });
 </script>

@@ -180,6 +180,14 @@ Copy the named exemplar instead of re-inventing:
   it — and keep the row unwrapped at every width.
 - **Tables vs lists** — real per-column header semantics → `<table>`;
   otherwise a bordered `<ul class="rounded-lg border bg-card divide-y">`.
+- **Key/value panels** — `widgets/KeyRow.vue` inside
+  `<dl class="divide-y divide-dashed divide-border">`, never a hand-rolled
+  label/value flex row. `wide` for unbounded values (truncate), plain for
+  values that should wrap; neither half carries `shrink-0`, which would hold
+  the row open past a phone. Section headings come from `widgets/SectionTitle`,
+  verdicts from `widgets/VerdictChip`, and a capability this build does not
+  measure is a `widgets/CapabilitySlot` naming what it needs — an absent row is
+  a bug, a declared gap is information.
 - **Dialog header** — the `<DialogHeader :icon :title />` primitive.
 - **Drawer vs Sheet** — vaul-vue bottom Drawer for the Advanced Tools panel
   and full-bleed expansions of an inline visual; side panels use `Sheet`.

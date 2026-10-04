@@ -1892,8 +1892,25 @@
     },
     "latency": {
       "title": "全球延迟",
-      "note": "来自全球各网络的往返时延在延迟页面实测，探测节点由该页面负责。",
-      "cta": "对该地址执行"
+      "note": "每个区域固定一台数据中心探针，各发六个包；只展示每次探测中最快的一次往返。",
+      "cta": "对该地址执行",
+      "matrixTitle": "全球主要地区到该地址的延迟",
+      "queued": "测试中",
+      "ok": "无数据",
+      "timeout": "超时",
+      "failed": "失败",
+      "pending": "测试中",
+      "unsupported": "未测量",
+      "v6Unsupported": "不探测 IPv6",
+      "v6Note": "本构建的探测网络不对 IPv6 目标返回结果。",
+      "others": "其他来源 {n} 个",
+      "needs": "需要覆盖各区域的第三方探测网络，以及用于预留配额的回包 API 令牌",
+      "run": "从 8 个地区测量",
+      "runAgain": "重新测量",
+      "measuring": "探测中…",
+      "cost": "探测流量由你的浏览器发起，并计入你在 Globalping 的每小时配额；本服务器不会发出任何探测包。",
+      "runFailed": "探测网络未响应。",
+      "experimental": "Globalping 仍将 IPv6 目标标记为实验性，这些数值仅供参考。"
     },
     "heat": {
       "title": "网段活跃度",
@@ -1903,7 +1920,11 @@
     "map": {
       "title": "地图定位",
       "none": "没有数据源返回经纬度。",
-      "from": "坐标来自 {source}"
+      "from": "坐标来自 {source}",
+      "panelTitle": "地图定位",
+      "primary": "主定位 · {source}",
+      "others": "其他 {n} 个",
+      "aria": "{place} 在经纬网格上的位置"
     },
     "geo": {
       "title": "地理位置（多源对比）",
@@ -1936,9 +1957,11 @@
       "peers": "对等",
       "noProviders": "未记录上游——该网络自带转发能力。",
       "noPeers": "未记录免结算对等。",
-      "legend": "蓝色标记为 Tier 1，按定义没有上游。末尾数字是该网络出售转发的下游数量。连线粗细需要「谁实际承载该前缀」的看路视图，本项目不做此类查询。",
+      "legend": "蓝色方框表示 Tier 1，按定义它没有上游；虚线方框是免结算对等互联，而非付费传输。右侧数字表示从该网络购买传输的自治系统数量。连线粗细需要查看该前缀实际由谁承载的路由反射数据，本实例未查询。",
       "unknownOrg": "快照中未收录",
-      "customersTip": "向该网络采购转发的 AS 数量"
+      "customersTip": "向该网络采购转发的 AS 数量",
+      "secondHop": "二级上游",
+      "noSecondHop": "其上游全为 Tier 1，再无更上层。"
     },
     "blocklists": {
       "title": "黑名单",
@@ -1961,7 +1984,78 @@
         "placeholder": "未测量",
         "delegated": "见其他分区",
         "partial": "部分已测量"
-      }
+      },
+      "vpntraceNote": "此处不判定该地址是哪个 VPN 服务的出口。",
+      "vpntraceNeeds": "商业 VPN 出口名录；公开数据无法可靠列举",
+      "companyHistoryNote": "不追踪该网段注册归属机构的历史变更。",
+      "companyHistoryNeeds": "注册变更数据集；RIR RDAP 只回答当前对象"
+    },
+    "gauge": {
+      "low": "高危",
+      "high": "可信"
+    },
+    "anycast": {
+      "title": "公共任播服务",
+      "note": "该地址属于公共 DNS 解析服务。其地理位置是你被调度到的服务节点，而非服务实际运行地，因此下方的位置、历史与同机房分区描述的是该边缘节点，不是运营方。"
+    },
+    "sec": {
+      "usage": "使用场景 / 类型",
+      "asn": "ASN / 运营商",
+      "technical": "技术指标",
+      "threat": "IP 情报（威胁指标）",
+      "deep": "风险深度检测",
+      "vpntrace": "VPN 溯源",
+      "heat": "网段热度趋势",
+      "related": "关联域名",
+      "locationHistory": "位置历史",
+      "neighbours": "同机房 / 客户活跃",
+      "blocklists": "黑名单",
+      "asnHistory": "ASN 历史",
+      "companyHistory": "企业历史",
+      "colocated": "同机房供应商 / 客户",
+      "actions": "在本应用内继续"
+    },
+    "row": {
+      "native": "IP 原生性",
+      "nativeYes": "原生 IP",
+      "nativeNo": "广播 IP（注册在他地）",
+      "tags": "标记",
+      "ispType": "运营商类型",
+      "humanBot": "人机流量",
+      "scene": "场景评估",
+      "asnOrg": "ASN 归属",
+      "company": "企业信息",
+      "provider": "服务商",
+      "asn": "ASN",
+      "asnKind": "ASN 自报类型",
+      "asnSize": "ASN IPv4 总量",
+      "bandwidth": "预估带宽",
+      "registered": "网段登记时间",
+      "cidr": "分配 CIDR",
+      "bogon": "Bogon / 广播",
+      "bogonNo": "否（公网可达）",
+      "rdns": "反向 DNS",
+      "ports": "开放端口",
+      "announce": "宣告前缀",
+      "riskFlags": "风险标记",
+      "abuseLevel": "滥用等级",
+      "honeypot": "HTTP 蜜罐",
+      "rpki": "RPKI 状态",
+      "vpn": "VPN",
+      "proxy": "代理 (Proxy)",
+      "tor": "Tor",
+      "crawler": "爬虫 / 机器人"
+    },
+    "asnHistory": {
+      "empty": "暂无宣告变更记录。",
+      "failed": "路由注册库未在时限内返回该网段的结果。",
+      "note": "按各次宣告与本网段的吻合程度排序，其次按时间。行末的前缀是该网络实际宣告的范围。"
+    },
+    "act": {
+      "dnsleak": "DNS 泄露检测",
+      "webrtc": "WebRTC 泄露检测",
+      "ping": "全球 Ping",
+      "whois": "Whois 查询"
     }
   }
 }
