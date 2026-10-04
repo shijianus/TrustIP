@@ -17,33 +17,10 @@ Roughly one handler file per route: IP-geolocation sources (`ipinfo-io` /
 `cf-radar` / `asn-history` / `asn-connectivity` /
 `ooni-blocking` / `globalping-probes` / `service-status` / `google-map` /
 `github-stars` / `invisibility-test` / `dns-leak-test` / `persona` /
-`trust-score` / `ip-dossier`).
-
-### Trust score and dossier
-
-`trust-score` answers one question about one address; `ip-dossier` answers the
-whole IP page in one request. Neither is a handler-shaped upstream proxy: the
-logic lives in `common/trust-score.js` (pure — classification and arithmetic, no
-I/O, fully unit-tested with literals) and `common/trust-signals.js` /
-`common/ip-dossier.js` (the gathering). The handler files stay thin shells.
-
-Consequences worth knowing before touching this pair:
-
-- Everything is key-free by design — public registries, DoH, RIPEstat, and the
-  CAIDA snapshots already on disk. No `requiredEnv`, so both work on a blank
-  `.env`.
-- One visitor request fans out into ~6 registry reads, so each route carries its
-  own tight per-IP limiter plus `cacheable(24 * 60 * 60)`. Do not remove either:
-  RIPEstat's fair use is about one request per second per `sourceapp`.
-- Nothing connects to the queried address. Active probing would turn the
-  endpoint into an amplification vector and would let the target shape the
-  answer.
-- A signal that cannot be measured is reported as such, never as a pass. The
-  engine's `GAPS` / the dossier's `SLOTS` are the contract the UI renders
-  against; a section that silently disappears is a bug, not a simplification., user
-proxies (`get-user-info` / `update-user-achievement`), platform
-(`configs` / `sentry-tunnel` / `share-report`). Each file's header comment
-states its route and purpose — read those for specifics.
+`trust-score` / `ip-dossier`), user proxies (`get-user-info` /
+`update-user-achievement`), platform (`configs` / `sentry-tunnel` /
+`share-report`). Each file's header comment states its route and purpose —
+read those for specifics.
 
 The exception to one-file-per-route is Cloudflare Radar: all Radar data
 rides the single `/api/cfradar` route, dispatched by `?view=` over the
@@ -54,6 +31,40 @@ view function plus a registry row, never a new route.
 `api/data/` holds contributor-editable static config consumed by handlers —
 currently `dns-resolvers.js`, the country-annotated resolver list behind
 `dns-resolver` (gated by `tests/dns-resolvers-data.test.js`).
+
+### Trust score and dossier
+
+`trust-score` answers one question about one address; `ip-dossier` answers the
+whole IP page in one request. Neither is a handler-shaped upstream proxy: the
+logic lives in `common/trust-score.js` (pure — classification and arithmetic, no
+I/O, fully unit-tested with literals) and `common/trust-signals.js` /
+`common/ip-dossier.js` (the gathering). The handler files stay thin shells.
+
+The dossier embeds two more blocks rather than sending the page out for a
+second request each: `common/asn-announcement-history.js` (the RIPEstat
+announcement rules, which `/api/asn-history` reads from the same place so the
+two can never disagree on what counts as an announcement) and
+`common/latency-matrix.js` (the probe plan for the latency grid).
+
+Consequences worth knowing before touching this group:
+
+- Everything is key-free by design — public registries, DoH, RIPEstat, and the
+  CAIDA snapshots already on disk. No `requiredEnv`, so all of it works on a
+  blank `.env`.
+- One visitor request fans out into ~7 registry reads, so each route carries its
+  own tight per-IP limiter plus `cacheable(24 * 60 * 60)`. Do not remove either:
+  RIPEstat's fair use is about one request per second per `sourceapp`.
+- Nothing connects to the queried address. Active probing would turn the
+  endpoint into an amplification vector and would let the target shape the
+  answer. The latency grid is the one place that measures reachability, and it
+  is deliberately not measured here: `common/latency-matrix.js` returns a work
+  order and the visitor's browser runs it against Globalping, so the probe
+  traffic and its quota belong to the visitor, and a server-side ping would
+  report this datacenter's uplink as if it were the world's.
+- A signal that cannot be measured is reported as such, never as a pass. The
+  engine's `GAPS` / the dossier's `SLOTS` are the contract the UI renders
+  against; a section that silently disappears is a bug, not a simplification.
+
 
 ## Conventions
 

@@ -24,6 +24,9 @@ import { assessTrust } from './trust-score.js';
 import { providersOf, peersOf, customerCountOf, isTier1 } from './as-rel-db.js';
 import { lookupAsOrgName } from './as-org-db.js';
 import { isMaxMindReady, lookupMaxMind } from './maxmind-service.js';
+import { buildAsnHistoryBlock } from './asn-announcement-history.js';
+import { buildLatencyMatrix } from './latency-matrix.js';
+import { toBgpPrefix } from './bgp-prefix.js';
 import { isIPv6 } from './valid-ip.js';
 import logger from './logger.js';
 
@@ -228,7 +231,11 @@ const SLOTS = {
     threat: { status: 'partial', missing: ['abuseLevel', 'honeypot'], needs: 'an abuse-intelligence feed; the free registries do not carry per-address abuse history' },
     deepRisk: { status: 'placeholder', needs: 'VPN / proxy / Tor membership feeds. DNSBL lookups were tried and dropped: an intercepting resolver answers every query with a hit, which is a false accusation, not a measurement' },
     vpnTrace: { status: 'placeholder', needs: 'a routing-visibility dataset we do not currently query' },
-    latency: { status: 'ready' },
+    // The numbers are not ours to produce: measuring from this server would
+    // report this datacenter's uplink as if it were the world's. The block
+    // carries the probe plan and the visitor's browser runs it, so the slot is
+    // ready in the sense that matters — every cell has a source.
+    latency: { status: 'ready', note: 'probe plan only; the round trips are measured in the browser by Globalping datacenter probes, on the visitor\'s own quota' },
     heat: { status: 'placeholder', needs: 'a local per-prefix observation store; nothing is recorded today, so there is no trend to draw' },
     map: { status: 'ready' },
     geo: { status: 'ready' },
@@ -254,9 +261,13 @@ const SLOTS = {
 export const buildDossier = async (ip, { lang = 'en' } = {}) => {
     // The trust evidence carries one geolocation answer, the reverse name, the
     // RIR record, the announcement shape and the RPKI state. The remaining geo
-    // sources are gathered alongside it; the topology costs nothing.
-    const [evidence, ...extra] = await Promise.all([
+    // sources are gathered alongside it; the topology costs nothing, and the
+    // announcement history answers at BGP granularity for the /24 or /48 that
+    // contains the address — the same quantization the standalone ASN-history
+    // tool uses, so both read one edge-cache key.
+    const [evidence, asnHistory, ...extra] = await Promise.all([
         gatherTrustEvidence(ip),
+        buildAsnHistoryBlock(toBgpPrefix(ip)),
         ...GEO_SOURCES.map((s) => fetchGeoSource(s, ip, lang)),
     ]);
 
@@ -300,7 +311,16 @@ export const buildDossier = async (ip, { lang = 'en' } = {}) => {
             announce: evidence.announce,
         },
         topology: buildTopology(resolvedAsn),
-        slots: SLOTS,
+        latency: buildLatencyMatrix(ip),
+        asnHistory,
+        slots: {
+            ...SLOTS,
+            // A declared gap stays a declared gap, but an attempted fetch that
+            // came back empty or timed out must not report itself as ready.
+            asnHistory: asnHistory.failed
+                ? { status: 'placeholder', needs: 'RIPEstat routing-history did not answer within our timeout for this prefix' }
+                : { status: 'ready' },
+        },
         sourcesFailed: evidence.failed,
     };
 };
