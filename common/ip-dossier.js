@@ -225,8 +225,8 @@ const buildTopology = (asn) => {
 // gap into a real section, so filling one in is a decision and not a search.
 const SLOTS = {
     hero: { status: 'ready' },
-    usage: { status: 'ready' },
-    asn: { status: 'ready' },
+    usage: { status: 'ready', partial: ['humanBot', 'scenario'] },
+    asn: { status: 'ready', partial: ['asnKind', 'bandwidth'] },
     technical: { status: 'ready', partial: ['openPorts'] },
     threat: { status: 'partial', missing: ['abuseLevel', 'honeypot'], needs: 'an abuse-intelligence feed; the free registries do not carry per-address abuse history' },
     deepRisk: { status: 'placeholder', needs: 'VPN / proxy / Tor membership feeds. DNSBL lookups were tried and dropped: an intercepting resolver answers every query with a hit, which is a false accusation, not a measurement' },
@@ -309,6 +309,12 @@ export const buildDossier = async (ip, { lang = 'en' } = {}) => {
             rdns: evidence.rdns,
             rpki: evidence.rpki,
             announce: evidence.announce,
+            asnRegistered: evidence.asnRegistered || null,
+            ipv4Total: evidence.announce?.v4Size || null,
+            // RIPEstat's holder reads `GOOGLE - Google LLC`: the handle, then
+            // the organisation. The card shows them on separate rows, so split
+            // here rather than making the UI parse a registry string.
+            holderName: (evidence.asName || '').split(' - ')[0] || null,
         },
         topology: buildTopology(resolvedAsn),
         latency: buildLatencyMatrix(ip),

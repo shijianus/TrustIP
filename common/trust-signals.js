@@ -21,6 +21,7 @@
 import { fetchUpstream } from './fetch-with-timeout.js';
 import { expandIPv6, toBgpPrefix } from './bgp-prefix.js';
 import { lookupAsOrgName } from './as-org-db.js';
+import { rdapAsn } from './rdap.js';
 import logger from './logger.js';
 
 const RIPESTAT_BASE = 'https://stat.ripe.net/data';
@@ -178,9 +179,26 @@ const readAnnounceShape = async (asn) => {
     if (!masks.length) return { failed: true };
     return {
         v4Count: masks.length,
+        // The address space the AS actually carries today — the sum of what is
+        // announced, not what it holds on paper. Aggregates and deaggregates
+        // both count, because both are routed.
+        v4Size: masks.reduce((n, m) => n + 2 ** (32 - m), 0),
         smallShare: masks.filter((m) => m >= 24).length / masks.length,
         largest: Math.min(...masks),
     };
+};
+
+// When the registry handed the number out. Scoring does not use it — the
+// dossier's allocation-age signal reads the address block's own date — but the
+// ASN card answers to it, and it is the one ASN fact that only the RIR has.
+const readAsnRegistration = async (asn) => {
+    if (!asn) return { failed: true };
+    try {
+        return await rdapAsn(asn);
+    } catch (error) {
+        logger.warn({ err: error, asn }, 'RDAP ASN lookup failed');
+        return { failed: true };
+    }
 };
 
 const RPKI_STATES = ['valid', 'invalid', 'invalid_asn', 'invalid_length', 'not-found', 'unknown'];
@@ -250,11 +268,12 @@ export const gatherTrustEvidence = async (ip, { geo = null } = {}) => {
     // Independent of each other; run together so the response costs the
     // slowest source, not their sum. RPKI is the exception — it needs the
     // prefix, which only the allocation record can supply.
-    const [ptr, rir, holder, shape] = await Promise.all([
+    const [ptr, rir, holder, shape, allocated] = await Promise.all([
         queryPtr(ip),
         readRirRecord(ip),
         readAsHolder(asn),
         readAnnounceShape(asn),
+        readAsnRegistration(asn),
     ]);
 
     evidence.asOrg = asn ? lookupAsOrgName(asn) : null;
@@ -271,6 +290,9 @@ export const gatherTrustEvidence = async (ip, { geo = null } = {}) => {
 
     evidence.announce = shape?.failed ? null : shape;
     if (shape?.failed) failed.push('announced-prefixes');
+
+    evidence.asnRegistered = allocated?.failed ? null : (allocated.registered || null);
+    if (allocated?.failed) failed.push('rdap-asn');
 
     // RPKI needs a prefix. Prefer the allocation's own CIDR — RIPE writes
     // `inetnum` as a range (`a - b`) about as often as a CIDR, and only the

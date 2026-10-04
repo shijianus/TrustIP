@@ -13,6 +13,9 @@
 //     the result in without any frontend change.
 //   rdapIp(ip)        →  { __raw, ...rdapJson }
 //     Flat, like whoiser.ip() — the frontend only reads `__raw`.
+//   rdapAsn(asn)      →  { registered, name }
+//     The AS object's allocation date and holder name, for the IP dossier's
+//     ASN card. Nothing in a BGP dataset says when a number was allocated.
 //
 // Bootstrap (IANA's TLD / address-space → RDAP endpoint maps) is cached
 // in-memory for 24h per file. Upstream calls go through `fetchUpstream`
@@ -121,6 +124,47 @@ export const rdapIp = async (ip, { timeoutMs = 5000 } = {}) => {
     const data = await res.json();
 
     return { ...data, __raw: formatIpNetwork(data) };
+};
+
+// -- Autonomous system number --------------------------------------------
+
+// IANA's `asn.json` maps inclusive `lo-hi` ranges (a lone number is both
+// bounds) to the RIR that answers for them. Exported for tests.
+export const findAsnEndpoint = (services, asn) => {
+    const num = Number(asn);
+    if (!Number.isFinite(num)) return null;
+    for (const [ranges, urls] of services) {
+        for (const range of ranges || []) {
+            const [lo, hi] = String(range).split('-').map(Number);
+            if (!Number.isFinite(lo)) continue;
+            if (num >= lo && num <= (Number.isFinite(hi) ? hi : lo)) {
+                return urls.find((u) => u.startsWith('https://')) || urls[0];
+            }
+        }
+    }
+    return null;
+};
+
+// The two facts an AS's own registry object carries that no BGP dataset does:
+// when it was allocated, and what its holder calls it. `registration` is the
+// allocation event; a missing one means the RIR never wrote it, which is
+// reported as null rather than guessed from the handle.
+export const rdapAsn = async (asn, { timeoutMs = 5000 } = {}) => {
+    const bootstrap = await loadBootstrap('asn.json');
+    const base = findAsnEndpoint(bootstrap.services, asn);
+    if (!base) throw new Error(`No RDAP endpoint for AS${asn}`);
+
+    const res = await fetchUpstream(`${trimSlash(base)}/autnum/${Number(asn)}`, { timeoutMs });
+    if (res.status === 404) throw new Error(`AS${asn} not found at ${base}`);
+    if (!res.ok) {
+        logger.error({ asn, status: res.status }, 'RDAP ASN query failed');
+        throw new Error(`RDAP ASN query failed: ${res.status}`);
+    }
+    const data = await res.json();
+    const registered = (data.events || [])
+        .find((e) => e.eventAction === 'registration')?.eventDate || null;
+
+    return { registered, name: data.name || null };
 };
 
 // -- Format RDAP JSON into a WHOIS-like text block ------------------------

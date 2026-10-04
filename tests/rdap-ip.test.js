@@ -1,12 +1,13 @@
-// Coverage for the IP half of common/rdap.js — bootstrap endpoint
-// selection (longest-prefix CIDR match), the RDAP-JSON → WHOIS-like
-// `__raw` text formatter, and rdapIp's query-URL shape (fetch stubbed;
-// real network stays out of scope).
+// Coverage for the IP and AS-number halves of common/rdap.js — bootstrap
+// endpoint selection (longest-prefix CIDR match for addresses, inclusive
+// range match for AS numbers), the RDAP-JSON → WHOIS-like `__raw` text
+// formatter, and the two query-URL shapes (fetch stubbed; real network
+// stays out of scope).
 
 import assert from 'node:assert/strict';
 import { describe, it, mock } from 'node:test';
 
-import { findIpEndpoint, formatIpNetwork, rdapIp } from '../common/rdap.js';
+import { findIpEndpoint, formatIpNetwork, rdapIp, findAsnEndpoint, rdapAsn } from '../common/rdap.js';
 
 // Shaped like IANA's ipv4.json / ipv6.json `services` arrays:
 // [[cidr, …], [url, …]] per registry.
@@ -144,6 +145,84 @@ describe('rdapIp — query URL shape', () => {
                 .map((c) => String(c.arguments[0]))
                 .find((u) => u.includes('/ip/'));
             assert.equal(queried, 'https://rdap.apnic.net/ip/2404:c0:2520::1');
+        } finally {
+            fetchMock.mock.restore();
+        }
+    });
+});
+
+// IANA's asn.json keys services by inclusive `lo-hi` range rather than CIDR.
+const ASN_SERVICES = [
+    [['36864-37887', '328704-329727'], ['https://rdap.afrinic.net/rdap/', 'http://rdap.afrinic.net/rdap/']],
+    [['15100-15200'], ['https://rdap.apnic.net/']],
+    [['1-1876', '3354-4607'], ['https://rdap.arin.net/registry/', 'http://rdap.arin.net/registry/']],
+    // A lone number is a range of one.
+    [['2043'], ['https://rdap.db.ripe.net/']],
+];
+
+describe('findAsnEndpoint — range match', () => {
+    it('finds the registry whose range covers the number', () => {
+        assert.equal(findAsnEndpoint(ASN_SERVICES, 15169), 'https://rdap.apnic.net/');
+        assert.equal(findAsnEndpoint(ASN_SERVICES, 4000), 'https://rdap.arin.net/registry/');
+    });
+
+    it('takes the inclusive bounds of a range', () => {
+        assert.equal(findAsnEndpoint(ASN_SERVICES, 15100), 'https://rdap.apnic.net/');
+        assert.equal(findAsnEndpoint(ASN_SERVICES, 15200), 'https://rdap.apnic.net/');
+        assert.equal(findAsnEndpoint(ASN_SERVICES, 15201), null);
+    });
+
+    it('matches a single-number entry', () => {
+        assert.equal(findAsnEndpoint(ASN_SERVICES, 2043), 'https://rdap.db.ripe.net/');
+        assert.equal(findAsnEndpoint(ASN_SERVICES, 2044), null);
+    });
+
+    it('prefers the https URL when a registry lists both', () => {
+        assert.equal(findAsnEndpoint(ASN_SERVICES, 37000), 'https://rdap.afrinic.net/rdap/');
+    });
+
+    it('returns null for something that is not a number', () => {
+        assert.equal(findAsnEndpoint(ASN_SERVICES, 'AS15169'), null);
+        assert.equal(findAsnEndpoint(ASN_SERVICES, null), null);
+    });
+});
+
+describe('rdapAsn — allocation date and holder name', () => {
+    it('reads the registration event off the AS object', async () => {
+        const jsonResponse = (body) => ({ ok: true, status: 200, json: async () => body });
+        const fetchMock = mock.method(globalThis, 'fetch', async (url) => {
+            if (String(url).startsWith('https://data.iana.org/rdap/')) {
+                return jsonResponse({ services: ASN_SERVICES });
+            }
+            return jsonResponse({
+                name: 'GOOGLE',
+                events: [
+                    { eventAction: 'last changed', eventDate: '2026-08-19T14:34:18-04:00' },
+                    { eventAction: 'registration', eventDate: '2000-03-30T00:00:00-05:00' },
+                ],
+            });
+        });
+        try {
+            const queried = await rdapAsn(15169);
+            assert.equal(queried.registered, '2000-03-30T00:00:00-05:00');
+            assert.equal(queried.name, 'GOOGLE');
+            const path = fetchMock.mock.calls.map((c) => String(c.arguments[0])).find((u) => u.includes('/autnum/'));
+            assert.equal(path, 'https://rdap.apnic.net/autnum/15169');
+        } finally {
+            fetchMock.mock.restore();
+        }
+    });
+
+    it('reports no date rather than guessing one from the handle', async () => {
+        const jsonResponse = (body) => ({ ok: true, status: 200, json: async () => body });
+        const fetchMock = mock.method(globalThis, 'fetch', async (url) => {
+            if (String(url).startsWith('https://data.iana.org/rdap/')) {
+                return jsonResponse({ services: ASN_SERVICES });
+            }
+            return jsonResponse({ name: 'EXAMPLE', events: [{ eventAction: 'last changed', eventDate: '2020-01-01' }] });
+        });
+        try {
+            assert.equal((await rdapAsn(15169)).registered, null);
         } finally {
             fetchMock.mock.restore();
         }

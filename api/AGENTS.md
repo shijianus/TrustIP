@@ -51,7 +51,7 @@ Consequences worth knowing before touching this group:
 - Everything is key-free by design — public registries, DoH, RIPEstat, and the
   CAIDA snapshots already on disk. No `requiredEnv`, so all of it works on a
   blank `.env`.
-- One visitor request fans out into ~7 registry reads, so each route carries its
+- One visitor request fans out into ~8 registry reads, so each route carries its
   own tight per-IP limiter plus `cacheable(24 * 60 * 60)`. Do not remove either:
   RIPEstat's fair use is about one request per second per `sourceapp`.
 - Nothing connects to the queried address. Active probing would turn the
