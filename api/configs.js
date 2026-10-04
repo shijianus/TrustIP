@@ -1,5 +1,6 @@
 // Validate environment variables exist to enable/disable frontend features
 import { isReportSharingConfigured } from './share-report.js';
+import { isMaxMindReady } from '../common/maxmind-service.js';
 
 export default (req, res) => {
     // defensive; app.get() in backend-server.js already gates method, but a
@@ -28,6 +29,12 @@ export default (req, res) => {
         ipapiis: process.env.IPAPIIS_API_KEY,
         // Share-link feature gate: all three CLOUDFLARE_* KV variables present.
         reportSharing: isReportSharingConfigured(),
+        // The one gate that is not about a credential: MaxMind answers from a
+        // local database, so it is ready when the files exist, whatever the
+        // environment says. Without this the front end treats MaxMind as a
+        // key-free source (its entry has no other reason to be off) and burns
+        // a request per lookup on a deployment that will never answer.
+        maxmind: isMaxMindReady(),
     };
     let result = {};
     for (const key in envConfigs) {

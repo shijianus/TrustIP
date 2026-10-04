@@ -36,6 +36,25 @@
                 <Button variant="ghost" size="sm" class="ms-2" @click="load(target)">{{ t('dossier.retry') }}</Button>
             </div>
 
+            <!-- Loading sits between "has an address" and "has an answer":
+                 without this branch the content below renders while `dossier`
+                 is still null, and Vue swallows the throw as a blank card
+                 rather than telling anyone the page broke. -->
+            <div v-else-if="!dossier" class="space-y-4">
+                <div class="jn-card rounded-[var(--radius)] p-4">
+                    <div class="jn-skeleton mb-3 h-4 w-40"></div>
+                    <div class="space-y-2">
+                        <div v-for="n in 5" :key="n" class="jn-skeleton h-4 w-full"></div>
+                    </div>
+                </div>
+                <div class="grid gap-4 md:grid-cols-2">
+                    <div v-for="n in 2" :key="n" class="jn-card rounded-[var(--radius)] p-4">
+                        <div class="jn-skeleton mb-3 h-4 w-32"></div>
+                        <div v-for="m in 4" :key="m" class="jn-skeleton mb-2 h-4 w-full"></div>
+                    </div>
+                </div>
+            </div>
+
             <template v-else>
                 <!-- 1 — hero: the address, its verdict, and the evidence that
                      produced it. -->

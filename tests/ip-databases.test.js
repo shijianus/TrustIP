@@ -75,12 +75,27 @@ describe('applyConfigAvailability()', () => {
     assert.equal(byId[4], true);   // ip2location: true
   });
 
+  // 2 (IP-API.com) and 5 (IP.sb) are the genuinely key-free sources: no
+  // credential and no local file gates them, so they work on a blank .env.
   it('keeps key-free sources always enabled', () => {
     const allOff = applyConfigAvailability(createInitialIpDBs(),
-      { ipChecking: false, ipInfo: false, ipapiis: false, ip2location: false });
-    for (const id of [2, 5, 6]) {
+      { ipChecking: false, ipInfo: false, ipapiis: false, ip2location: false, maxmind: false });
+    for (const id of [2, 5]) {
       assert.equal(allOff.find((db) => db.id === id).enabled, true, `id ${id} must stay enabled`);
     }
+  });
+
+  // MaxMind is the one source gated by something other than a credential: it
+  // answers from a local database, so `/api/configs` reports whether the files
+  // are there. Before that flag existed the front end kept asking a source that
+  // can only answer 503 on a database-less deployment.
+  it('gates MaxMind on the database being present, not on a key', () => {
+    const dbs = createInitialIpDBs();
+    assert.equal(dbs.find((db) => db.id === 6).configKey, 'maxmind');
+    const off = applyConfigAvailability(dbs, { maxmind: false });
+    assert.equal(off.find((db) => db.id === 6).enabled, false);
+    const on = applyConfigAvailability(dbs, { maxmind: true });
+    assert.equal(on.find((db) => db.id === 6).enabled, true);
   });
 
   it('returns fresh entries without mutating the input', () => {
