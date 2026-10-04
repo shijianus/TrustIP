@@ -2092,5 +2092,34 @@
     "neighbours": {
       "empty": "Nenhum endereço vizinho foi observado aqui."
     }
+  },
+  "home": {
+    "query": {
+      "title": "Minha busca de IP",
+      "desc": "Seu endereço, sua geolocalização, a velocidade com que seis destinos respondem e por qual saída cada site foi alcançado.",
+      "maskIps": "Ocultar IPs",
+      "connectivity": "Conectividade",
+      "viewMore": "Ver mais ›",
+      "samples": "Doze amostras cronometradas",
+      "probing": "sondeando…",
+      "timeout": "tempo esgotado",
+      "egressTitle": "Endereços de saída observados ({n}) — clique para verificar a qualidade",
+      "egressHint": "Verificar a qualidade de {ip}",
+      "noneYet": "Ainda não medido."
+    },
+    "split": {
+      "title": "Teste de roteamento por site",
+      "desc": "Se a sua rede divide o tráfego, esta tabela mostra qual endereço cada site viu e a regra usada. Uma linha “desconhecida” é um destino que não informa o endereço, não uma falha da sua rede.",
+      "colSite": "Site",
+      "colIp": "IP",
+      "colGeo": "Geolocalização",
+      "rerun": "Repetir",
+      "split": "O tráfego se divide por {n} saídas",
+      "single": "Uma saída para todos os destinos",
+      "domestic": "Nacional",
+      "international": "Internacional",
+      "waiting": "aguardando…",
+      "unknown": "desconhecido"
+    }
   }
 }

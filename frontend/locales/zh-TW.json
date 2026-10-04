@@ -2092,5 +2092,34 @@
     "neighbours": {
       "empty": "未在此處觀測到相鄰位址。"
     }
+  },
+  "home": {
+    "query": {
+      "title": "我的 IP 查詢",
+      "desc": "查看目前 IP 位址、地理位置、六個站點的連通速度，以及造訪各站點時實際使用的出口。",
+      "maskIps": "隱藏 IP",
+      "connectivity": "網路連通性",
+      "viewMore": "檢視更多 ›",
+      "samples": "十二次計時取樣",
+      "probing": "探查中…",
+      "timeout": "逾時",
+      "egressTitle": "分流出口 IP 彙總（{n} 個，點擊檢視 IP 品質）",
+      "egressHint": "查詢 {ip} 的 IP 品質",
+      "noneYet": "尚未量測。"
+    },
+    "split": {
+      "title": "網站分流測試",
+      "desc": "如果目前網路進行了 IP 分流，下面可以看到造訪不同網站時所使用的 IP 及分流規則。出現「未知」並不代表你的網路有問題，只是該站點不回傳出口位址。",
+      "colSite": "網站",
+      "colIp": "IP",
+      "colGeo": "地理位置",
+      "rerun": "重新測試",
+      "split": "流量經 {n} 個出口分流",
+      "single": "所有網站走同一出口",
+      "domestic": "國內",
+      "international": "國際",
+      "waiting": "等待中…",
+      "unknown": "未知"
+    }
   }
 }

@@ -2092,5 +2092,34 @@
     "neighbours": {
       "empty": "No neighbouring addresses have been observed here."
     }
+  },
+  "home": {
+    "query": {
+      "title": "My IP lookup",
+      "desc": "Your address, its geolocation, how fast six destinations answer it, and which exit each site was reached from.",
+      "maskIps": "Hide IPs",
+      "connectivity": "Connectivity",
+      "viewMore": "More ›",
+      "samples": "Twelve timed samples",
+      "probing": "probing…",
+      "timeout": "timed out",
+      "egressTitle": "Egress addresses seen ({n}) — click to check quality",
+      "egressHint": "Check the quality of {ip}",
+      "noneYet": "Not measured yet."
+    },
+    "split": {
+      "title": "Site routing test",
+      "desc": "If your network splits traffic, this table shows which address each site saw and the rule behind it. An “unknown” row is a destination that does not report one, not a fault in your network.",
+      "colSite": "Site",
+      "colIp": "IP",
+      "colGeo": "Geolocation",
+      "rerun": "Re-run",
+      "split": "Traffic splits across {n} exits",
+      "single": "One exit for every destination",
+      "domestic": "Domestic",
+      "international": "International",
+      "waiting": "waiting…",
+      "unknown": "unknown"
+    }
   }
 }

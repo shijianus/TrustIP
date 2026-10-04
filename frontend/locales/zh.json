@@ -2092,5 +2092,34 @@
     "neighbours": {
       "empty": "未在此处观测到相邻地址。"
     }
+  },
+  "home": {
+    "query": {
+      "title": "我的 IP 查询",
+      "desc": "查看当前 IP 地址、地理位置、六个站点的连通速度，以及访问各站点时实际使用的出口。",
+      "maskIps": "隐藏 IP",
+      "connectivity": "网络连通性",
+      "viewMore": "查看更多 ›",
+      "samples": "十二次计时采样",
+      "probing": "探测中…",
+      "timeout": "超时",
+      "egressTitle": "分流出口 IP 汇总（{n} 个，点击查看 IP 质量）",
+      "egressHint": "查询 {ip} 的 IP 质量",
+      "noneYet": "尚未测量。"
+    },
+    "split": {
+      "title": "网站分流测试",
+      "desc": "如果当前网络进行了 IP 分流，下面可以看到访问不同网站时所使用的 IP 及分流规则。出现「未知」并不代表你的网络有问题，只是该站点不回传出口地址。",
+      "colSite": "网站",
+      "colIp": "IP",
+      "colGeo": "地理位置",
+      "rerun": "重新测试",
+      "split": "流量经 {n} 个出口分流",
+      "single": "所有网站走同一出口",
+      "domestic": "国内",
+      "international": "国际",
+      "waiting": "等待中…",
+      "unknown": "未知"
+    }
   }
 }

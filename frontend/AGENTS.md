@@ -17,7 +17,8 @@ frontend/
 ├── sentry-init.js   ← env-gated Sentry (see "Error monitoring")
 ├── data/            ← static config (tools registry drives router+cards+drawer)
 ├── lib/ · utils/ · composables/  ← see "Helper placement"
-└── components/      ← sections + ip-infos/ advanced-tools/ report/ widgets/ svgicons/ ui/
+└── components/      ← sections + ip-infos/ advanced-tools/ report/ widgets/
+                       svgicons/ ui/ dossier/ home/
 ```
 
 Every file opens with a header comment stating its purpose — read those.
@@ -33,6 +34,10 @@ adding a `<router-link>` by hand is how the row and the table disagree.
 - `/` renders `Home.vue` with the fixed `Nav` and every section inline. The
   section components are shared with their own pages, so a section change lands
   on both halves in one build rather than in a copied file.
+  `components/home/` holds the two sections that exist only on `/` — the opening
+  IP-query block and the site routing table. They take the visitor's own address
+  from the `ipinfo:finished` event instead of resolving it again, so they can
+  never disagree with the IP cards below them.
 - `/<section>` renders one section in standalone chrome (`StandaloneSection`).
 - `/<tool alias>` renders an existing `/tools/:slug` page under a short path;
   the canonical stays on `/tools/<slug>`, which is what makes the alias safe.

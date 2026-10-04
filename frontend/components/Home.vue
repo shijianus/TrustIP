@@ -5,6 +5,17 @@
   <Preferences />
   <main id="mainpart" class="mx-auto w-full px-4 jn-container">
     <div class="rounded-md">
+      <MyIpQuery
+        :mask-active="infoMaskLevel > 0"
+        :egress-ips="egressIps"
+        :geolocations="splitGeos"
+        :split-running="splitRunning"
+        @toggle-mask="toggleInfoMask" />
+      <SiteSplitTest
+        :rows="splitRows"
+        :geolocations="splitGeos"
+        :running="splitRunning"
+        @run="runSplit" />
       <IPCheck />
       <Connectivity />
       <WebRTC />
@@ -38,6 +49,8 @@
 // template refs are null until the chunk lands — consumers (use-shortcuts)
 // must optional-chain.
 import NavBar from './Nav.vue';
+import MyIpQuery from './home/MyIpQuery.vue';
+import SiteSplitTest from './home/SiteSplitTest.vue';
 import IPCheck from './IpInfos.vue';
 import Connectivity from './ConnectivityTest.vue';
 import WebRTC from './WebRtcTest.vue';
@@ -70,6 +83,9 @@ import { useShortcuts } from '@/composables/use-shortcuts.js';
 import { useSectionTracking } from '@/composables/use-section-tracking.js';
 import { useSectionHashScroll } from '@/composables/use-section-hash.js';
 import { useDocumentMeta } from '@/composables/use-document-meta.js';
+import { useSiteSplit } from '@/composables/use-site-split.js';
+import { SPLIT_SITES } from '@/data/site-split.js';
+import { fetchWithTimeout } from '@/utils/fetch-with-timeout.js';
 
 const { t } = useI18n();
 const store = useMainStore();
@@ -90,6 +106,27 @@ const { infoMaskLevel, isInfosLoaded, showMaskButton, toggleInfoMask } = useInfo
     store,
     t,
 });
+
+// The IP-routing table. Its state lives here rather than inside the component
+// because two panels read it — the summary strip in the opening card and the
+// table itself — and a destination probed twice could answer twice differently.
+//
+// Geolocation of each distinct egress address goes through `/api/ipsb` — the
+// same key-free source the dossier treats as its primary geo answer, and the
+// one that returns the ASN's organisation name, which is the column's most
+// useful field. A split network answers forty-four destinations with two
+// addresses, so this is called twice, not forty-four times.
+const geoLookup = async (ip) => {
+    const res = await fetchWithTimeout(`/api/ipsb?ip=${encodeURIComponent(ip)}`, { timeoutMs: 12000 });
+    if (!res.ok) throw new Error(`ipsb ${res.status}`);
+    return res.json();
+};
+
+const {
+    rows: splitRows, geolocations: splitGeos, running: splitRunning, run: runSplit,
+} = useSiteSplit({ sites: SPLIT_SITES, geoLookup });
+
+const egressIps = computed(() => [...new Set(splitRows.value.filter((r) => r.ip).map((r) => r.ip))]);
 
 // Refresh / initial load sequence
 const { loadingControl } = useRefreshOrchestrator({
@@ -128,5 +165,9 @@ useDocumentMeta(() => ({
 onMounted(() => {
     loadingControl();
     loadShortcuts();
+    // Deliberately not awaited: the routing table measures the visitor's own
+    // paths and takes as long as their slowest destination, and nothing else
+    // on the page depends on it.
+    runSplit();
 });
 </script>
