@@ -1888,7 +1888,10 @@
     "deep": {
       "title": "Deep risk check",
       "note": "VPN, proxy, Tor exit and crawler membership are not established here.",
-      "needs": "a paid anonymity feed. Blocklist lookups were tried and dropped: an intercepting resolver answers every query with a hit, which accuses an address without evidence"
+      "needs": "a paid anonymity feed. Blocklist lookups were tried and dropped: an intercepting resolver answers every query with a hit, which accuses an address without evidence",
+      "detected": "Detected",
+      "clear": "Not detected",
+      "nodata": "No data"
     },
     "latency": {
       "title": "Global latency",
@@ -1915,7 +1918,15 @@
     "heat": {
       "title": "Prefix activity",
       "note": "Nothing is recorded per prefix on this instance, so there is no trend to draw.",
-      "needs": "a local observation store that keeps a daily count per /24"
+      "needs": "a local observation store that keeps a daily count per /24",
+      "days": "{n} days",
+      "index": "Activity index",
+      "weekChange": "Last 7 vs prior 7",
+      "trend": "Trend",
+      "peak": "Peak {v} · {d}",
+      "aria": "{n} daily readings, peaking at {peak}",
+      "empty": "no observations",
+      "footer": "Updated daily · the index and the curve are relative trends, not counts"
     },
     "map": {
       "title": "Location",
@@ -1941,12 +1952,15 @@
     "related": {
       "title": "Related domains",
       "note": "Domains resolving back to this address are not enumerated here.",
-      "needs": "reverse DNS sweeping across the containing prefix, which is active scanning of third-party address space"
+      "needs": "reverse DNS sweeping across the containing prefix, which is active scanning of third-party address space",
+      "empty": "No domains are known to resolve to this address."
     },
     "history": {
       "title": "Location history",
       "note": "Where this address has appeared over time is not tracked.",
-      "needs": "a per-address observation history; the IP history this app keeps is the visitor's own, not the address's"
+      "needs": "a per-address observation history; the IP history this app keeps is the visitor's own, not the address's",
+      "emptyRow": "no record",
+      "empty": "No location has ever been recorded for this address."
     },
     "topology": {
       "title": "BGP neighbourhood",
@@ -1971,7 +1985,8 @@
     "colocated": {
       "title": "Same facility",
       "note": "Other customers of this datacenter are not listed.",
-      "needs": "a datacenter-to-customer directory"
+      "needs": "a datacenter-to-customer directory",
+      "empty": "No other tenants of this facility are listed."
     },
     "cross": {
       "title": "Cross-check elsewhere",
@@ -2044,7 +2059,8 @@
       "vpn": "VPN",
       "proxy": "Proxy",
       "tor": "Tor",
-      "crawler": "Crawler / bot"
+      "crawler": "Crawler / bot",
+      "asnRegistered": "ASN allocated"
     },
     "asnHistory": {
       "empty": "No announcement history yet.",
@@ -2056,6 +2072,25 @@
       "webrtc": "WebRTC leak test",
       "ping": "Global ping",
       "whois": "Whois lookup"
+    },
+    "traffic": {
+      "pct": "{n}% human"
+    },
+    "tag": {
+      "anycast": "Anycast",
+      "rpkiProblem": "Route validation problem"
+    },
+    "scene": {
+      "tiktok": "TikTok",
+      "social": "Social ops",
+      "ai": "AI apps"
+    },
+    "grid": {
+      "more": "Show {n} more",
+      "less": "Show fewer"
+    },
+    "neighbours": {
+      "empty": "No neighbouring addresses have been observed here."
     }
   }
 }

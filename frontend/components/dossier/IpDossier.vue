@@ -82,15 +82,27 @@
                                 <span class="font-semibold" :class="classTextTone">{{ operatorType }}</span>
                             </KeyRow>
                             <KeyRow :label="t('dossier.row.humanBot')">
-                                <VerdictChip tone="muted" :label="t('trustip.verdict.notMeasured')" />
+                                <TrafficBar :value="null" />
                             </KeyRow>
-                            <KeyRow :label="t('dossier.row.scene')">
-                                <VerdictChip tone="muted" :label="t('trustip.verdict.notMeasured')" />
-                            </KeyRow>
-                            <KeyRow :label="t('dossier.row.company')">
-                                <VerdictChip tone="muted" :label="t('trustip.verdict.notMeasured')" />
-                            </KeyRow>
-                            <KeyRow :label="t('dossier.row.provider')" :value="network.asOrg || network.asName" wide />
+                            <!-- Three rings rather than one verdict: the question
+                                 a visitor is really asking is "can I run *this*
+                                 from it", and a single score would hide which
+                                 use the network fails. -->
+                            <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 py-1.5">
+                                <dt class="min-w-0 text-sm font-normal text-muted-foreground">{{ t('dossier.row.scene') }}</dt>
+                                <dd class="flex items-center gap-3">
+                                    <GaugeRing
+                                        v-for="s in scenarios" :key="s.key"
+                                        :label="s.label" :value="s.value" :tone="s.tone" :size="46" />
+                                </dd>
+                            </div>
+                            <KeyRow :label="t('dossier.row.company')" :value="network.asOrg" wide />
+                            <!-- Three names for one network, because the
+                                 registries keep three and each answers a
+                                 different question: how the AS is listed, who
+                                 legally holds it, and what the routing table
+                                 calls it. -->
+                            <KeyRow :label="t('dossier.row.provider')" :value="network.holderName" wide />
                         </dl>
                     </div>
 
@@ -107,12 +119,14 @@
                             <KeyRow :label="t('dossier.row.asnKind')">
                                 <VerdictChip tone="muted" :label="t('trustip.verdict.notMeasured')" />
                             </KeyRow>
-                            <KeyRow :label="t('dossier.row.asnSize')">
-                                <VerdictChip tone="muted" :label="t('trustip.verdict.notMeasured')" />
+                            <KeyRow :label="t('dossier.row.asnSize')" :nums="true">
+                                <span v-if="network.ipv4Total" class="jn-nums font-semibold">{{ network.ipv4Total.toLocaleString(locale) }}</span>
+                                <VerdictChip v-else tone="muted" :label="t('trustip.verdict.notMeasured')" />
                             </KeyRow>
                             <KeyRow :label="t('dossier.row.bandwidth')">
                                 <VerdictChip tone="muted" :label="t('trustip.verdict.notMeasured')" />
                             </KeyRow>
+                            <KeyRow :label="t('dossier.row.asnRegistered')" :value="asnRegisteredDate" />
                             <KeyRow :label="t('dossier.row.registered')" :value="allocationDate" />
                             <KeyRow :label="t('dossier.row.cidr')" :nums="true">
                                 <span class="font-mono text-xs">{{ network.cidr || '—' }}</span>
@@ -178,8 +192,12 @@
                             </template>
                         </SectionTitle>
                         <dl class="divide-y divide-dashed divide-border">
-                            <KeyRow v-for="row in deepRows" :key="row" :label="row">
-                                <VerdictChip tone="muted" :label="t('trustip.verdict.notMeasured')" />
+                            <KeyRow v-for="row in deepRows" :key="row.label" :label="row.label">
+                                <!-- Three answers, not two. "Not detected" is a
+                                     claim about the address; "no data" is a claim
+                                     about this build, and collapsing them would
+                                     hand every unmeasured network a clean bill. -->
+                                <VerdictChip :tone="row.tone" :label="row.label2" />
                             </KeyRow>
                         </dl>
                     </div>
@@ -199,9 +217,7 @@
 
                 <!-- 6 — prefix heat | location map -->
                 <div class="mb-4 grid gap-4 md:grid-cols-2">
-                    <CapabilitySlot
-                        state="placeholder" :title="t('dossier.sec.heat')"
-                        :note="t('dossier.heat.note')" :needs="t('dossier.heat.needs')" />
+                    <HeatTrend :heat="dossier.heat" />
                     <MapPanel :geo="dossier.geo" />
                 </div>
 
@@ -212,19 +228,53 @@
 
                 <!-- 8 — related domains -->
                 <div class="mb-4">
-                    <CapabilitySlot
-                        state="placeholder" :title="t('dossier.sec.related')"
-                        :note="t('dossier.related.note')" :needs="t('dossier.related.needs')" />
+                    <div class="jn-card rounded-[var(--radius)] p-4">
+                        <SectionTitle :title="t('dossier.sec.related')">
+                            <template #aside>
+                                <VerdictChip tone="muted" :label="t('trustip.verdict.notMeasured')" />
+                            </template>
+                        </SectionTitle>
+                        <CellGrid :items="relatedDomains" :empty="t('dossier.related.empty')" />
+                        <NeedsLine :text="t('dossier.related.needs')" />
+                    </div>
                 </div>
 
                 <!-- 9 — location history | same-facility activity -->
                 <div class="mb-4 grid gap-4 md:grid-cols-2">
-                    <CapabilitySlot
-                        state="placeholder" :title="t('dossier.sec.locationHistory')"
-                        :note="t('dossier.history.note')" :needs="t('dossier.history.needs')" />
-                    <CapabilitySlot
-                        state="placeholder" :title="t('dossier.sec.neighbours')"
-                        :note="t('dossier.related.note')" :needs="t('dossier.related.needs')" />
+                    <div class="jn-card rounded-[var(--radius)] p-4">
+                        <SectionTitle :title="t('dossier.sec.locationHistory')">
+                            <template #aside>
+                                <span class="jn-nums text-xs text-muted-foreground">{{ locationHistory.length }}</span>
+                            </template>
+                        </SectionTitle>
+                        <dl v-if="locationHistory.length" class="divide-y divide-dashed divide-border">
+                            <KeyRow
+                                v-for="(row, i) in locationHistory" :key="i"
+                                :label="historyDate(row.date)" :nums="true">
+                                <span class="inline-flex items-center gap-1.5 text-xs font-normal">
+                                    <Icon v-if="row.country_code" :icon="'circle-flags:' + row.country_code" class="size-3.5 rounded-sm" />
+                                    {{ [row.country, row.region, row.city].filter(Boolean).join(' / ') }}
+                                </span>
+                            </KeyRow>
+                        </dl>
+                        <!-- The frame without invented dates: four plausible
+                             entries would read as a log that merely looked
+                             empty at the top, which is a claim about the
+                             address rather than about this build. -->
+                        <p v-else class="rounded-lg border border-dashed px-3 py-4 text-center text-sm text-muted-foreground">
+                            {{ t('dossier.history.empty') }}
+                        </p>
+                        <NeedsLine :text="t('dossier.history.needs')" />
+                    </div>
+                    <div class="jn-card rounded-[var(--radius)] p-4">
+                        <SectionTitle :title="t('dossier.sec.neighbours')">
+                            <template #aside>
+                                <VerdictChip tone="muted" :label="t('trustip.verdict.notMeasured')" />
+                            </template>
+                        </SectionTitle>
+                        <CellGrid :items="neighbours" :empty="t('dossier.neighbours.empty')" />
+                        <NeedsLine :text="t('dossier.related.needs')" />
+                    </div>
                 </div>
 
                 <!-- 10 — BGP graph -->
@@ -271,9 +321,15 @@
 
                 <!-- 13 — same-facility providers / customers -->
                 <div class="mb-4">
-                    <CapabilitySlot
-                        state="placeholder" :title="t('dossier.sec.colocated')"
-                        :note="t('dossier.colocated.note')" :needs="t('dossier.colocated.needs')" />
+                    <div class="jn-card rounded-[var(--radius)] p-4">
+                        <SectionTitle :title="t('dossier.sec.colocated')">
+                            <template #aside>
+                                <VerdictChip tone="muted" :label="t('trustip.verdict.notMeasured')" />
+                            </template>
+                        </SectionTitle>
+                        <CellGrid :items="colocated" :empty="t('dossier.colocated.empty')" />
+                        <NeedsLine :text="t('dossier.colocated.needs')" />
+                    </div>
                 </div>
 
                 <!-- 14 — actions beside cross-checks: the in-app siblings that
@@ -339,10 +395,15 @@ import TrustSignals from '@/components/dossier/TrustSignals.vue';
 import GeoSources from '@/components/ip-infos/GeoSources.vue';
 import BgpFan from '@/components/dossier/BgpFan.vue';
 import MapPanel from '@/components/dossier/MapPanel.vue';
+import HeatTrend from '@/components/dossier/HeatTrend.vue';
 import LatencyMatrix from '@/components/dossier/LatencyMatrix.vue';
 import SectionTitle from '@/components/widgets/SectionTitle.vue';
 import KeyRow from '@/components/widgets/KeyRow.vue';
 import VerdictChip from '@/components/widgets/VerdictChip.vue';
+import GaugeRing from '@/components/widgets/GaugeRing.vue';
+import TrafficBar from '@/components/widgets/TrafficBar.vue';
+import CellGrid from '@/components/widgets/CellGrid.vue';
+import NeedsLine from '@/components/widgets/NeedsLine.vue';
 import CapabilitySlot from '@/components/widgets/CapabilitySlot.vue';
 import CopyButton from '@/components/widgets/CopyButton.vue';
 import Button from '@/components/ui/button/Button.vue';
@@ -381,11 +442,30 @@ const operatorType = computed(() => {
 });
 const classTextTone = computed(() => CLASS_TONE[trust.value.cls] === 'ok' ? 'text-success-soft-fg' : '');
 
+// One chip per property a reader would want to filter on, not one per signal
+// the score used: an anycast resolver is also a datacenter, and showing only
+// the stronger of the two loses the fact that explains everything else on the
+// page.
 const tags = computed(() => {
+    const out = [];
     const cls = trust.value.cls;
-    if (!cls || cls === 'unknown') return [];
-    return [{ tone: CLASS_TONE[cls], label: t(`trustip.value.${cls}`) }];
+    if (cls && cls !== 'unknown') out.push({ tone: CLASS_TONE[cls], label: t(`trustip.value.${cls}`) });
+    if (identity.value.anycast) out.push({ tone: 'info', label: t('dossier.tag.anycast') });
+    if (['invalid', 'invalid_asn', 'invalid_length'].includes(network.value.rpki)) {
+        out.push({ tone: 'bad', label: t('dossier.tag.rpkiProblem') });
+    }
+    return out;
 });
+
+// The three uses a visitor actually weighs an address against. Each is null
+// until this build has a basis for it — none of the three can be inferred from
+// a registry record, and a ring drawn from a guess would be the most
+// authoritative-looking lie on the page.
+const scenarios = computed(() => [
+    { key: 'tiktok', label: t('dossier.scene.tiktok'), value: null, tone: 'muted' },
+    { key: 'social', label: t('dossier.scene.social'), value: null, tone: 'muted' },
+    { key: 'ai', label: t('dossier.scene.ai'), value: null, tone: 'muted' },
+]);
 
 const nativeness = computed(() => {
     const s = trust.value.signals?.find((x) => x.id === 'nativeness');
@@ -406,9 +486,32 @@ const threatScore = computed(() => {
     return `${measured} / 4`;
 });
 
+// The four named lookups, each with its own three-state answer. `detected` and
+// `clear` would be claims about the address; nothing here can make either yet,
+// so every row answers about this build instead.
+const DEEP_STATES = {
+    detected: { tone: 'bad', key: 'detected' },
+    clear: { tone: 'ok', key: 'clear' },
+    unknown: { tone: 'muted', key: 'nodata' },
+};
 const deepRows = computed(() => [
     t('dossier.row.vpn'), t('dossier.row.proxy'), t('dossier.row.tor'), t('dossier.row.crawler'),
-]);
+].map((label) => ({ label, tone: DEEP_STATES.unknown.tone, label2: t(`dossier.deep.${DEEP_STATES.unknown.key}`) })));
+
+const asnRegisteredDate = computed(() => {
+    const raw = network.value.asnRegistered;
+    if (!raw) return '';
+    const m = /^\d{4}-\d{2}-\d{2}/.exec(raw);
+    return m ? formatIsoDate(m[0], locale.value) : raw;
+});
+
+// The four sections that need a source this build does not have. They are
+// empty arrays rather than absent so the panels render their grid, their
+// headers and their "nothing here" row — the layout the page promises.
+const relatedDomains = computed(() => []);
+const neighbours = computed(() => []);
+const colocated = computed(() => []);
+const locationHistory = computed(() => []);
 
 const allocationDate = computed(() => {
     const raw = network.value.regDate;

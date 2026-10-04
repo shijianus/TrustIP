@@ -1888,7 +1888,10 @@
     "deep": {
       "title": "Verificação de risco aprofundada",
       "note": "Afiliação a VPN, proxy, saída Tor ou rastreador não é estabelecida aqui.",
-      "needs": "uma base paga de anonimato. Listas de bloqueio foram tentadas e descartadas: um resolvedor que intercepta responde «sim» a toda consulta, o que acusa um endereço sem prova"
+      "needs": "uma base paga de anonimato. Listas de bloqueio foram tentadas e descartadas: um resolvedor que intercepta responde «sim» a toda consulta, o que acusa um endereço sem prova",
+      "detected": "Detectado",
+      "clear": "Não detectado",
+      "nodata": "Sem dados"
     },
     "latency": {
       "title": "Latência global",
@@ -1915,7 +1918,15 @@
     "heat": {
       "title": "Atividade do prefixo",
       "note": "Nada é registrado por prefixo nesta instância, então não há tendência a traçar.",
-      "needs": "um armazenamento local de observações com contagem diária por /24"
+      "needs": "um armazenamento local de observações com contagem diária por /24",
+      "days": "{n} dias",
+      "index": "Índice de atividade",
+      "weekChange": "Últimos 7 vs 7 anteriores",
+      "trend": "Tendência",
+      "peak": "Pico {v} · {d}",
+      "aria": "{n} leituras diárias, pico em {peak}",
+      "empty": "sem observações",
+      "footer": "Atualizado diariamente · índice e curva são tendências relativas, não contagens"
     },
     "map": {
       "title": "Localização",
@@ -1941,12 +1952,15 @@
     "related": {
       "title": "Domínios relacionados",
       "note": "Domínios que resolvem para este endereço não são enumerados aqui.",
-      "needs": "varredura de DNS reverso pelo prefixo inteiro, o que é varredura ativa do espaço de terceiros"
+      "needs": "varredura de DNS reverso pelo prefixo inteiro, o que é varredura ativa do espaço de terceiros",
+      "empty": "Nenhum domínio conhecido aponta para este endereço."
     },
     "history": {
       "title": "Histórico de localização",
       "note": "Onde este endereço apareceu ao longo do tempo não é acompanhado.",
-      "needs": "um histórico de observações por endereço; o histórico de IP do app é o do visitante, não o do endereço"
+      "needs": "um histórico de observações por endereço; o histórico de IP do app é o do visitante, não o do endereço",
+      "emptyRow": "sem registro",
+      "empty": "Nenhuma localização foi registrada para este endereço."
     },
     "topology": {
       "title": "Vizinhança BGP",
@@ -1971,7 +1985,8 @@
     "colocated": {
       "title": "Mesmo datacenter",
       "note": "Outros clientes deste datacenter não são listados.",
-      "needs": "um diretório datacenter → clientes"
+      "needs": "um diretório datacenter → clientes",
+      "empty": "Nenhum outro locatário desta instalação está listado."
     },
     "cross": {
       "title": "Confira em outros lugares",
@@ -2044,7 +2059,8 @@
       "vpn": "VPN",
       "proxy": "Proxy",
       "tor": "Tor",
-      "crawler": "Rastreador / robô"
+      "crawler": "Rastreador / robô",
+      "asnRegistered": "Alocação do ASN"
     },
     "asnHistory": {
       "empty": "Ainda não há histórico de anúncios.",
@@ -2056,6 +2072,25 @@
       "webrtc": "Teste de vazamento WebRTC",
       "ping": "Ping global",
       "whois": "Busca Whois"
+    },
+    "traffic": {
+      "pct": "{n}% humanos"
+    },
+    "tag": {
+      "anycast": "Anycast",
+      "rpkiProblem": "Problema na validação de rota"
+    },
+    "scene": {
+      "tiktok": "TikTok",
+      "social": "Redes sociais",
+      "ai": "Apps de IA"
+    },
+    "grid": {
+      "more": "Mostrar mais {n}",
+      "less": "Mostrar menos"
+    },
+    "neighbours": {
+      "empty": "Nenhum endereço vizinho foi observado aqui."
     }
   }
 }

@@ -1888,7 +1888,10 @@
     "deep": {
       "title": "Contrôle de risque approfondi",
       "note": "L'appartenance à un VPN, un proxy, une sortie Tor ou un crawler n'est pas établie ici.",
-      "needs": "un flux d'anonymat payant. Les listes de blocage ont été essayées puis abandonnées : un résolveur interceptant répond présent à chaque requête, ce qui accuse une adresse sans preuve"
+      "needs": "un flux d'anonymat payant. Les listes de blocage ont été essayées puis abandonnées : un résolveur interceptant répond présent à chaque requête, ce qui accuse une adresse sans preuve",
+      "detected": "Détecté",
+      "clear": "Non détecté",
+      "nodata": "Aucune donnée"
     },
     "latency": {
       "title": "Latence mondiale",
@@ -1915,7 +1918,15 @@
     "heat": {
       "title": "Activité du préfixe",
       "note": "Rien n'est enregistré par préfixe sur cette instance ; aucune tendance à tracer.",
-      "needs": "un magasin d'observations local comptant chaque /24 jour par jour"
+      "needs": "un magasin d'observations local comptant chaque /24 jour par jour",
+      "days": "{n} jours",
+      "index": "Indice d’activité",
+      "weekChange": "7 derniers vs 7 précédents",
+      "trend": "Tendance",
+      "peak": "Pic {v} · {d}",
+      "aria": "{n} relevés quotidiens, pic à {peak}",
+      "empty": "aucune observation",
+      "footer": "Mis à jour chaque jour · indice et courbe sont des tendances relatives, pas des comptages"
     },
     "map": {
       "title": "Localisation",
@@ -1941,12 +1952,15 @@
     "related": {
       "title": "Domaines associés",
       "note": "Les domaines résolus vers cette adresse ne sont pas énumérés ici.",
-      "needs": "un balayage DNS inverse sur tout le préfixe, soit une analyse active de l'espace d'autrui"
+      "needs": "un balayage DNS inverse sur tout le préfixe, soit une analyse active de l'espace d'autrui",
+      "empty": "Aucun domaine connu ne pointe vers cette adresse."
     },
     "history": {
       "title": "Historique de localisation",
       "note": "L'évolution dans le temps de cette adresse n'est pas suivie.",
-      "needs": "un historique d'observations par adresse ; l'historique IP de l'app est celui du visiteur, pas celui de l'adresse"
+      "needs": "un historique d'observations par adresse ; l'historique IP de l'app est celui du visiteur, pas celui de l'adresse",
+      "emptyRow": "aucun relevé",
+      "empty": "Aucune localisation n’a jamais été enregistrée pour cette adresse."
     },
     "topology": {
       "title": "Voisinage BGP",
@@ -1971,7 +1985,8 @@
     "colocated": {
       "title": "Même salle",
       "note": "Les autres clients de ce centre de données ne sont pas listés.",
-      "needs": "un annuaire centre de données → clients"
+      "needs": "un annuaire centre de données → clients",
+      "empty": "Aucun autre locataire de ce site n’est listé."
     },
     "cross": {
       "title": "Vérifier ailleurs",
@@ -2044,7 +2059,8 @@
       "vpn": "VPN",
       "proxy": "Proxy",
       "tor": "Tor",
-      "crawler": "Robot / rastilleur"
+      "crawler": "Robot / rastilleur",
+      "asnRegistered": "Attribution de l’ASN"
     },
     "asnHistory": {
       "empty": "Aucun historique d'annonce pour l'instant.",
@@ -2056,6 +2072,25 @@
       "webrtc": "Test de fuite WebRTC",
       "ping": "Ping mondial",
       "whois": "Recherche Whois"
+    },
+    "traffic": {
+      "pct": "{n} % humains"
+    },
+    "tag": {
+      "anycast": "Anycast",
+      "rpkiProblem": "Problème de validation de route"
+    },
+    "scene": {
+      "tiktok": "TikTok",
+      "social": "Réseaux sociaux",
+      "ai": "Apps IA"
+    },
+    "grid": {
+      "more": "Afficher {n} de plus",
+      "less": "Afficher moins"
+    },
+    "neighbours": {
+      "empty": "Aucune adresse voisine observée ici."
     }
   }
 }
