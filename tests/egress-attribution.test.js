@@ -178,6 +178,30 @@ describe('collectEgress — one record per address', () => {
         assert.equal(only.org, 'AS4134');
     });
 
+    it('falls back to the echo\'s country when the leak has no place to name', () => {
+        // The case the panel would otherwise show as "—": a mobile range the
+        // registry refuses to place, leaked by STUN, while the edge that answered the
+        // row said `loc=CN`. Silence about the city is not silence about the country.
+        const [only] = collectEgress({
+            ownExits: [],
+            leaks: [{ ip: CN_V4, country_code: '', org: '' }],
+            rows: [{ host: 'a', ip: CN_V4, loc: 'CN', state: 'ok' }],
+        });
+        assert.equal(only.leak, true);
+        assert.equal(only.country_code, 'CN');
+    });
+
+    it('lets the leak win over the echo when both name a country', () => {
+        // The echo is Cloudflare's reading of the edge; the leak's answer comes from
+        // the same geo source the rest of the page uses for this address. One
+        // address, one country, and the page's own source is the one that wins.
+        const [only] = collectEgress({
+            leaks: [{ ip: CN_V4, country_code: 'CN' }],
+            rows: [{ host: 'a', ip: CN_V4, loc: 'US', state: 'ok' }],
+        });
+        assert.equal(only.country_code, 'CN');
+    });
+
     it('keeps the fastest round trip per address', () => {
         const [only] = collectEgress({
             rows: [{ host: 'a', ip: US_V4, ms: 90 }, { host: 'b', ip: US_V4, ms: 31 }],

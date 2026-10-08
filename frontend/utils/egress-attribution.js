@@ -81,11 +81,12 @@ export const collectEgress = ({ rows = [], ownExits = [], leaks = [] } = {}) => 
         seen.seenBy += 1;
         seen.hosts.push(row.host);
         if (Number.isFinite(row.ms) && (seen.ms == null || row.ms < seen.ms)) seen.ms = row.ms;
-        // The echo's own country is a fact from the edge; keep it only where the
-        // leak did not already name this address, so one address keeps one answer.
-        if (!seen.country_code && !leakByIp.has(seen.ip) && /^[A-Z]{2}$/.test(row.loc || '')) {
-            seen.country_code = row.loc;
-        }
+        // The echo's own country, kept as a fallback rather than as the answer: a
+        // leaked address whose registry lookup has not landed (or never will — a
+        // mobile range many sources refuse) still has an edge that said `loc=CN`,
+        // and the row above has to be able to name a place. The leak overwrites this
+        // further down, so one address still keeps one country.
+        if (!seen.country_code && /^[A-Z]{2}$/.test(row.loc || '')) seen.country_code = row.loc;
     }
 
     for (const [ip, leaked] of leakByIp) {
