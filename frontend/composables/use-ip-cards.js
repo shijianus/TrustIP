@@ -22,15 +22,15 @@
 
 import { ref, computed, onMounted, reactive, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { useMainStore } from '@/store';
-import { trackEvent } from '@/utils/analytics';
-import { isUsablePublicIP } from '@/utils/valid-ip.js';
-import { toApiTag } from '@/utils/locale-registry.js';
-import { transformDataFromIPapi } from '@/utils/transform-ip-data.js';
-import { getIPFromIPIP, getIPFromCloudflare_V4, getIPFromCloudflare_V6, getIPFromIPChecking64, getIPFromIPChecking4, getIPFromIPChecking6 } from '@/utils/getips';
-import { emitAppEvent, waitForAppEvent } from '@/utils/app-events';
-import { useAppCommand } from '@/composables/use-app-command.js';
-import { authenticatedFetch, fetchErrorLabel, logSourceFetchFailure } from '@/utils/authenticated-fetch';
+import { useMainStore } from '../store.js';
+import { trackEvent } from '../utils/analytics.js';
+import { isUsablePublicIP } from '../utils/valid-ip.js';
+import { toApiTag } from '../utils/locale-registry.js';
+import { transformDataFromIPapi } from '../utils/transform-ip-data.js';
+import { getIPFromIPIP, getIPFromCloudflare_V4, getIPFromCloudflare_V6, getIPFromIPChecking64, getIPFromIPChecking4, getIPFromIPChecking6 } from '../utils/getips/index.js';
+import { emitAppEvent, waitForAppEvent } from '../utils/app-events.js';
+import { useAppCommand } from '../composables/use-app-command.js';
+import { authenticatedFetch, fetchErrorLabel, logSourceFetchFailure } from '../utils/authenticated-fetch.js';
 
 // Default card data
 const createDefaultCard = () => ({
@@ -95,6 +95,24 @@ const CARD_SOURCE_SLUGS = [
   'ipip',
   'ipchecking-64',
 ];
+
+/**
+ * Whether every visible card has settled.
+ *
+ * `status[i]` is sparse: a card writes `{ [i]: true }` into its own slot when it
+ * lands, so an absent slot means "still in flight". The fold has to *accumulate* —
+ * when the grid was extracted out of `IpInfos.vue` this became an assignment, which
+ * overwrote every earlier "not yet" with the last index's "done", so
+ * `ipinfo:finished` fired on a partial snapshot whenever the final card happened to
+ * land first. That snapshot is what the homepage's routing table reads its measured
+ * countries from, so a missing card is a missing country in the work order.
+ */
+export const allCardsSettled = (status, count) => {
+  for (let i = 0; i < count; i++) {
+    if (status[i]?.[i] !== true) return false;
+  }
+  return true;
+};
 
 export function useIpCards() {
   const { t } = useI18n();
@@ -305,41 +323,32 @@ export function useIpCards() {
 
   // Report data fetch status, and send to store
   const trackFetchStatus = (status) => {
-    let allHasFetched = true;
-    for (let i = 0; i < ipCardsToShow.value; i++) {
-      if (status[i] === undefined) {
-        allHasFetched = false;
-      } else {
-        allHasFetched = status[i][i];
-      }
-    }
-    if (allHasFetched) {
-      cardsHaveSettled.value = true;
-      store.setLoadingStatus('IPInfo', true);
-      // Domain event: full snapshot of the visible cards, re-emitted whenever a
-      // card settles after this point (single-card refresh included). The report
-      // collector normalizes it (drops cards whose ip slot holds an error label).
-      emitAppEvent('ipinfo:finished', {
-        cards: ipDataCards.slice(0, ipCardsToShow.value).map((card) => ({
-          source: card.source,
-          ip: card.ip,
-          country_code: card.country_code,
-          region: card.region,
-          city: card.city,
-          timezone: card.timezone,
-          asn: card.asn,
-          isp: card.isp,
-          // IPCheck.ing-source enrichments (locale-free codes; absent on other
-          // sources or when the field is sign-in-gated).
-          anonymityCode: card.anonymityCode,
-          ipTypeCode: card.ipTypeCode,
-          isNativeIP: card.isNativeIP,
-          qualityScore: card.qualityScore,
-          anonymityProtocol: card.anonymityProtocol,
-          anonymityProvider: card.anonymityProvider,
-        })),
-      });
-    }
+    if (!allCardsSettled(status, ipCardsToShow.value)) return;
+    cardsHaveSettled.value = true;
+    store.setLoadingStatus('IPInfo', true);
+    // Domain event: full snapshot of the visible cards, re-emitted whenever a
+    // card settles after this point (single-card refresh included). The report
+    // collector normalizes it (drops cards whose ip slot holds an error label).
+    emitAppEvent('ipinfo:finished', {
+      cards: ipDataCards.slice(0, ipCardsToShow.value).map((card) => ({
+        source: card.source,
+        ip: card.ip,
+        country_code: card.country_code,
+        region: card.region,
+        city: card.city,
+        timezone: card.timezone,
+        asn: card.asn,
+        isp: card.isp,
+        // IPCheck.ing-source enrichments (locale-free codes; absent on other
+        // sources or when the field is sign-in-gated).
+        anonymityCode: card.anonymityCode,
+        ipTypeCode: card.ipTypeCode,
+        isNativeIP: card.isNativeIP,
+        qualityScore: card.qualityScore,
+        anonymityProtocol: card.anonymityProtocol,
+        anonymityProvider: card.anonymityProvider,
+      })),
+    });
   };
 
   // Drive every card through its own resolve→detail pipeline, all in parallel.

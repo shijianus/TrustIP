@@ -57,6 +57,7 @@ and never shipped to the browser (why: api/AGENTS.md):
 
 - **Helpers shared with the backend live in `common/`**, re-exported through a thin `utils/` bridge so consumers keep `@/utils/...` imports (`utils/valid-ip.js`).
 - **Helper placement:** Vue reactivity / lifecycle → `composables/` (`useXxx`); otherwise `utils/` (never `use-` prefixed). `lib/` stays shadcn-only. A pure function beside a composable exports from that composable's file.
+- **A module a test imports uses relative specifiers with extensions** (`../store.js`, `../utils/getips/index.js`), not `@/`. The runner is plain `node --test`: it has no Vite alias resolution, so one `@/` in a chain makes the whole file unimportable and the module quietly goes untested — which is how `use-ip-cards.js` lost its settle-check coverage. `@/` stays the right choice for anything only the app loads (`*.vue` files, `data/`, `router/`).
 
 ### Events, commands, the report
 
