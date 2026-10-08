@@ -480,10 +480,19 @@ const UNINFORMATIVE = /^(Etc\/|Factory$)|^(UTC|GMT|Zulu)$/;
  * The countries that read this zone. Empty when the name is unknown or when it
  * carries no nationality, which the caller reports as an uninformative signal
  * rather than as a measurement that failed.
+ *
+ * `Object.hasOwn`, not a bracket read: the zone name arrives from a visitor's
+ * browser through `requireSplitSignals`, which only bounds its length, so
+ * `constructor` and `__proto__` are as reachable as `Asia/Tehran` — and reading
+ * them off a plain object literal walks the prototype chain and hands back a
+ * function, which then dies on `.split`. One unhandled throw is a 500 on a route
+ * every homepage load calls. `site-packs.js` already reads its catalog the same
+ * defensive way.
  */
 export const countriesOfZone = (zone = "") => {
     const name = String(zone).trim();
     if (!name || UNINFORMATIVE.test(name)) return [];
-    const codes = ZONE_COUNTRIES[name] || ZONE_ALIASES[name];
+    const codes = Object.hasOwn(ZONE_COUNTRIES, name) ? ZONE_COUNTRIES[name]
+        : Object.hasOwn(ZONE_ALIASES, name) ? ZONE_ALIASES[name] : '';
     return codes ? codes.split(" ") : [];
 };

@@ -36,6 +36,7 @@ import { modifyJsonForIPAPI } from '../api/ipapi-is.js';
 import { modifyJson as modifyJsonForIpinfo } from '../api/ipinfo-io.js';
 import { REPORT_VERSION } from '../common/report-schema.js';
 import { EXIT_CANARIES } from '../common/site-packs.js';
+import { PLAN_COUNTRIES_MAX } from '../common/split-profile.js';
 import logger from '../common/logger.js';
 
 // -- shared test utilities ------------------------------------------------
@@ -940,12 +941,47 @@ describe('split handler', () => {
         assert.ok(!JSON.stringify(res.body).match(/weight|ranking|measured|inferred/i), 'and the response still says nothing about how it was chosen');
     });
 
+    it('answers a zone name that is not a zone', async () => {
+        // The browser posts the clock's IANA name and `requireSplitSignals` bounds
+        // only its length, so `constructor` reaches the lookup exactly as
+        // `Asia/Shanghai` does. Reading it off a plain object literal used to return
+        // a function, throw on `.split`, and turn the route every homepage load calls
+        // into a 500.
+        for (const zone of ['constructor', '__proto__', 'toString', 'valueOf']) {
+            const res = createResponse();
+            await splitHandler(createRequest({
+                method: 'POST',
+                body: { signals: { tz: { available: true, zone } } },
+            }), res);
+            assert.equal(res.statusCode, 200, `${zone} must not break the route`);
+            assert.ok(res.body.rows.length > 0, `${zone} returned no work order`);
+        }
+    });
+
     it('answers an explicit country list without needing signals', async () => {
         const res = createResponse();
         await splitHandler(createRequest({ method: 'POST', body: { countries: ['IR', 'ZZ'] } }), res);
         assert.equal(res.statusCode, 200);
         assert.ok(res.body.rows.some((r) => r.cc === 'IR'), 'the known country is probed');
         assert.ok(!res.body.rows.some((r) => r.cc === 'ZZ'), 'an unknown code is dropped, not guessed at');
+    });
+
+    it('holds an explicit country list to the size of a judged order', async () => {
+        // `requireSplitSignals` caps the *body* at twelve codes, which is a limit on
+        // what a client may send, not on what the page may show: twelve countries in
+        // the door used to produce a hundred-row work order — more national rows
+        // than any profile could ever have justified, from a route that is supposed
+        // to be the same shape whoever calls it.
+        const res = createResponse();
+        await splitHandler(createRequest({
+            method: 'POST',
+            body: { countries: ['CN', 'US', 'JP', 'KR', 'RU', 'IR', 'IN', 'BR', 'DE', 'FR', 'GB', 'TW'] },
+        }), res);
+        assert.equal(res.statusCode, 200);
+        const canaries = new Set(EXIT_CANARIES.map((r) => r.host));
+        const packs = [...new Set(res.body.rows.filter((r) => r.cc && !canaries.has(r.host)).map((r) => r.cc))];
+        assert.deepEqual(packs, ['CN', 'US', 'JP', 'KR', 'RU'], 'the first ones asked for, and no more');
+        assert.ok(packs.length <= PLAN_COUNTRIES_MAX, `${packs.length} packs from an explicit list`);
     });
 
     it('answers an empty request with the destinations that need no judgement', async () => {

@@ -293,6 +293,16 @@ describe('signal voters', () => {
         }
     });
 
+    it('refuses the prototype chain, because the zone name arrives from a browser', () => {
+        // `requireSplitSignals` bounds the zone's length and nothing else, so
+        // `constructor` reaches the lookup exactly as `Asia/Tehran` does. Reading it
+        // off a plain object literal returns a function and the caller dies on
+        // `.split` — a 500 on the route every homepage load calls.
+        for (const zone of ['constructor', 'toString', 'valueOf', 'hasOwnProperty', '__proto__', 'nope/Nope']) {
+            assert.deepEqual(timezoneVotes(zone), {}, `${zone} must resolve to no countries`);
+        }
+    });
+
     it('names a keyboard by the letters it carries', () => {
         assert.equal(scriptOf('й'), 'cyrillic');
         assert.equal(scriptOf('ض'), 'arabic');

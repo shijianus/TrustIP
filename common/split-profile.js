@@ -289,6 +289,12 @@ export const MIN_CONFIDENCE = 12;
 export const MEASURED_MAX = 4;
 export const INFERRED_MAX = 1;
 
+// The most packs any work order may carry, judged or asked-for. `api/split.js` holds
+// the explicit `countries` list to this same number so the escape hatch cannot
+// produce a table the scoring path would never have dared show — the shared
+// `requireSplitSignals` ceiling is a body-size limit (12 codes), not this policy.
+export const PLAN_COUNTRIES_MAX = MEASURED_MAX + INFERRED_MAX;
+
 /**
  * The countries an *address* named, as opposed to a clock or a keyboard.
  *

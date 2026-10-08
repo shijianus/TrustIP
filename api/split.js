@@ -25,8 +25,8 @@
 // but if a deployment ever adds request-body capture, this route is the one that
 // must stay out of it.
 
-import { scoreProfile } from '../common/split-profile.js';
-import { buildPlan } from '../common/site-packs.js';
+import { scoreProfile, PLAN_COUNTRIES_MAX } from '../common/split-profile.js';
+import { buildPlan, hasPack } from '../common/site-packs.js';
 
 export default async (req, res) => {
     // Defensive method gate (the route is POST-only) — covered by tests. A GET
@@ -43,8 +43,14 @@ export default async (req, res) => {
     const scored = scoreProfile(signals || {});
     // A caller that already knows which countries it wants — a report, a script —
     // asks for that work order directly; the page leaves `countries` empty and
-    // takes the ranking.
-    const picked = countries?.length ? countries : scored.top;
+    // takes the ranking. The explicit list is held to the number of packs the
+    // judged path could ever have produced: `requireSplitSignals` bounds the body's
+    // size, not the table's, and twelve codes in the door used to mean a
+    // hundred-row order. Filtering before slicing so a leading unknown code cannot
+    // spend the budget on nothing.
+    const picked = countries?.length
+        ? countries.filter(hasPack).slice(0, PLAN_COUNTRIES_MAX)
+        : scored.top;
 
     return res.status(200).json({ rows: buildPlan(picked).rows });
 };
