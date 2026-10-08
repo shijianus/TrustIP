@@ -91,6 +91,7 @@ function makeRefs() {
     advancedNavigate: [],
     advancedFullScreen: 0,
     mask: 0,
+    navigated: [],
     get speedTest() { return commandCalls.speedTest; },
     get ipRefresh() { return commandCalls.ipRefresh; },
     get connectivity() { return commandCalls.connectivity; },
@@ -112,6 +113,7 @@ function makeRefs() {
       isInfosLoaded:     ref(true),
       toggleInfoMask:    () => { calls.mask += 1; },
     },
+    router: { push: (to) => { calls.navigated.push(to); } },
     calls,
   };
 }
@@ -129,12 +131,12 @@ function loadAndGetKeyMap({
   globalThis.__setPulseBackendForTest(pulseBackend);
   resetCommandCalls();
   const store = makeStoreStub();
-  const { refs, calls } = makeRefs();
+  const { refs, calls, router } = makeRefs();
   const configs = computed(() => ({ originalSite, map: true, cloudFlare }));
   const userPreferences = computed(() => ({ ipCardsToShow: 2, ipHistoryEnabled }));
 
   const { loadShortcuts } = useShortcuts({
-    refs, store, t, configs, userPreferences,
+    refs, store, t, configs, userPreferences, router,
   });
   loadShortcuts();
 
@@ -207,16 +209,17 @@ describe('useShortcuts()', () => {
     assert.deepEqual(calls.ipRefresh, [], 'num > ipCardsToShow → no-op');
   });
 
-  it('"c"/"w"/"d"/"s" dispatch the section commands with their payloads', () => {
+  it('"c"/"w"/"d"/"s" go to the section\'s own page', () => {
+    // Each section page dispatches its boot command on arrival
+    // (data/rail.js → RAIL_SECTION_PAGES), so the key is one navigation. It used
+    // to scroll to the section on `/` and dispatch there; `/` no longer hosts
+    // those sections, so a scroll would be aimed at nothing.
     const { keyMap, calls } = loadAndGetKeyMap();
     keyMap.findLast((e) => e.keys === 'c').action();
     keyMap.findLast((e) => e.keys === 'w').action();
     keyMap.findLast((e) => e.keys === 'd').action();
     keyMap.findLast((e) => e.keys === 's').action();
-    assert.deepEqual(calls.connectivity, ['manual']);
-    assert.deepEqual(calls.webrtc, [false]);
-    assert.deepEqual(calls.dnsleak, [true]);
-    assert.equal(calls.speedTest, 1, 'the s key stays a run/pause toggle');
+    assert.deepEqual(calls.navigated, ['/link', '/webrtc', '/dns', '/speedtest']);
   });
 
   it('"?" opens help modal and emits the shortcut:help-opened app event', () => {

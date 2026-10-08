@@ -1,8 +1,8 @@
 <template>
     <!-- Advanced Tools -->
-    <section class="advanced-tools-section mb-10">
+    <section class="advanced-tools-section" :class="hostOnly ? '' : 'mb-10'">
         <!-- Header -->
-        <header class="mb-2 flex flex-col items-start justify-between gap-4">
+        <header v-if="!hostOnly" class="mb-2 flex flex-col items-start justify-between gap-4">
             <div class="flex flex-row items-center justify-between gap-4 w-full">
             <h2 id="AdvancedTools" class="m-0 flex min-w-0 flex-1 items-center gap-2 text-xl md:text-3xl font-semibold tracking-tight leading-tight">
                 🧰 {{ t('advancedtools.Title') }}
@@ -18,7 +18,7 @@
              A plain left-click (or Enter / Space) is intercepted to open the
              in-page drawer instead. A dedicated ↗ corner button always opens the
              standalone page in a new tab. -->
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <div v-if="!hostOnly" class="grid grid-cols-1 md:grid-cols-4 gap-3">
             <Card v-for="card in enabledCards" :key="card.slug"
                 :data-adv-slug="card.slug"
                 class="keyboard-shortcut-card jn-card jn-adv-card group relative overflow-visible transition-transform duration-300 ease-out hover:-translate-y-1.5 data-[keyboard-hover=true]:ring-2 data-[keyboard-hover=true]:ring-green-500/50">
@@ -85,7 +85,7 @@
         </Drawer>
 
         <!-- Section banner slot (data-driven; see InfoBanner.vue) -->
-        <InfoBanner section="advanced" />
+        <InfoBanner v-if="!hostOnly" section="advanced" />
     </section>
 </template>
 
@@ -104,6 +104,14 @@ import InfoBanner from '@/components/widgets/InfoBanner.vue';
 import { Maximize, Minimize, PanelBottomOpen, SquareArrowOutUpRight } from '@lucide/vue';
 
 const { t } = useI18n();
+
+// `hostOnly` keeps this component on `/` for its drawer alone: the keyboard
+// shortcuts and the `?tool=<slug>` query open a tool from the homepage, and the
+// drawer is the thing they open. The card grid that normally sits above it is a
+// section of its own and lives at /tools.
+defineProps({
+    hostOnly: { type: Boolean, default: false },
+});
 
 const store = useMainStore();
 const isMobile = computed(() => store.isMobile);

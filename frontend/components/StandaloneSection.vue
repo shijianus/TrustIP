@@ -20,7 +20,7 @@
     <StandalonePageHeader :title="page ? t(page.titleKey) : ''" rail />
 
     <main class="flex-1">
-      <div class="mx-auto w-full max-w-[1400px] px-4 md:px-6 py-6">
+      <div class="mx-auto w-full max-w-[1000px] px-5 py-6 max-[480px]:px-3 max-[480px]:py-3.5">
         <component :is="sectionComponent" v-if="sectionComponent" />
       </div>
     </main>
@@ -34,8 +34,10 @@ import { computed, onMounted, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { SECTION_PAGE_BY_ID } from '@/data/rail.js';
+import { useMainStore } from '@/store';
 import { useDocumentMeta } from '@/composables/use-document-meta.js';
 import { dispatchAppCommand, waitForAppCommand } from '@/utils/app-commands.js';
+import IpInfos from '@/components/IpInfos.vue';
 import ConnectivityTest from '@/components/ConnectivityTest.vue';
 import WebRtcTest from '@/components/WebRtcTest.vue';
 import DnsLeaksTest from '@/components/DnsLeaksTest.vue';
@@ -45,13 +47,13 @@ import Footer from '@/components/Footer.vue';
 import StandalonePageHeader from '@/components/StandalonePageHeader.vue';
 import User from '@/components/User.vue';
 
-// Section id → the component the dashboard mounts for it. Static imports,
-// because the dashboard already pulls all five into the entry chunk (Home.vue
-// renders its sections synchronously by design): lazifying them from here buys
-// a round trip for code that is downloaded anyway, and Vite says so at build
-// time. The five names must match RAIL_SECTION_PAGES in data/rail.js — the
-// route only ever carries an id from that list.
+// Section id → the component that page renders. The names must match
+// RAIL_SECTION_PAGES in data/rail.js — the route only ever carries an id from
+// that list. Static imports: these are the components the entry chunk already
+// downloads, so lazifying them here buys a round trip for code that is on the
+// wire anyway, and Vite says so at build time.
 const SECTION_COMPONENTS = {
+  IPInfo: IpInfos,
   Connectivity: ConnectivityTest,
   WebRTC: WebRtcTest,
   DNSLeakTest: DnsLeaksTest,
@@ -61,6 +63,7 @@ const SECTION_COMPONENTS = {
 
 const { t } = useI18n();
 const route = useRoute();
+const store = useMainStore();
 
 const page = computed(() => SECTION_PAGE_BY_ID.get(route.meta.section) || null);
 
@@ -79,6 +82,17 @@ useDocumentMeta(() => {
   };
 });
 
+// Whether this section starts its test on arrival without being asked. The
+// per-module `autoRun*` switches used to gate the dashboard, which ran every
+// module unprompted; the dashboard no longer hosts them, so the same preference
+// now gates the page that does the work. A section with no `boot` at all
+// (SpeedTest, AdvancedTools) is not started anywhere and keeps its Run control.
+const AUTO_RUN_PREF = {
+  Connectivity: 'autoRunConnectivity',
+  WebRTC: 'autoRunWebRTC',
+  DNSLeakTest: 'autoRunDnsLeak',
+};
+
 // Run this section's test on arrival, the way the dashboard's refresh
 // orchestrator does. The wait is what makes it safe: the component owns the
 // command and registers it at setup, but it arrives as an async chunk, so the
@@ -86,6 +100,8 @@ useDocumentMeta(() => {
 const bootSection = () => {
   const boot = page.value?.boot;
   if (!boot) return;
+  const pref = AUTO_RUN_PREF[route.meta.section];
+  if (pref && store.userPreferences[pref] === false) return;
   waitForAppCommand(boot.command, { timeoutMs: 10000 })
     .then(() => dispatchAppCommand(boot.command, boot.payload))
     .catch((error) => {

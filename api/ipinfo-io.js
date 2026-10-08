@@ -14,8 +14,13 @@ function buildUrl(req) {
     const tokens = (process.env.IPINFO_API_KEY || process.env.IPINFO_API_TOKEN || '').split(',');
     const token = tokens[Math.floor(Math.random() * tokens.length)];
 
-    const url_hasToken = `https://ipinfo.io/${ipAddress}?token=${token}`;
-    const url_noToken = `https://ipinfo.io/${ipAddress}`;
+    // `/json`, not the bare address: ipinfo serves its web app at
+    // `https://ipinfo.io/<ip>` to anything it reads as a browser — which our
+    // registered User-Agent is — and only the `/json` path is the API. Asking
+    // for the API and parsing HTML back is the whole of this route's failure
+    // when the path is left off.
+    const url_hasToken = `https://ipinfo.io/${ipAddress}/json?token=${token}`;
+    const url_noToken = `https://ipinfo.io/${ipAddress}/json`;
     return token ? url_hasToken : url_noToken;
 }
 

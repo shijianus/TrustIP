@@ -2,6 +2,16 @@ import { createRouter, createWebHistory } from 'vue-router';
 import Home from '@/components/Home.vue';
 import { RAIL_PAGE_ITEMS } from '@/data/rail.js';
 
+// Legacy `/#<SectionId>` links. The dashboard used to carry every section
+// inline, so a shared link to `/#WebRTC` scrolled to it; the sections now each
+// have a page of their own and `/` ends at the routing table. Redirecting keeps
+// those links working instead of landing on a homepage with a fragment that
+// names nothing. Derived from the rail rather than listed, so a new section page
+// is reachable by its old anchor for free.
+const SECTION_ANCHOR_REDIRECTS = new Map(
+  RAIL_PAGE_ITEMS.filter((item) => item.section).map((item) => [`#${item.section}`, item.path]),
+);
+
 // Real pages:
 //   /              → the homepage. Advanced tools open as an in-page drawer,
 //                    driven by the `?tool=<slug>` query (handled in Advanced.vue).
@@ -63,19 +73,23 @@ const router = createRouter({
   history: createWebHistory(),
   routes,
   scrollBehavior(to, from, savedPosition) {
-    // `/#<SectionId>` is Home's to resolve: it owns the sections, and it is the
-    // one place that knows when they are actually on screen. Jumping here from
-    // the router would race the first paint on a fresh load of such a URL (the
-    // anchor may not exist yet, and the router reads it only once) and would
-    // fight Home's own scroll on an in-app one. See
-    // composables/use-section-hash.js.
-    if (to.path === '/' && to.hash) return false;
     // Opening/closing the drawer only flips the query on the home route — don't
     // scroll the homepage in that case. Genuine page changes go to the top.
     if (to.path === from.path) return false;
     if (savedPosition) return savedPosition;
     return { top: 0 };
   },
+});
+
+// `/#WebRTC` → `/webrtc`. Only on `/`: a hash on any other path is somebody's
+// own anchor and must be left alone. The hash is dropped on the way, because the
+// page *is* the section the old fragment pointed at — carrying it would ask the
+// browser to scroll to a heading already at the top of the screen. A fragment
+// that names no section is left to the homepage rather than aborted.
+router.beforeEach((to) => {
+  if (to.path !== '/' || !to.hash) return;
+  const target = SECTION_ANCHOR_REDIRECTS.get(to.hash);
+  return target ? { path: target, replace: true } : undefined;
 });
 
 export default router;

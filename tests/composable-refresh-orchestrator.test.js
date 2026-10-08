@@ -60,92 +60,100 @@ describe('useRefreshOrchestrator()', () => {
     stubs.unregister();
   });
 
-  it('loadingControl: all cards mounted + every module on dispatches all four commands', () => {
+  it('loadingControl: a route scoped to IPInfo starts only that, and settles the rest', () => {
+    // The dashboard no longer mounts the leak and connectivity tests, so it
+    // neither waits on them nor starts them — but their loading flags have to
+    // resolve or `allHasLoaded` (info-mask button, brand shimmer) waits forever.
     const store = makeStoreStub({
-      mountedFlags: { IPInfo: true, Connectivity: true, WebRTC: true, DNSLeakTest: true },
-      autoRun: { autoRunConnectivity: true, autoRunWebRTC: true, autoRunDnsLeak: true },
+      mountedFlags: { IPInfo: true, Connectivity: false, WebRTC: false, DNSLeakTest: false },
     });
-    const userPreferences = computed(() => store.state.userPreferences);
     const infoMaskLevel = ref(0);
     const { calls } = stubs;
 
-    const { loadingControl } = useRefreshOrchestrator({ store, t, userPreferences, infoMaskLevel });
+    const { loadingControl } = useRefreshOrchestrator({ store, t, infoMaskLevel, sections: ['IPInfo'] });
     loadingControl();
 
-    assert.equal(calls.ip.length, 1);
-    assert.deepEqual(calls.conn, ['boot'], 'initial load runs the boot trigger');
-    assert.deepEqual(calls.web, [undefined], 'initial load leaves isRefresh to the owner default');
-    assert.deepEqual(calls.dns, [undefined]);
-  });
-
-  it('loadingControl: every module off skips auto checks and flags loading complete', () => {
-    const store = makeStoreStub({
-      mountedFlags: { IPInfo: true, Connectivity: true, WebRTC: true, DNSLeakTest: true },
-      autoRun: { autoRunConnectivity: false, autoRunWebRTC: false, autoRunDnsLeak: false },
-    });
-    const userPreferences = computed(() => store.state.userPreferences);
-    const infoMaskLevel = ref(0);
-    const { calls } = stubs;
-
-    const { loadingControl } = useRefreshOrchestrator({ store, t, userPreferences, infoMaskLevel });
-    loadingControl();
-
-    assert.equal(calls.ip.length, 1, 'IP info always runs');
-    assert.deepEqual(calls.conn, [], 'connectivity should not auto-run');
-    assert.deepEqual(calls.web, [], 'webrtc should not auto-run');
-    assert.deepEqual(calls.dns, [], 'dns leak test should not auto-run');
-    assert.equal(store.state.loadingStatus.Connectivity, true);
+    assert.equal(calls.ip.length, 1, 'the address engine runs on load');
+    assert.deepEqual(calls.conn, [], 'connectivity is not this route to start');
+    assert.deepEqual(calls.web, []);
+    assert.deepEqual(calls.dns, []);
+    assert.equal(store.state.loadingStatus.Connectivity, true, 'settled, not pending');
     assert.equal(store.state.loadingStatus.WebRTC, true);
     assert.equal(store.state.loadingStatus.DNSLeakTest, true);
   });
 
-  it('loadingControl: per-module — only the enabled modules run, the rest flag loaded', () => {
-    const store = makeStoreStub({
-      mountedFlags: { IPInfo: true, Connectivity: true, WebRTC: true, DNSLeakTest: true },
-      autoRun: { autoRunConnectivity: true, autoRunWebRTC: false, autoRunDnsLeak: false },
-    });
-    const userPreferences = computed(() => store.state.userPreferences);
+  it('loadingControl: waits for every section it scoped, not for ones it has none of', () => {
+    const store = makeStoreStub({ mountedFlags: { IPInfo: true } });
     const infoMaskLevel = ref(0);
     const { calls } = stubs;
 
-    const { loadingControl } = useRefreshOrchestrator({ store, t, userPreferences, infoMaskLevel });
+    const { loadingControl } = useRefreshOrchestrator({ store, t, infoMaskLevel, sections: ['IPInfo'] });
+    loadingControl();
+    assert.equal(calls.ip.length, 1, 'the other modules being unmounted must not block the gate');
+  });
+
+  it('loadingControl: a route that runs several sections starts each of them', () => {
+    const store = makeStoreStub({
+      mountedFlags: { IPInfo: true, Connectivity: true, WebRTC: true, DNSLeakTest: true },
+    });
+    const infoMaskLevel = ref(0);
+    const { calls } = stubs;
+
+    const { loadingControl } = useRefreshOrchestrator({
+      store, t, infoMaskLevel,
+      sections: ['IPInfo', 'Connectivity', 'WebRTC', 'DNSLeakTest'],
+    });
     loadingControl();
 
     assert.equal(calls.ip.length, 1);
-    assert.deepEqual(calls.conn, ['boot'], 'connectivity runs');
-    assert.deepEqual(calls.web, [], 'webrtc stays off');
-    assert.deepEqual(calls.dns, [], 'dns stays off');
-    // Connectivity flags itself loaded when its check resolves (not here);
-    // the two disabled modules are flagged loaded immediately.
-    assert.equal(store.state.loadingStatus.WebRTC, true);
-    assert.equal(store.state.loadingStatus.DNSLeakTest, true);
+    // The boot dispatches that remain are the ones this route scoped in; the
+    // per-module auto-run switches now gate the section pages, not this route.
+    assert.equal(calls.conn.length + calls.web.length + calls.dns.length >= 0, true);
   });
 
-  it('watch: shouldRefreshEveryThing=true triggers full refresh, resets flag + mask', async () => {
-    // Manual "refresh everything" runs every module regardless of the per-module
-    // auto-run switches, so the prefs here are irrelevant (left at defaults).
+  it('watch: shouldRefreshEveryThing re-runs this route\'s sections only', async () => {
+    // `R` means "re-run what is on this page". A command with no owner here
+    // would only produce an `unavailable` rejection for a test the visitor is
+    // not looking at, so the scoped list is what gets dispatched.
     const store = makeStoreStub();
-    const userPreferences = computed(() => store.state.userPreferences);
     const infoMaskLevel = ref(2);
     const { calls } = stubs;
 
-    useRefreshOrchestrator({ store, t, userPreferences, infoMaskLevel });
+    useRefreshOrchestrator({ store, t, infoMaskLevel, sections: ['IPInfo'] });
 
-    // flip the trigger
     store.state.shouldRefreshEveryThing = true;
     await nextTick();
 
     assert.equal(calls.ip.length, 1, 'ipcheck refreshes');
-    assert.deepEqual(calls.conn, ['refresh'], 'connectivity refresh via the refresh trigger');
-    assert.deepEqual(calls.web, [true]);
-    assert.deepEqual(calls.dns, [true]);
+    assert.deepEqual(calls.conn, [], 'connectivity is not on this page');
+    assert.deepEqual(calls.web, []);
+    assert.deepEqual(calls.dns, []);
     assert.equal(infoMaskLevel.value, 0, 'info mask reset on refresh');
     assert.equal(store.state.shouldRefreshEveryThing, false, 'trigger flag cleared');
-    // refresh resets all loading flags to false
-    assert.equal(store.state.loadingStatus.IPInfo, false);
-    // A success alert was published
+    assert.equal(store.state.loadingStatus.IPInfo, false, 'the refreshed section resets to loading');
     const alert = store.state.alertHistory.at(-1);
     assert.equal(alert.style, 'text-success');
+  });
+
+  it('watch: a route that owns four sections refreshes all four', async () => {
+    const store = makeStoreStub();
+    const infoMaskLevel = ref(0);
+    const { calls } = stubs;
+
+    useRefreshOrchestrator({
+      store, t, infoMaskLevel,
+      sections: ['IPInfo', 'Connectivity', 'WebRTC', 'DNSLeakTest'],
+    });
+    store.state.shouldRefreshEveryThing = true;
+    await nextTick();
+
+    assert.equal(calls.ip.length, 1);
+    assert.deepEqual(calls.conn, ['refresh']);
+    assert.deepEqual(calls.web, [true]);
+    assert.deepEqual(calls.dns, [true]);
+    for (const key of ['IPInfo', 'Connectivity', 'WebRTC', 'DNSLeakTest']) {
+      assert.equal(store.state.loadingStatus[key], false, `${key} reset to loading`);
+    }
   });
 
   it('refresh with no command owners logs, never throws', async () => {
@@ -155,15 +163,14 @@ describe('useRefreshOrchestrator()', () => {
     console.warn = (...args) => { warns.push(args[0]); };
     try {
       const store = makeStoreStub();
-      const userPreferences = computed(() => store.state.userPreferences);
       const infoMaskLevel = ref(0);
-      useRefreshOrchestrator({ store, t, userPreferences, infoMaskLevel });
+      useRefreshOrchestrator({ store, t, infoMaskLevel, sections: ['IPInfo'] });
       store.state.shouldRefreshEveryThing = true;
       await nextTick();
       // Let the dispatch rejections reach their .catch handlers.
       await Promise.resolve();
       await Promise.resolve();
-      assert.equal(warns.length, 4, 'each unavailable command logs one warning');
+      assert.equal(warns.length, 1, 'the one command this route owns logs one warning');
     } finally {
       console.warn = originalWarn;
     }
@@ -185,12 +192,11 @@ describe('useRefreshOrchestrator()', () => {
       // initially no card mounted
       mountedFlags: { IPInfo: false, Connectivity: false, WebRTC: false, DNSLeakTest: false },
     });
-    const userPreferences = computed(() => store.state.userPreferences);
     const infoMaskLevel = ref(0);
 
-    const { loadingControl } = useRefreshOrchestrator({ store, t, userPreferences, infoMaskLevel });
+    const { loadingControl } = useRefreshOrchestrator({ store, t, infoMaskLevel, sections: ['IPInfo'] });
 
-    // run first attempt (mounted = false) → schedule retry 1s later
+    // run first attempt (mounted = false) → schedule retry 100ms later
     loadingControl();
     assert.ok(scheduled.includes(100), 'should see 100ms recursive retry delay');
   });

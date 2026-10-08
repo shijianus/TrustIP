@@ -1,10 +1,9 @@
-// Main section IDs for the page
+// Main section IDs.
 //
-// This set of IDs is used in multiple places:
-//   - store.mountingStatus / loadingStatus key set
-//   - composables/use-section-tracking.js scroll monitoring and `store.changeSection()`
-//   - App.vue shortcut scroll targets
-//   - Nav.vue top navigation item loop
+// Each one is the `<h2 id>` a section component renders, and the key its
+// mounting/loading status is filed under in the store. They are no longer scroll
+// targets on `/` — each section now has a page of its own, reached through
+// data/rail.js, which is what maps an id to a route and a component.
 //
 
 export const SECTION_IDS = [
@@ -15,8 +14,6 @@ export const SECTION_IDS = [
   'SpeedTest',
   'AdvancedTools',
 ];
-
-export const DEFAULT_SECTION = 'IPInfo';
 
 // Loading semantics only apply to the four sections that actually run async
 // network tests on mount. SpeedTest and AdvancedTools mount but have no

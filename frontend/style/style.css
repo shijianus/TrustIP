@@ -365,9 +365,21 @@
   border-radius: var(--radius);
 }
 
+/* The page measure. 1000px is deliberate: every block on the dashboard is a
+   reading surface (an address, a table row, a figure), and past ~1000px the
+   card grid stretches each one into a band of whitespace with its neighbours
+   far away. Phone padding drops to 12px so the measure survives narrow
+   screens instead of the content being squeezed out of it. */
 .jn-container {
-  padding-top: 2pt;
-  max-width: 1400px;
+  max-width: 1000px;
+  margin-inline: auto;
+  padding: 24px 20px;
+}
+
+@media (max-width: 480px) {
+  .jn-container {
+    padding: 14px 12px;
+  }
 }
 
 footer {

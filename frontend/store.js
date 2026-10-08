@@ -7,7 +7,7 @@ import { createInitialAchievementsState } from './data/achievements.js';
 import { createInitialIpDBs, buildDbUrl, applyConfigAvailability, nearestEnabledId } from './data/ip-databases.js';
 import { createDefaultPreferences, PREFS_STORAGE_KEY } from './data/default-preferences.js';
 import { sanitizeLists } from './utils/connectivity-lists.js';
-import { createMountingStatus, createLoadingStatus, DEFAULT_SECTION } from './data/sections.js';
+import { createMountingStatus, createLoadingStatus } from './data/sections.js';
 import { fetchWithTimeout } from './utils/fetch-with-timeout.js';
 const { t } = i18n.global;
 
@@ -84,7 +84,6 @@ export const useMainStore = defineStore('main', {
       alertTitle: "",
       alertDuration: 2000,
     },
-    currentSection: DEFAULT_SECTION,
     ipDBs: createInitialIpDBs(),
   }),
 
@@ -248,10 +247,7 @@ export const useMainStore = defineStore('main', {
         })
         .catch(error => console.error('Fetching configs failed: ', error));
     },
-    // Change Section
-    changeSection(section) {
-      this.currentSection = section;
-    },
+
     // check Firebase environment
     checkFirebaseEnv() {
       const env = import.meta.env ?? {};

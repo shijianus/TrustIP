@@ -15,7 +15,7 @@
 
     <!-- Content: an <h1> for the tool (SEO), then the tool body itself -->
     <main class="flex-1">
-      <div class="mx-auto w-full max-w-[1400px] px-4 md:px-6 py-6">
+      <div class="mx-auto w-full max-w-[1000px] px-5 py-6 max-[480px]:px-3 max-[480px]:py-3.5">
         <h1 v-if="tool" class="mb-4 flex items-center gap-2 text-2xl md:text-3xl font-semibold tracking-tight">
           <span aria-hidden="true">{{ tool.emoji }}</span>
           {{ t(tool.titleKey) }}

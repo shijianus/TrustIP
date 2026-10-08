@@ -180,14 +180,14 @@
           <SheetClose />
         </div>
         <nav class="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto p-3">
-          <template v-for="item in navItems" :key="item">
+          <template v-for="item in navItems" :key="item.id">
             <!-- Advanced Tools expands inline into its sub-tools (open by default)
                  so they're discoverable, not hidden behind a bare label. -->
-            <Collapsible v-if="item === 'AdvancedTools'" v-model:open="mobileToolsOpen">
+            <Collapsible v-if="item.id === 'AdvancedTools'" v-model:open="mobileToolsOpen">
               <CollapsibleTrigger as-child>
                 <button type="button"
-                  :class="[navLinkClass(item, { block: true }), 'flex w-full items-center justify-between']">
-                  <span>{{ t(`nav.${item}`) }}</span>
+                  :class="[navLinkClass(item.id, { block: true }), 'flex w-full items-center justify-between']">
+                  <span>{{ t(`nav.${item.id}`) }}</span>
                   <ChevronDown class="size-4 shrink-0 opacity-60 transition-transform duration-200"
                     :class="{ 'rotate-180': mobileToolsOpen }" />
                 </button>
@@ -202,11 +202,13 @@
                 </div>
               </CollapsibleContent>
             </Collapsible>
-            <!-- All other sections stay plain smooth-scroll anchors. -->
-            <a v-else href="#" :class="navLinkClass(item, { block: true })"
-              @click.prevent="scrollToSection(item); trackEvent('Nav', 'NavClick', item); store.setOpenSheet(null)">
-              {{ t(`nav.${item}`) }}
-            </a>
+            <!-- All other sections are their own page now, so the menu links to
+                 them. They used to smooth-scroll to the section on `/`, which is
+                 what made the homepage one long slide between modules. -->
+            <RouterLink v-else :to="item.path" :class="navLinkClass(item.id, { block: true })"
+              @click="store.setOpenSheet(null)">
+              {{ t(`nav.${item.id}`) }}
+            </RouterLink>
           </template>
           <a :href="t('page.footerLink')" target="_blank" rel="noopener"
             class="mt-3 flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium hover:bg-muted">
@@ -228,7 +230,7 @@
 
 <script setup>
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { useMainStore } from '@/store';
 import { useI18n } from 'vue-i18n';
 import { trackEvent } from '@/utils/analytics';
@@ -255,26 +257,27 @@ import Pulse from '@/components/widgets/Pulse.vue';
 import ThemeToggle from '@/components/widgets/ThemeToggle.vue';
 import { Icon } from '@iconify/vue';
 import BrandWordmark from '@/components/widgets/BrandWordmark.vue';
-import { SECTION_IDS } from '@/data/sections';
+import { RAIL_PAGE_ITEMS } from '@/data/rail.js';
 import { ADVANCED_TOOLS } from '@/data/tools.js';
 import { fetchWithTimeout } from '@/utils/fetch-with-timeout.js';
 import { formatStarCount } from '@/utils/format-star-count.js';
-import { HEADER_HEIGHT } from '@/utils/scroll-to.js';
 import { isRunningAsPwa } from '@/utils/pwa.js';
 
 const { t, locale } = useI18n();
 const store = useMainStore();
 const router = useRouter();
+const route = useRoute();
 
 const isMobile = computed(() => store.isMobile);
-const currentSection = computed(() => store.currentSection);
 const loaded = computed(() => store.allHasLoaded);
 
 // Running as an installed PWA (chromeless window). Distinct from the app's
 // "standalone tool pages" — see utils/pwa.js.
 const isPwa = isRunningAsPwa();
 
-const navItems = SECTION_IDS;
+// The section pages, in rail order, so the mobile menu and the rail can never
+// disagree about which sections exist or where they live.
+const navItems = RAIL_PAGE_ITEMS.filter((item) => item.section);
 
 // Tools shown in the nav, mirroring Advanced.vue's enabledCards: original-site-
 // only tools stay hidden on self-hosted instances. Reactive on configs.
@@ -301,10 +304,10 @@ const fetchGithubStars = async () => {
   }
 };
 
-// nav link style — current section highlight use bg-accent instead of only bold
-const navLinkClass = (item, { block = false } = {}) => {
+// nav link style — the destination currently on screen reads as pressed
+const navLinkClass = (id, { block = false } = {}) => {
   const base = 'rounded-md px-3 py-1.5 text-sm font-medium no-underline cursor-pointer transition-colors';
-  const state = item === currentSection.value
+  const state = id === route.meta.section
     ? 'bg-accent text-accent-foreground'
     : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground';
   return [base, state, block ? 'block' : ''].filter(Boolean).join(' ');
@@ -363,28 +366,12 @@ const handleLogoClick = (e) => {
   trackEvent('Nav', 'NavClick', 'Logo');
 };
 
-// Menu scroll (clear the fixed header: brand row + route rail, plus a little
-// breathing room so the section's own heading isn't flush against it)
-const scrollToSection = (el, offset = HEADER_HEIGHT + 14) => {
-  const element = typeof el === 'string' ? document.getElementById(el) : el;
-  if (!element) return;
-  const y = element.getBoundingClientRect().top + window.scrollY - offset;
-  window.scrollTo({ top: y, behavior: 'smooth' });
-};
-
-// Open a tool from the nav: scroll to the Advanced Tools section, then raise the
-// drawer (driven by the `?tool=` query Advanced.vue watches). Scrolls twice — the
-// mobile nav Sheet locks body scroll until it closes, so the first scroll is a
-// no-op there and the deferred one lands after the Sheet is gone.
-let openToolTimer = null;
+// Open a tool from the nav by raising the homepage drawer — the `?tool=` query
+// Advanced.vue watches. No scroll: the drawer is an overlay, and the grid that
+// used to sit under it is a page of its own now.
 const openTool = (slug) => {
   store.setOpenSheet(null);            // close the mobile nav Sheet (no-op on desktop)
-  scrollToSection('AdvancedTools');
-  clearTimeout(openToolTimer);
-  openToolTimer = setTimeout(() => {
-    scrollToSection('AdvancedTools');
-    router.push({ path: '/', query: { tool: slug } });
-  }, 300);
+  router.push({ path: '/', query: { tool: slug } });
   const name = slug.charAt(0).toUpperCase() + slug.slice(1);
   trackEvent('Nav', 'NavClick', name);
 };

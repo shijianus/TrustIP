@@ -3,11 +3,12 @@
 // Input:
 //   - store: main store
 //   - t: i18n translation function
-//   - userPreferences: computed(() => store.userPreferences)
 //   - infoMaskLevel: ref<number> — reset to 0 when refreshing
+//   - sections: the SECTION_IDS this route actually mounts (default ['IPInfo'])
 //
 // Output:
-//   - loadingControl(): initial load sequence starts (after all cards are mounted)
+//   - loadingControl(): the initial load sequence starts, once every section
+//     this route runs has reported itself mounted
 //
 // Internal:
 //   - monitor store.shouldRefreshEveryThing, trigger refresh → reset loadingStatus → dispatch section commands → Alert → reset flag
@@ -16,6 +17,12 @@
 // owner components register ipinfo:refresh / connectivity:run / webrtc:run /
 // dnsleak:run at setup, before loadingControl's mounted gate opens. Dispatches
 // here are fire-and-forget — completion is reported on the event bus.
+//
+// A route gets scoped to the sections it mounts: `/` runs the address engine
+// only, so it neither waits on nor starts the leak and connectivity tests —
+// those live on their own pages now. The modules a route does not run have
+// their loading flags settled immediately, because `allHasLoaded` gates the
+// info-mask button and the brand shimmer and would otherwise wait forever.
 
 import { watch } from 'vue';
 import { dispatchAppCommand } from '../utils/app-commands.js';
@@ -35,7 +42,23 @@ function scheduleTimedTasks(tasks) {
     });
 }
 
-export function useRefreshOrchestrator({ store, t, userPreferences, infoMaskLevel }) {
+export function useRefreshOrchestrator({ store, t, infoMaskLevel, sections = ['IPInfo'] }) {
+    // The loading flags of every module, minus the ones this route actually
+    // runs. A route that does not mount a test must still settle its flag, or
+    // `allHasLoaded` — which gates the info-mask button and the brand shimmer —
+    // waits forever for a component that is not on the page.
+    const OTHERS = ['Connectivity', 'WebRTC', 'DNSLeakTest'].filter((k) => !sections.includes(k));
+    // Which command re-runs each module, and with what payload. Only the ones
+    // this route mounts are dispatched: `R` means "re-run what is on this page",
+    // and a command with no owner here would only produce an `unavailable`
+    // rejection for a test the visitor is not looking at.
+    const REFRESH_COMMANDS = {
+        IPInfo: { command: 'ipinfo:refresh', payload: undefined, delay: 0 },
+        DNSLeakTest: { command: 'dnsleak:run', payload: { isRefresh: true }, delay: 100 },
+        WebRTC: { command: 'webrtc:run', payload: { isRefresh: true }, delay: 200 },
+        Connectivity: { command: 'connectivity:run', payload: { trigger: 'refresh' }, delay: 300 },
+    };
+
     const refreshingAlert = () => {
         store.setAlert(
             true,
@@ -46,48 +69,28 @@ export function useRefreshOrchestrator({ store, t, userPreferences, infoMaskLeve
     };
 
     const refreshEverything = () => {
-        store.setLoadingStatus('Connectivity', false);
-        store.setLoadingStatus('WebRTC', false);
-        store.setLoadingStatus('DNSLeakTest', false);
-        store.setLoadingStatus('IPInfo', false);
+        const mine = sections.map((key) => ({ key, ...REFRESH_COMMANDS[key] })).filter((e) => e.command);
+        mine.forEach(({ key }) => store.setLoadingStatus(key, false));
 
         scheduleTimedTasks([
-            { action: () => runCommand('ipinfo:refresh'), delay: 0 },
-            { action: () => runCommand('connectivity:run', { trigger: 'refresh' }), delay: 300 },
-            { action: () => runCommand('webrtc:run', { isRefresh: true }), delay: 200 },
-            { action: () => runCommand('dnsleak:run', { isRefresh: true }), delay: 100 },
-            { action: () => refreshingAlert(), delay: 300 },
+            ...mine.map(({ command, payload, delay }) => ({ action: () => runCommand(command, payload), delay })),
+            { action: refreshingAlert, delay: 300 },
         ]);
         infoMaskLevel.value = 0;
         store.setRefreshEveryThing(false);
     };
 
-    const loadingControl = (t1 = 0, t2 = 300, t3 = 200, t4 = 100) => {
-        const mountedStatus = Object.values(store.mountingStatus).every(Boolean);
+    const loadingControl = (t1 = 0) => {
+        const mountedStatus = sections.every((key) => store.mountingStatus[key]);
         if (mountedStatus) {
-            const prefs = userPreferences.value;
-            // IP info always runs on load — it has no per-module switch by design.
+            // The modules this route runs. Each one owns its own command; a
+            // dispatch here is fire-and-forget and completion rides the event bus.
             setTimeout(() => runCommand('ipinfo:refresh'), t1);
-            // Each remaining module runs only if its switch is on; when off we
-            // flag it loaded immediately so allHasLoaded still resolves — it gates
-            // the info-mask button, the user-info fetch, and the brand shimmer.
-            if (prefs.autoRunConnectivity) {
-                setTimeout(() => runCommand('connectivity:run', { trigger: 'boot' }), t2);
-            } else {
-                store.setLoadingStatus('Connectivity', true);
-            }
-            if (prefs.autoRunWebRTC) {
-                setTimeout(() => runCommand('webrtc:run'), t3);
-            } else {
-                store.setLoadingStatus('WebRTC', true);
-            }
-            if (prefs.autoRunDnsLeak) {
-                setTimeout(() => runCommand('dnsleak:run'), t4);
-            } else {
-                store.setLoadingStatus('DNSLeakTest', true);
-            }
+            // Nothing else is loading on this route, so nothing should keep the
+            // page waiting on it.
+            OTHERS.forEach((key) => store.setLoadingStatus(key, true));
         } else {
-            setTimeout(() => loadingControl(t1, t2, t3, t4), 100);
+            setTimeout(() => loadingControl(t1), 100);
         }
     };
 

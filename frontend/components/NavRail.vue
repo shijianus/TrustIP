@@ -28,7 +28,7 @@
   <nav class="jn-rail mx-auto w-full max-w-[1600px] px-3 sm:px-4" :aria-label="t('nav.Navigation')">
     <ul ref="listRef" class="jn-rail-list flex h-10 items-center gap-0.5">
       <li v-for="item in RAIL_ITEMS" :key="item.id" class="jn-rail-item">
-        <RouterLink :to="railTarget(item)" :replace="isAnchorTarget(item)"
+        <RouterLink :to="railTarget(item)"
           :aria-current="isActive(item) ? 'page' : undefined"
           :class="linkClass(isActive(item))">
           <span class="jn-rail-label-full">{{ t(`rail.full.${item.id}`) }}</span>
@@ -43,34 +43,20 @@
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
-import { useMainStore } from '@/store';
 import { RAIL_ITEMS, resolveRail, resolveRailTarget } from '@/data/rail.js';
 
 const { t } = useI18n();
 const route = useRoute();
-const store = useMainStore();
 
 const listRef = ref(null);
 
-// What this item links to right now: its own page, or — while the visitor is
-// already on the dashboard, which is showing that section — the section's
-// anchor on `/`. data/rail.js owns the rule; this is the one place it is read.
-const railTarget = (item) => resolveRailTarget(item, route.path);
+// What this item links to: its own page. Every rail item is a route now that
+// `/` no longer hosts the sections, so there is no scroll case left to branch
+// on. data/rail.js owns the rule; this is the one place it is read.
+const railTarget = (item) => resolveRailTarget(item);
 
-// `replace`, not `push`, for the anchor case: scrolling a section of the page
-// you are already on is not a destination worth a history entry, so the back
-// button leaves the dashboard instead of undoing a scroll. A route change is a
-// destination, so it pushes.
-const isAnchorTarget = (item) => Boolean(railTarget(item).hash);
-
-// On the dashboard the scroll-spy section owns the highlight (that is what the
-// anchor row did before it became a route rail); on any other page the path
-// decides. `currentSection` is only consulted on `/`, because it keeps the last
-// value the spy wrote after navigating away.
-const activeId = computed(() => {
-  const onHome = route.path === '/';
-  return resolveRail(route.path, onHome ? store.currentSection : null)?.id ?? null;
-});
+// The path decides which item reads as current, on every route including `/`.
+const activeId = computed(() => resolveRail(route.path)?.id ?? null);
 
 const isActive = (item) => item.id === activeId.value;
 

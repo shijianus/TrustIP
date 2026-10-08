@@ -2,11 +2,12 @@
 //
 // Input:
 //   - refs: UI chrome the shortcut keys drive (see below for destructuring) —
-//     test sections aren't here, they're reached via the command bus
+//     test sections aren't here, they're reached by navigating to their page
 //   - store: main store
 //   - t: i18n translation function
 //   - configs: computed(() => store.configs)
 //   - userPreferences: computed(() => store.userPreferences)
+//   - router: the app router, for the keys that go to a section's page
 //
 // Output:
 //   - loadShortcuts(): should be called onMounted; registers all mappings
@@ -29,6 +30,7 @@ import { dispatchAppCommand } from '../utils/app-commands.js';
 import { registerShortcuts, keyMap, navigateCards } from '../utils/shortcut.js';
 import { scrollToElement, HEADER_HEIGHT } from '../utils/scroll-to.js';
 import { hasPulseBackend } from '../utils/pulse-beacon.js';
+import { SECTION_PATHS } from '../data/rail.js';
 
 // A shortcut only kicks the run off — completion is the owner's business —
 // so a failed dispatch just logs.
@@ -38,14 +40,12 @@ const runCommand = (name, payload) => {
     });
 };
 
-// Scrolling targets sit under the fixed header (brand row + route rail), so
-// every one of them clears HEADER_HEIGHT first. Two values, because a section
-// heading wants more air than a card: 24px and 14px respectively, the same
-// breathing room these targets had under the single-row nav.
-const SECTION_OFFSET = HEADER_HEIGHT + 24;
+// Scrolling targets sit under the fixed header (brand row + route rail), so a
+// card the shortcut scrolls to clears HEADER_HEIGHT plus a little breathing
+// room first.
 const CARD_OFFSET = HEADER_HEIGHT + 14;
 
-const buildShortcutConfig = ({ refs, store, t, configs, userPreferences }) => {
+const buildShortcutConfig = ({ refs, store, t, configs, userPreferences, router }) => {
     const {
         queryIPRef,
         helpModalRef,
@@ -55,9 +55,19 @@ const buildShortcutConfig = ({ refs, store, t, configs, userPreferences }) => {
         toggleInfoMask,
     } = refs;
 
+    // A section key goes to the section's page. Each page dispatches its own
+    // boot command on arrival (data/rail.js → RAIL_SECTION_PAGES), which runs
+    // the test, so the key is one navigation rather than a scroll plus a
+    // dispatch aimed at a component that is no longer mounted here.
+    const goToSection = (section, trackName) => {
+        router.push(SECTION_PATHS.get(section));
+        trackEvent('ShortCut', 'ShortCut', trackName);
+    };
+
     const goToAdvancedTool = (slug, trackName) => {
-        scrollToElement('AdvancedTools', SECTION_OFFSET);
-        advancedToolsRef.value.openTool(slug);
+        // No scroll: the drawer is an overlay, and the grid that used to sit
+        // under it is a page of its own now.
+        advancedToolsRef.value?.openTool(slug);
         trackEvent('Nav', 'NavClick', trackName);
     };
 
@@ -135,38 +145,22 @@ const buildShortcutConfig = ({ refs, store, t, configs, userPreferences }) => {
         },
         {
             keys: 'c',
-            action: () => {
-                scrollToElement('Connectivity', SECTION_OFFSET);
-                runCommand('connectivity:run', { trigger: 'manual' });
-                trackEvent('ShortCut', 'ShortCut', 'Connectivity');
-            },
+            action: () => goToSection('Connectivity', 'Connectivity'),
             description: t('shortcutKeys.RefreshConnectivityTests'),
         },
         {
             keys: 'w',
-            action: () => {
-                scrollToElement('WebRTC', SECTION_OFFSET);
-                runCommand('webrtc:run', { isRefresh: false });
-                trackEvent('ShortCut', 'ShortCut', 'WebRTC');
-            },
+            action: () => goToSection('WebRTC', 'WebRTC'),
             description: t('shortcutKeys.RefreshWebRTC'),
         },
         {
             keys: 'd',
-            action: () => {
-                scrollToElement('DNSLeakTest', SECTION_OFFSET);
-                runCommand('dnsleak:run', { isRefresh: true });
-                trackEvent('ShortCut', 'ShortCut', 'DNSLeakTest');
-            },
+            action: () => goToSection('DNSLeakTest', 'DNSLeakTest'),
             description: t('shortcutKeys.RefreshDNSLeakTest'),
         },
         {
             keys: 's',
-            action: () => {
-                scrollToElement('SpeedTest', SECTION_OFFSET);
-                runCommand('speedtest:toggle');
-                trackEvent('ShortCut', 'ShortCut', 'SpeedTest');
-            },
+            action: () => goToSection('SpeedTest', 'SpeedTest'),
             description: t('shortcutKeys.SpeedTestButton'),
         },
         { keys: 'l', action: () => goToAdvancedTool('pingtest', 'PingTest'), description: t('shortcutKeys.PingTest') },
@@ -258,7 +252,7 @@ const buildShortcutConfig = ({ refs, store, t, configs, userPreferences }) => {
     return config;
 };
 
-export const useShortcuts = ({ refs, store, t, configs, userPreferences }) => {
+export const useShortcuts = ({ refs, store, t, configs, userPreferences, router }) => {
     // Suspending the map behind an overlay is the primitives' job
     // (composables/use-overlay-shortcuts.js), so nothing is wired here.
     //
@@ -274,7 +268,7 @@ export const useShortcuts = ({ refs, store, t, configs, userPreferences }) => {
     }
 
     const registerShortcutKeys = () => {
-        registerShortcuts(buildShortcutConfig({ refs, store, t, configs, userPreferences }));
+        registerShortcuts(buildShortcutConfig({ refs, store, t, configs, userPreferences, router }));
     };
 
     const loadShortcuts = () => {

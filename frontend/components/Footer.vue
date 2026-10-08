@@ -51,13 +51,28 @@
           </Button>
         </JnTooltip>
       </div>
+      <!-- The copyright line doubles as the site's own index: brand, then the
+           three destinations a visitor came for. Every entry is a link, so the
+           line is navigation that happens to sit where a copyright usually is. -->
       <template v-if="!configs.originalSite">
-        <span>
-          {{ t('page.copyRightName') }}
+        <span class="flex flex-wrap items-center justify-center gap-x-1.5">
+          <span>© 2026</span>
           <a :href="t('page.copyRightLink')" target="_blank" rel="noopener"
             class="text-foreground/80 hover:text-foreground hover:underline">
-            {{ t('page.copyRightLinkName') }}
+            {{ t('page.brand') }}
           </a>
+          <span aria-hidden="true">·</span>
+          <RouterLink to="/" class="text-foreground/80 hover:text-foreground hover:underline">
+            {{ t('page.footerIpLookup') }}
+          </RouterLink>
+          <span aria-hidden="true">·</span>
+          <RouterLink to="/tools/personacheck" class="text-foreground/80 hover:text-foreground hover:underline">
+            {{ t('page.footerClaudeCheck') }}
+          </RouterLink>
+          <span aria-hidden="true">·</span>
+          <RouterLink to="/ip" class="text-foreground/80 hover:text-foreground hover:underline">
+            {{ t('page.footerIpScore') }}
+          </RouterLink>
         </span>
       </template>
     </div>

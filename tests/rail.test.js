@@ -14,8 +14,6 @@ import fs from 'node:fs';
 import {
   RAIL_ITEMS,
   RAIL_BY_PATH,
-  RAIL_BY_SECTION,
-  RAIL_ANCHOR_PATHS,
   RAIL_BY_TOOL,
   RAIL_PAGE_ITEMS,
   RAIL_SECTION_PAGES,
@@ -34,7 +32,7 @@ const readPack = (code) => JSON.parse(fs.readFileSync(new URL(`${code}.json`, lo
 describe('RAIL_ITEMS', () => {
   it('is the rail in order, one page per tool', () => {
     assert.deepEqual(RAIL_ITEMS.map((item) => item.path), [
-      '/', '/ip', '/link', '/webrtc', '/dns', '/speedtest',
+      '/', '/ipinfo', '/ip', '/link', '/webrtc', '/dns', '/speedtest',
       '/ping', '/status', '/whois', '/tools',
     ]);
   });
@@ -62,11 +60,12 @@ describe('RAIL_ITEMS', () => {
     }
   });
 
-  it('names only sections the dashboard renders, each with a page component', () => {
+  it('names only sections that have a page component, and no section on `/`', () => {
+    assert.equal(RAIL_BY_PATH.get('/').section, undefined,
+      'the homepage hosts no section now that each one has its own page');
     for (const item of RAIL_ITEMS.filter((entry) => entry.section)) {
       assert.ok(SECTION_IDS.includes(item.section),
-        `${item.id}: ${item.section} is not a home-page section`);
-      if (item.path === '/') continue; // the dashboard itself carries IPInfo
+        `${item.id}: ${item.section} is not a section any component renders`);
       assert.ok(SECTION_PAGE_BY_ID.has(item.section),
         `${item.id}: ${item.section} has no standalone page to route to`);
     }
@@ -96,20 +95,18 @@ describe('RAIL_SECTION_PAGES', () => {
 });
 
 describe('resolveRail()', () => {
-  it('lights the scroll-spy section while the visitor is on the dashboard', () => {
-    assert.equal(resolveRail('/', 'IPInfo').path, '/');
-    assert.equal(resolveRail('/', 'Connectivity').path, '/link');
-    assert.equal(resolveRail('/', 'WebRTC').path, '/webrtc');
-    assert.equal(resolveRail('/', 'DNSLeakTest').path, '/dns');
-    assert.equal(resolveRail('/', 'SpeedTest').path, '/speedtest');
-    assert.equal(resolveRail('/', 'AdvancedTools').path, '/tools');
-    // No reading yet (first paint) — the dashboard owns the highlight.
-    assert.equal(resolveRail('/', null).path, '/');
+  it('lights the home item on the dashboard, whatever the path is asked alone', () => {
+    assert.equal(resolveRail('/').path, '/');
   });
 
-  it('ignores the stale scroll-spy section off the dashboard', () => {
+  it('lights the item whose route is current', () => {
+    assert.equal(resolveRail('/ipinfo').id, 'ipinfo');
+    assert.equal(resolveRail('/link').id, 'link');
+    assert.equal(resolveRail('/webrtc').id, 'webrtc');
+    assert.equal(resolveRail('/dns').id, 'dns');
+    assert.equal(resolveRail('/speedtest').id, 'speedtest');
+    assert.equal(resolveRail('/tools').id, 'tools');
     assert.equal(resolveRail('/whois').id, 'whois');
-    assert.equal(resolveRail('/whois', 'SpeedTest').id, 'whois');
   });
 
   it('treats a tool alias and the canonical /tools/:slug as one destination', () => {
@@ -132,30 +129,13 @@ describe('resolveRail()', () => {
 });
 
 describe('resolveRailTarget()', () => {
-  it('keeps the dashboard scroll anchors on `/`', () => {
-    assert.deepEqual(RAIL_ANCHOR_PATHS, new Set(['/link', '/webrtc', '/dns', '/speedtest', '/tools']));
-    for (const path of RAIL_ANCHOR_PATHS) {
-      const item = RAIL_BY_PATH.get(path);
-      const target = resolveRailTarget(item, '/');
-      assert.equal(target.path, '/', `${path}: stays on the dashboard`);
-      assert.ok(SECTION_IDS.includes(target.hash.slice(1)),
-        `${path}: the hash names a section the dashboard renders`);
-      assert.equal(target.hash, `#${item.section}`, `${path}: hash carries the section id`);
+  it('links every item to its own page, on every route', () => {
+    for (const item of RAIL_ITEMS) {
+      assert.deepEqual(resolveRailTarget(item), { path: item.path },
+        `${item.id}: the rail is navigation, not a scroll list`);
+      assert.equal(resolveRailTarget(item).hash, undefined,
+        `${item.id}: no fragment — sections are pages now, not anchors on /`);
     }
-  });
-
-  it('links to the page from anywhere else, and never to itself as an anchor', () => {
-    for (const path of RAIL_ANCHOR_PATHS) {
-      assert.deepEqual(resolveRailTarget(RAIL_BY_PATH.get(path), '/ping'), { path });
-    }
-  });
-
-  it('leaves the items with no dashboard section alone', () => {
-    assert.deepEqual(resolveRailTarget(RAIL_BY_PATH.get('/'), '/'), { path: '/' });
-    assert.deepEqual(resolveRailTarget(RAIL_BY_PATH.get('/ip'), '/'), { path: '/ip' });
-    assert.deepEqual(resolveRailTarget(RAIL_BY_PATH.get('/ping'), '/'), { path: '/ping' });
-    assert.deepEqual(resolveRailTarget(RAIL_BY_PATH.get('/status'), '/'), { path: '/status' });
-    assert.deepEqual(resolveRailTarget(RAIL_BY_PATH.get('/whois'), '/'), { path: '/whois' });
   });
 });
 
@@ -165,7 +145,7 @@ describe('STANDALONE_RAIL_NAMES', () => {
     assert.ok(!STANDALONE_RAIL_NAMES.includes('home'), 'the dashboard keeps the fixed Nav');
     assert.ok(!STANDALONE_RAIL_NAMES.includes('ip'), 'until its route lands, /ip is the dashboard');
     assert.deepEqual(RAIL_PAGE_ITEMS.map((item) => item.id), [
-      'link', 'webrtc', 'dns', 'speedtest', 'ping', 'status', 'whois', 'tools',
+      'ipinfo', 'link', 'webrtc', 'dns', 'speedtest', 'ping', 'status', 'whois', 'tools',
     ]);
   });
 });
@@ -173,7 +153,6 @@ describe('STANDALONE_RAIL_NAMES', () => {
 describe('rail lookups', () => {
   it('index every backed item without dropping one', () => {
     assert.equal(RAIL_BY_PATH.size, RAIL_ITEMS.length);
-    assert.equal(RAIL_BY_SECTION.size, RAIL_ITEMS.filter((item) => item.section).length);
     assert.equal(RAIL_BY_TOOL.size, RAIL_ITEMS.filter((item) => item.tool).length);
   });
 });
