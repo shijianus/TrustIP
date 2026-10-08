@@ -355,6 +355,7 @@
   "rail": {
     "full": {
       "home": "Mon IP",
+      "ipinfo": "Infos IP",
       "ip": "Dossier IP",
       "link": "Connectivité réseau",
       "webrtc": "Test de fuite WebRTC",
@@ -367,6 +368,7 @@
     },
     "short": {
       "home": "Mon IP",
+      "ipinfo": "Infos",
       "ip": "Dossier",
       "link": "Accès",
       "webrtc": "WebRTC",
@@ -1789,9 +1791,11 @@
     "description": "Une boîte à outils IP open source et tout-en-un : vérifiez votre adresse IP et sa géolocalisation, testez les fuites IP via WebRTC et DNS, effectuez une vérification de la qualité IP, une vérification de l'empreinte du navigateur, ainsi qu'un test de vitesse, un test de latence mondiale, un test MTR, une recherche Whois, et plus encore.",
     "keywords": "TrustMy.IP, Outil IP, Vérification IP, Test de fuite IP, Test de fuite DNS, Qualité IP, Test de fuite WebRTC, Empreinte du navigateur, Test de vitesse, Test de latence mondiale, Test MTR, Recherche DNS, Recherche Whois",
     "footerLink": "https://github.com/shijianus/TrustIP",
-    "copyRightName": "Publié par ",
     "copyRightLink": "https://epocanvas.com",
-    "copyRightLinkName": "EpoCanvas"
+    "brand": "EpoCanvas.Trust.IP",
+    "footerIpLookup": "Recherche IP",
+    "footerClaudeCheck": "Test Claude AI",
+    "footerIpScore": "Score IP"
   },
   "helpModal": {
     "Title": "Raccourcis"
@@ -2108,18 +2112,61 @@
       "noneYet": "Pas encore mesuré."
     },
     "split": {
-      "title": "Test de répartition par site",
-      "desc": "Si votre réseau répartit le trafic, ce tableau montre quelle adresse chaque site a vue et la règle appliquée. Une ligne « inconnue » est une destination qui ne renvoie rien, pas une panne de votre réseau.",
-      "colSite": "Site",
-      "colIp": "IP",
-      "colGeo": "Géolocalisation",
+      "title": "Test de routage par site",
+      "desc": "Si votre réseau répartit le trafic, ce tableau montre quelle adresse chaque site a vue et où se trouve cette adresse. Une ligne « aucune adresse envoyée » est une destination qui n'en signale pas, pas une panne de votre réseau.",
       "rerun": "Relancer",
-      "split": "Le trafic se répartit sur {n} sorties",
-      "single": "Une seule sortie pour toutes les destinations",
-      "domestic": "National",
       "international": "International",
-      "waiting": "en attente…",
-      "unknown": "inconnu"
+      "col": {
+        "site": "Site",
+        "ip": "IP",
+        "geo": "Géolocalisation"
+      },
+      "row": {
+        "waiting": "en attente…",
+        "unknown": "inconnu",
+        "unreachable": "injoignable",
+        "noAnswer": "aucune adresse envoyée"
+      },
+      "summary": {
+        "split": "Le trafic se répartit sur {n} sorties",
+        "single": "Une seule sortie pour toutes les destinations"
+      },
+      "rank": "N° {rank} mondial",
+      "planFailed": "Le plan de routage n'a pas pu être récupéré : aucune destination à tester pour l'instant. Relancez une fois le back-end joignable.",
+      "footnote": "Les adresses de sortie viennent de l'écho Cloudflare de chaque destination, demandé par votre navigateur ; une destination sans écho est chronométrée. Les sites pour adultes du classement sont retirés et les sites généralistes suivants prennent leur place.",
+      "egress": {
+        "title": "Adresses de sortie",
+        "primary": "IP principale",
+        "primarySeen": "Atteint depuis ici",
+        "default": "Sortie par défaut",
+        "other": "Autre sortie",
+        "otherShort": "autre",
+        "otherHint": "Ce site a vu une adresse qui n'est pas votre IP principale",
+        "seen": "{n} sites sur {total}",
+        "noEcho": "aucun site ne l'a signalée",
+        "routed": "Acheminés par cette sortie : {sites}",
+        "none": "Toutes les destinations sont atteintes depuis la même adresse.",
+        "noneYet": "Aucune adresse de sortie : les destinations n'ont pas répondu.",
+        "basis": {
+          "webrtc": "divulguée par WebRTC — la machine elle-même",
+          "volume": "l'adresse vue par le plus de destinations",
+          "source": "votre propre adresse résolue"
+        }
+      },
+      "group": {
+        "AI": "IA",
+        "Social": "Réseaux sociaux",
+        "Dev": "Développement",
+        "Cloud": "Cloud et CDN",
+        "Music": "Musique",
+        "Pay": "Paiement",
+        "Shop": "Boutiques",
+        "Media": "Streaming",
+        "News": "Actualités",
+        "Gov": "Services publics",
+        "Search": "Recherche",
+        "Speed": "Réseau"
+      }
     }
   }
 }

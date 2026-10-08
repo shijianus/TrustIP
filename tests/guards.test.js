@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { requireReferer, requirePublicIP, requireValidPrefix, requireValidDomain, requireValidProviderId, requireValidRecordType, requireValidReportId, requireValidCountry } from '../common/guards.js';
+import { requireReferer, requirePublicIP, requireValidPrefix, requireValidDomain, requireValidProviderId, requireValidRecordType, requireValidReportId, requireValidCountry, requireSplitSignals } from '../common/guards.js';
 
 // Minimal (req, res, next) stubs — just enough to observe what the
 // middleware does.
@@ -323,5 +323,81 @@ describe('requireValidDomain', () => {
             assert.equal(res.statusCode, 400, `should reject "${bad}"`);
             assert.equal(nextCalled, false);
         }
+    });
+});
+
+// -- POST /api/split: the profile signals ---------------------------------
+
+// The one body-shaped input this API scores rather than proxies. Everything the
+// guard lets through reaches a pure function that reads it field by field, so the
+// ceilings here are what keep a stranger's request from becoming this process's
+// CPU bill — and the dropping behaviour is what keeps a half-invalid payload from
+// being silently reinterpreted as a different one.
+describe('requireSplitSignals', () => {
+    const run = (body) => {
+        const req = { body };
+        const res = makeRes();
+        let next = false;
+        requireSplitSignals()(req, res, () => { next = true; });
+        return { req, res, next };
+    };
+
+    it('accepts a missing body as the empty question it is', () => {
+        for (const body of [undefined, null, {}]) {
+            const { req, next } = run(body);
+            assert.ok(next, 'must reach the handler');
+            assert.deepEqual(req.body, { signals: {}, countries: [] });
+        }
+    });
+
+    it('rejects an array or a scalar body outright', () => {
+        for (const body of [[1, 2], 'signals', 42]) {
+            const { res, next } = run(body);
+            assert.equal(res.statusCode, 400);
+            assert.ok(!next);
+        }
+    });
+
+    it('rejects a signals field that is not an object', () => {
+        const { res } = run({ signals: ['geo'] });
+        assert.equal(res.statusCode, 400);
+        assert.deepEqual(res.body, { error: 'Invalid signals' });
+    });
+
+    it('keeps only the six slices it knows', () => {
+        const { req } = run({ signals: { geo: { available: true, countries: ['CN'] }, stolen: { available: true }, big: 'x'.repeat(500) } });
+        assert.deepEqual(Object.keys(req.body.signals), ['geo']);
+    });
+
+    it('uppercases and dedupes region codes, and drops malformed ones', () => {
+        const { req } = run({
+            signals: { geo: { available: true, countries: ['cn', 'CN', 'XYZ', '', null, 'US'] } },
+            countries: ['ir', 'IR', 'QQ'],
+        });
+        assert.deepEqual(req.body.signals.geo.countries, ['CN', 'US']);
+        assert.deepEqual(req.body.countries, ['IR', 'QQ']);
+    });
+
+    it('caps every list, so a payload cannot grow the work', () => {
+        const { req } = run({
+            signals: {
+                lang: { available: true, languages: Array.from({ length: 400 }, (_, i) => `en-US-${i}`) },
+                net: { available: true, exitCountries: Array(200).fill('CN'), leakedCountries: Array(200).fill('US') },
+                ime: { available: true, keys: Object.fromEntries(Array.from({ length: 400 }, (_, i) => [`Key${i}`, String.fromCharCode(97 + (i % 26))])) },
+                tz: { available: true, zone: 'A'.repeat(4000) },
+            },
+        });
+        assert.ok(req.body.signals.lang.languages.length <= 6);
+        assert.ok(req.body.signals.net.exitCountries.length <= 12);
+        assert.ok(Object.keys(req.body.signals.ime.keys).length <= 32);
+        // Too long to be a zone name: dropped rather than truncated, because a
+        // clipped zone resolves to no country and would read as a measurement.
+        assert.equal(req.body.signals.tz.zone, undefined);
+    });
+
+    it('treats anything that is not a boolean true as not measured', () => {
+        const { req } = run({ signals: { geo: { available: 'yes', countries: ['CN'] }, os: { available: 1 } } });
+        assert.equal(req.body.signals.geo.available, false);
+        assert.equal(req.body.signals.os.available, false);
     });
 });

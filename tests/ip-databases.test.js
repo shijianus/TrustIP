@@ -115,16 +115,29 @@ describe('nearestEnabledId()', () => {
     assert.equal(nearestEnabledId(3, dbs([0, 3, 6])), 3);
   });
 
-  it('walks forward to the next available source', () => {
-    assert.equal(nearestEnabledId(1, dbs([0, 4, 5])), 4);
+  it('falls back to the best available source, not the next one in the list', () => {
+    // Preferred 1 is unconfigured; 0, 4 and 5 are all available. The old walk
+    // from the head landed on 0 (IPCheck.ing); the declared order lands on 5
+    // (IP.sb) because it is the available source whose city data is right.
+    assert.equal(nearestEnabledId(1, dbs([0, 4, 5])), 5);
   });
 
-  it('wraps around past the end of the list', () => {
+  it('prefers IP.sb over IP-API.com on a keyless deployment', () => {
+    // The blank-.env case: every keyed source is off, and IP-API.com answers
+    // with the ASN's registered city rather than the address's own.
+    assert.equal(nearestEnabledId(0, dbs([2, 5])), 5);
+  });
+
+  it('still keeps a preference that is available', () => {
+    assert.equal(nearestEnabledId(2, dbs([2, 5])), 2, 'the user chose one; do not override it');
+  });
+
+  it('copes with a preference at the end of the list', () => {
     assert.equal(nearestEnabledId(6, dbs([1])), 1);
   });
 
-  it('starts from the head for unknown ids', () => {
-    assert.equal(nearestEnabledId(42, dbs([2, 5])), 2);
+  it('picks an available source for an unknown id', () => {
+    assert.equal(nearestEnabledId(42, dbs([2, 5])), 5);
   });
 
   it('leaves the preference unchanged when nothing is enabled', () => {

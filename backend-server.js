@@ -8,7 +8,7 @@ import rateLimit from 'express-rate-limit';
 import pinoHttp from 'pino-http';
 import logger from './common/logger.js';
 import { requireReferer, requirePublicIP, requireValidPrefix, requireValidASN, requireValidDomain, requireValidProviderId,
-    requireValidRecordType, requireValidReportId } from './common/guards.js';
+    requireValidRecordType, requireValidReportId, requireSplitSignals } from './common/guards.js';
 import { withTimeZone } from './common/ip-timezone.js';
 
 // Backend APIs
@@ -40,6 +40,7 @@ import invisibilitytestHandler from './api/invisibility-test.js';
 import macChecker from './api/mac-checker.js';
 import githubStarsHandler from './api/github-stars.js';
 import personaEvaluateHandler from './api/persona.js';
+import splitHandler from './api/split.js';
 import trustScoreHandler from './api/trust-score.js';
 import ipDossierHandler from './api/ip-dossier.js';
 // User
@@ -318,6 +319,10 @@ app.get('/api/report/:id', requireValidReportId(), getReportHandler);
 app.post('/api/report', createReportHandler);
 // One observation in, one graded report out — per-visitor by definition.
 app.post('/api/persona/evaluate', personaEvaluateHandler);
+// One set of profile signals in, one routing work order out. Per-visitor, never
+// cached, and the only route whose *answer* is a secret from its own client — see
+// api/split.js for why the scoring lives on this side of the wire.
+app.post('/api/split', requireSplitSignals(), splitHandler);
 
 // Sentry tunnel — first-party relay for the frontend SDK's envelopes
 // Mounted only when this deployment actually built the frontend with a DSN.

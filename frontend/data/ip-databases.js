@@ -44,17 +44,33 @@ export const applyConfigAvailability = (dbs, configs) =>
   }));
 
 /**
- * Pure function: nearest available source id, walking forward cyclically from
- * preferredId (the direction the fetch fallback walks). Unknown ids start
- * from the head; nothing enabled → preferredId unchanged.
+ * Pure function: the best source to fall back to, among the enabled ones.
+ *
+ * Called only when the stored preference names a source this deployment cannot
+ * serve (its key is unset), which is the ordinary state of a blank `.env`. It
+ * used to walk the list forward from the preferred id and take the first
+ * enabled one — which on a keyless deployment means IP-API.com, the one free
+ * source here that reports the ASN's registered city rather than the address's
+ * own. That is a visible wrong answer ("Santa Clara" for a Los Angeles exit),
+ * and a fallback that lands on the weakest available source is not a fallback
+ * worth having, so the order is declared instead of positional.
+ *
+ * Unknown ids and an all-disabled set fall back to `preferredId` unchanged.
  */
+const FALLBACK_PREFERENCE = [
+  5, // IP.sb — key-free, names the city, carries the ASN organisation
+  1, // IPinfo.io
+  6, // MaxMind
+  4, // IP2Location.io
+  3, // IPAPI.is
+  2, // IP-API.com
+  0, // IPCheck.ing
+];
+
 export const nearestEnabledId = (preferredId, dbs) => {
   if (!dbs.length) return preferredId;
-  const idx = dbs.findIndex((db) => db.id === preferredId);
-  const start = idx === -1 ? 0 : idx;
-  for (let i = 0; i < dbs.length; i++) {
-    const db = dbs[(start + i) % dbs.length];
-    if (db.enabled) return db.id;
-  }
-  return preferredId;
+  const enabled = new Set(dbs.filter((db) => db.enabled).map((db) => db.id));
+  if (!enabled.size) return preferredId;
+  if (enabled.has(preferredId)) return preferredId;
+  return FALLBACK_PREFERENCE.find((id) => enabled.has(id)) ?? preferredId;
 };

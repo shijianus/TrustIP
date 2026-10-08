@@ -12,7 +12,7 @@
 // shape, and the number beside it is the fastest of the run.
 
 import { ref, shallowRef, onScopeDispose } from 'vue';
-import { PROBE_SAMPLES, probeTone } from '../data/site-split.js';
+import { PROBE_SAMPLES, probeTone } from '../utils/latency-probes.js';
 
 const SAMPLE_TIMEOUT_MS = 5000;
 

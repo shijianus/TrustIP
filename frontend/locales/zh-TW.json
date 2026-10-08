@@ -355,6 +355,7 @@
   "rail": {
     "full": {
       "home": "我的 IP",
+      "ipinfo": "IP 資訊",
       "ip": "IP 檔案",
       "link": "網路連通性",
       "webrtc": "WebRTC 洩漏測試",
@@ -367,6 +368,7 @@
     },
     "short": {
       "home": "我的 IP",
+      "ipinfo": "IP資訊",
       "ip": "檔案",
       "link": "連通",
       "webrtc": "WebRTC",
@@ -1789,9 +1791,11 @@
     "description": "更完善的開源 IP 工具箱：查詢 IP 位址與地理位置、測試 WebRTC 與 DNS IP 洩漏、執行 IP 品質檢查、瀏覽器指紋檢查，還有網速測試、全球延遲測試、MTR 測試、Whois 查詢等。",
     "keywords": "TrustMy.IP, 我的 IP, IP 工具, IP 檢查, IP 洩漏檢查, IP 品質檢查, IP 查詢, DNS 洩漏測試, WebRTC 洩漏測試, 瀏覽器指紋檢查, 網速測試, 全球延遲測試, MTR 測試, DNS 查詢, Whois 查詢",
     "footerLink": "https://github.com/shijianus/TrustIP",
-    "copyRightName": "發佈方：",
     "copyRightLink": "https://epocanvas.com",
-    "copyRightLinkName": "EpoCanvas"
+    "brand": "EpoCanvas.Trust.IP",
+    "footerIpLookup": "IP 查詢",
+    "footerClaudeCheck": "Claude AI 偵測",
+    "footerIpScore": "IP 評分"
   },
   "helpModal": {
     "Title": "鍵盤快速鍵"
@@ -2109,17 +2113,60 @@
     },
     "split": {
       "title": "網站分流測試",
-      "desc": "如果目前網路進行了 IP 分流，下面可以看到造訪不同網站時所使用的 IP 及分流規則。出現「未知」並不代表你的網路有問題，只是該站點不回傳出口位址。",
-      "colSite": "網站",
-      "colIp": "IP",
-      "colGeo": "地理位置",
+      "desc": "如果目前網路做了 IP 分流，這裡會顯示每個網站實際看到的位址、以及那個位址在哪。寫著「未回傳位址」的列，只是該站點不回報出口位址，並不代表你的網路有問題。",
       "rerun": "重新測試",
-      "split": "流量經 {n} 個出口分流",
-      "single": "所有網站走同一出口",
-      "domestic": "國內",
       "international": "國際",
-      "waiting": "等待中…",
-      "unknown": "未知"
+      "col": {
+        "site": "網站",
+        "ip": "IP",
+        "geo": "地理位置"
+      },
+      "row": {
+        "waiting": "等待中…",
+        "unknown": "未知",
+        "unreachable": "不可達",
+        "noAnswer": "未回傳位址"
+      },
+      "summary": {
+        "split": "流量經 {n} 個出口分流",
+        "single": "所有網站走同一出口"
+      },
+      "rank": "全球訪問排名#{rank}",
+      "planFailed": "未能取得分流方案，暫時沒有可測試的站點。後端可用後點「重新測試」。",
+      "footnote": "出口位址來自每個站點自身的 Cloudflare 回顯，由你的瀏覽器直接請求；不提供該回顯的站點改為計時。流量榜中的成人站點已剔除，由排名緊隨的通用站點遞補。",
+      "egress": {
+        "title": "出口地址判定",
+        "primary": "主 IP",
+        "primarySeen": "由此出口存取",
+        "default": "預設出口",
+        "other": "其它出口",
+        "otherShort": "其它",
+        "otherHint": "該站點看到的地址不是你的主 IP",
+        "seen": "{n} / {total} 個站點",
+        "noEcho": "沒有站點回報此地址",
+        "routed": "走此出口的站點：{sites}",
+        "none": "所有站點都由同一出口路由。",
+        "noneYet": "尚無出口地址——目標站點還沒有回答。",
+        "basis": {
+          "webrtc": "由 WebRTC 洩漏判定，即本機位址",
+          "volume": "由路由數量判定，即最多站點看到的位址",
+          "source": "由 IP 來源判定，即解析到的自身位址"
+        }
+      },
+      "group": {
+        "AI": "AI",
+        "Social": "社交",
+        "Dev": "開發者",
+        "Cloud": "雲與CDN",
+        "Music": "音樂",
+        "Pay": "金融支付",
+        "Shop": "網購平台",
+        "Media": "串流",
+        "News": "新聞",
+        "Gov": "政務",
+        "Search": "搜尋",
+        "Speed": "網路"
+      }
     }
   }
 }

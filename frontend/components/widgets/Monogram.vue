@@ -1,10 +1,10 @@
 <template>
-    <!-- A letter tile instead of a favicon, deliberately. Fetching forty-four
-         icons per page view would mean either hotlinking each brand's own
-         asset server or routing the whole set through a third-party icon
-         proxy — and an IP-diagnostic page that makes forty-four extra
-         third-party requests before it has measured anything is contradicting
-         its own subject. This costs nothing, works offline, and cannot leak. -->
+    <!-- A letter tile standing in for a site icon. This is the fallback, not the
+         default: a destination with a committed same-origin PNG renders that
+         instead (see widgets/SiteIcon.vue). It stays deliberately dependency-free
+         and network-free, so the rows that have no icon on file — and a visitor
+         with no connectivity at all, which is the moment the table matters most —
+         still draw something stable. -->
     <span
         class="inline-flex shrink-0 items-center justify-center rounded-md font-semibold"
         :style="`width:${size}px;height:${size}px;font-size:${Math.round(size * 0.46)}px;background:${tint};color:${ink}`"

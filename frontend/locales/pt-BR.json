@@ -355,6 +355,7 @@
   "rail": {
     "full": {
       "home": "Meu IP",
+      "ipinfo": "Dados de IP",
       "ip": "Dossiê de IP",
       "link": "Conectividade de rede",
       "webrtc": "Teste de vazamento WebRTC",
@@ -367,6 +368,7 @@
     },
     "short": {
       "home": "Meu IP",
+      "ipinfo": "Dados",
       "ip": "Dossiê",
       "link": "Acesso",
       "webrtc": "WebRTC",
@@ -1789,9 +1791,11 @@
     "description": "Uma caixa de ferramentas de IP melhor e de código aberto: verifique seu IP e sua geolocalização, teste vazamentos de IP por WebRTC e DNS, faça uma verificação de qualidade de IP, verifique a impressão digital do navegador, além de teste de velocidade, teste de latência global, teste MTR, pesquisa Whois e muito mais.",
     "keywords": "TrustMy.IP, ferramenta de IP, verificar IP, teste de vazamento de IP, verificação de qualidade de IP, consulta de IP, teste de vazamento de DNS, teste de vazamento WebRTC, verificação de impressão digital do navegador, teste de velocidade, teste de latência global, teste MTR, consulta DNS, pesquisa Whois",
     "footerLink": "https://github.com/shijianus/TrustIP",
-    "copyRightName": "Publicado por ",
     "copyRightLink": "https://epocanvas.com",
-    "copyRightLinkName": "EpoCanvas"
+    "brand": "EpoCanvas.Trust.IP",
+    "footerIpLookup": "Consulta de IP",
+    "footerClaudeCheck": "Teste Claude AI",
+    "footerIpScore": "Pontuação de IP"
   },
   "helpModal": {
     "Title": "Atalhos de teclado"
@@ -2109,17 +2113,60 @@
     },
     "split": {
       "title": "Teste de roteamento por site",
-      "desc": "Se a sua rede divide o tráfego, esta tabela mostra qual endereço cada site viu e a regra usada. Uma linha “desconhecida” é um destino que não informa o endereço, não uma falha da sua rede.",
-      "colSite": "Site",
-      "colIp": "IP",
-      "colGeo": "Geolocalização",
+      "desc": "Se a sua rede divide o tráfego, esta tabela mostra qual endereço cada site viu e onde esse endereço está. Uma linha que diz “sem endereço enviado” é um destino que não informa um, não uma falha da sua rede.",
       "rerun": "Repetir",
-      "split": "O tráfego se divide por {n} saídas",
-      "single": "Uma saída para todos os destinos",
-      "domestic": "Nacional",
       "international": "Internacional",
-      "waiting": "aguardando…",
-      "unknown": "desconhecido"
+      "col": {
+        "site": "Site",
+        "ip": "IP",
+        "geo": "Geolocalização"
+      },
+      "row": {
+        "waiting": "aguardando…",
+        "unknown": "desconhecido",
+        "unreachable": "inacessível",
+        "noAnswer": "sem endereço enviado"
+      },
+      "summary": {
+        "split": "O tráfego se divide por {n} saídas",
+        "single": "Uma única saída para todos os destinos"
+      },
+      "rank": "Nº {rank} mundial",
+      "planFailed": "O plano de roteamento não pôde ser obtido, então ainda não há destinos para testar. Repita quando o back-end estiver acessível.",
+      "footnote": "Os endereços de saída vêm do eco Cloudflare de cada destino, solicitado pelo seu navegador; um destino sem esse eco é cronometrado. Os sites adultos do ranking saem da lista e os próximos sites de interesse geral ocupam seus lugares.",
+      "egress": {
+        "title": "Endereços de saída",
+        "primary": "IP principal",
+        "primarySeen": "Alcançado daqui",
+        "default": "Saída padrão",
+        "other": "Outra saída",
+        "otherShort": "outra",
+        "otherHint": "Este site viu um endereço que não é o seu IP principal",
+        "seen": "{n} de {total} sites",
+        "noEcho": "nenhum site o reportou",
+        "routed": "Roteados por esta saída: {sites}",
+        "none": "Todos os destinos foram alcançados do mesmo endereço.",
+        "noneYet": "Nenhum endereço de saída ainda: os destinos não responderam.",
+        "basis": {
+          "webrtc": "vazado pelo WebRTC — a própria máquina",
+          "volume": "o endereço que mais destinos viram",
+          "source": "seu próprio endereço resolvido"
+        }
+      },
+      "group": {
+        "AI": "IA",
+        "Social": "Redes sociais",
+        "Dev": "Desenvolvimento",
+        "Cloud": "Nuvem e CDN",
+        "Music": "Música",
+        "Pay": "Pagamentos",
+        "Shop": "Compras",
+        "Media": "Streaming",
+        "News": "Notícias",
+        "Gov": "Governo",
+        "Search": "Busca",
+        "Speed": "Rede"
+      }
     }
   }
 }

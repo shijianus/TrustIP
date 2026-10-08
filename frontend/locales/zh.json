@@ -355,6 +355,7 @@
   "rail": {
     "full": {
       "home": "我的 IP",
+      "ipinfo": "IP 信息",
       "ip": "IP 档案",
       "link": "网络连通性",
       "webrtc": "WebRTC 泄露测试",
@@ -367,6 +368,7 @@
     },
     "short": {
       "home": "我的 IP",
+      "ipinfo": "IP信息",
       "ip": "档案",
       "link": "连通",
       "webrtc": "WebRTC",
@@ -1789,9 +1791,11 @@
     "description": "好用和开源的全能 IP 工具箱。轻松查看你的 IP 地址和信息、检查 IP 泄露、DNS 与 WebRTC 泄露检查、查看 IP 质量分数、浏览器指纹检查。还有网速测试、全球延迟测试、MTR 测试、Whois 查询等。",
     "keywords": "TrustMy.IP,我的IP,IP工具,IP查询,IP泄露检测,DNS泄露检测,IP质量检测,WebRTC泄露检测,浏览器指纹检测,网速测试,全球延迟测试,MTR测试,DNS查询,Whois搜索",
     "footerLink": "https://github.com/shijianus/TrustIP",
-    "copyRightName": "发布方：",
     "copyRightLink": "https://epocanvas.com",
-    "copyRightLinkName": "EpoCanvas"
+    "brand": "EpoCanvas.Trust.IP",
+    "footerIpLookup": "IP查询",
+    "footerClaudeCheck": "Claude AI 检测",
+    "footerIpScore": "IP评分"
   },
   "helpModal": {
     "Title": "快捷键"
@@ -2109,17 +2113,60 @@
     },
     "split": {
       "title": "网站分流测试",
-      "desc": "如果当前网络进行了 IP 分流，下面可以看到访问不同网站时所使用的 IP 及分流规则。出现「未知」并不代表你的网络有问题，只是该站点不回传出口地址。",
-      "colSite": "网站",
-      "colIp": "IP",
-      "colGeo": "地理位置",
+      "desc": "如果当前网络做了 IP 分流，这里会显示每个网站实际看到的地址、以及那个地址在哪。写着「未回传地址」的行，只是该站点不报告出口地址，并不代表你的网络有问题。",
       "rerun": "重新测试",
-      "split": "流量经 {n} 个出口分流",
-      "single": "所有网站走同一出口",
-      "domestic": "国内",
       "international": "国际",
-      "waiting": "等待中…",
-      "unknown": "未知"
+      "col": {
+        "site": "网站",
+        "ip": "IP",
+        "geo": "地理位置"
+      },
+      "row": {
+        "waiting": "等待中…",
+        "unknown": "未知",
+        "unreachable": "不可达",
+        "noAnswer": "未回传地址"
+      },
+      "summary": {
+        "split": "流量经 {n} 个出口分流",
+        "single": "所有网站走同一出口"
+      },
+      "rank": "全球访问排名#{rank}",
+      "planFailed": "未能获取分流方案，暂时没有可测试的站点。后端可用后点「重新测试」。",
+      "footnote": "出口地址来自每个站点自身的 Cloudflare 回显，由你的浏览器直接请求；不提供该回显的站点改为计时。流量榜中的成人站点已剔除，由排名紧随的通用站点替补。",
+      "egress": {
+        "title": "出口地址判定",
+        "primary": "主 IP",
+        "primarySeen": "由此出口访问",
+        "default": "默认出口",
+        "other": "其它出口",
+        "otherShort": "其它",
+        "otherHint": "该站点看到的地址不是你的主 IP",
+        "seen": "{n} / {total} 个站点",
+        "noEcho": "没有站点回报此地址",
+        "routed": "走此出口的站点：{sites}",
+        "none": "所有站点都由同一出口路由。",
+        "noneYet": "尚无出口地址——目标站点还没有回答。",
+        "basis": {
+          "webrtc": "由 WebRTC 泄露判定，即本机地址",
+          "volume": "由路由数量判定，即最多站点看到的地址",
+          "source": "由 IP 来源判定，即解析到的自身地址"
+        }
+      },
+      "group": {
+        "AI": "AI",
+        "Social": "社交",
+        "Dev": "开发者",
+        "Cloud": "云与CDN",
+        "Music": "音乐",
+        "Pay": "金融支付",
+        "Shop": "网购平台",
+        "Media": "流媒体",
+        "News": "新闻",
+        "Gov": "政务",
+        "Search": "搜索",
+        "Speed": "网络"
+      }
     }
   }
 }

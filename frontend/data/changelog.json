@@ -2212,6 +2212,61 @@
           "ru": "Новая панель инструментов сверху: по странице на каждый инструмент (досье IP, подключение, WebRTC, утечки DNS, скорость, задержка, состояние сервисов, Whois, все инструменты) — переход в один клик, на телефоне короткие подписи",
           "pt-BR": "Nova barra de ferramentas no topo: uma página por ferramenta (dossiê de IP, conectividade, WebRTC, vazamento de DNS, velocidade, latência, status dos serviços, Whois, todas as ferramentas) em um clique, com rótulos curtos no celular"
         }
+      },
+      {
+        "type": "improve",
+        "change": {
+          "en": "The site routing test now decides on its own which countries' sites to probe, from the network it is running on — no configuration, and no list of destinations to keep maintaining",
+          "zh": "网站分流测试现在会自行决定要实测哪些国家的站点，依据的是它所在网络的实际状况——不需要配置，也没有一份需要长期维护的站点清单",
+          "zh-TW": "網站分流測試現在會自行決定要實測哪些國家的站點，依據的是它所在網路的實際狀況——不需要設定，也沒有一份需要長期維護的站點清單",
+          "fr": "Le test de routage décide désormais seul quels sites nationaux sonder, à partir du réseau sur lequel il tourne — sans configuration, et sans liste de destinations à entretenir",
+          "ru": "Тест разделения трафика теперь сам решает, сайты каких стран проверять, исходя из фактического состояния сети, в которой работает, — без настроек и без списка адресов, который нужно поддерживать",
+          "pt-BR": "O teste de roteamento agora decide sozinho os sites nacionais que vai sondar, a partir da rede onde está rodando — sem configuração e sem uma lista de destinos para manter"
+        }
+      },
+      {
+        "type": "add",
+        "change": {
+          "en": "Each routing row now reports one of four real results — an egress address, a measured round trip, a destination that refused every connection, or nothing learned — and services that belong to no country are labelled International, with category chips for developer infrastructure, cloud and CDN, music, payment and shopping",
+          "zh": "分流表的每一行现在给出四种真实结果之一：出口地址、实测往返时延、站点拒绝一切连接、或一无所获；与地区无关的服务统一标注为「国际」，并附开发者、云与CDN、音乐、金融支付、网购平台等分类标签",
+          "zh-TW": "分流表的每一列現在給出四種真實結果之一：出口位址、實測往返延遲、站點拒絕所有連線、或一無所獲；與地區無關的服務統一標註為「國際」，並附開發者、雲與CDN、音樂、金融支付、網購平台等分類標籤",
+          "fr": "Chaque ligne donne désormais l'un des quatre résultats réels — une adresse de sortie, un aller-retour mesuré, une destination qui refuse toute connexion, ou rien d'appris — et les services sans pays d'origine sont marqués « International », avec des puces de catégorie pour le développement, le cloud et CDN, la musique, le paiement et les boutiques",
+          "ru": "Каждая строка теперь показывает один из четырёх настоящих результатов: исходящий адрес, измеренную задержку, отказ сайта принимать соединения или отсутствие данных; сервисы без привязки к стране помечены «Международные» с метками категорий: разработка, облако и CDN, музыка, платежи и магазины",
+          "pt-BR": "Cada linha agora informa um de quatro resultados reais — endereço de saída, ida e volta medido, destino que recusou toda conexão, ou nada aprendido — e os serviços sem país de origem são marcados como “Internacional”, com etiquetas de categoria para desenvolvimento, nuvem e CDN, música, pagamentos e compras"
+        }
+      },
+      {
+        "type": "add",
+        "change": {
+          "en": "A timed floor of the world's ten biggest sites under the routing table, so a network that answered every split question is still checked against the services most people actually reach",
+          "zh": "分流表底部新增全球前十站点延迟兜底：即便所有分流问题都有了答案，网络仍需对照大多数人真正会访问的服务再验一遍",
+          "zh-TW": "分流表底部新增全球前十站點延遲兜底：即使所有分流問題都有答案，網路仍需對照多數人真正會造訪的服務再驗證一次",
+          "fr": "Un plancher chronométré des dix sites les plus consultés au monde sous le tableau de routage : un réseau qui a répondu à toutes les questions de répartition est quand même mesuré sur les services que la plupart des gens atteignent vraiment",
+          "ru": "Под таблицей разделения появился контрольный минимум — задержка десяти самых посещаемых сайтов мира: сеть, корректно ответившую на все вопросы о разделении, всё равно стоит проверить на сервисах, которые большинство людей действительно открывает",
+          "pt-BR": "Um piso cronometrado dos dez sites mais acessados do mundo abaixo da tabela de roteamento: uma rede que respondeu a todas as perguntas de divisão ainda é comparada com os serviços que a maioria das pessoas realmente alcança"
+        }
+      },
+      {
+        "type": "add",
+        "change": {
+          "en": "The routing table now names your primary IP — a WebRTC leak decides it — and lists which sites were reached from a different exit",
+          "zh": "分流测试现在会判定主 IP（以 WebRTC 泄露为准），并列出由其它出口路由的网站",
+          "zh-TW": "分流測試現在會判定主 IP（以 WebRTC 洩漏為準），並列出由其它出口路由的網站",
+          "fr": "La table de routage nomme désormais votre IP principale — une fuite WebRTC en décide — et liste les sites atteints depuis une autre sortie",
+          "ru": "Тест маршрутизации теперь называет ваш основной IP — об этом решает утечка WebRTC — и перечисляет сайты, доступные через другой выход",
+          "pt-BR": "A tabela de roteamento agora nomeia seu IP principal — um vazamento de WebRTC decide isso — e lista os sites alcançados por outra saída"
+        }
+      },
+      {
+        "type": "improve",
+        "change": {
+          "en": "Every country your own addresses resolve to now gets its sites tested, each country's rows ordered by what people there actually use",
+          "zh": "你的地址所在每个国家现在都会测该国的常用站点，每国排序按当地人的真实使用顺序",
+          "zh-TW": "你的位址所在每個國家現在都會測該國的常用網站，每國排序依當地人的真實使用順序",
+          "fr": "Chaque pays où vos adresses résolvent voit désormais ses sites testés, chaque ligne ordonnée selon l'usage réel sur place",
+          "ru": "Теперь проверяются сайты каждой страны, где определяется ваш адрес, а строки каждой страны упорядочены по реальному местному использованию",
+          "pt-BR": "Cada país onde seus endereços resolvem agora tem seus sites testados, com as linhas de cada país ordenadas pelo uso real de quem mora lá"
+        }
       }
     ]
   }

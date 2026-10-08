@@ -355,6 +355,7 @@
   "rail": {
     "full": {
       "home": "My IP",
+      "ipinfo": "IP Infos",
       "ip": "IP Dossier",
       "link": "Network Connectivity",
       "webrtc": "WebRTC Leak Test",
@@ -367,6 +368,7 @@
     },
     "short": {
       "home": "My IP",
+      "ipinfo": "Infos",
       "ip": "Dossier",
       "link": "Reach",
       "webrtc": "WebRTC",
@@ -1789,9 +1791,11 @@
     "description": "A better and open-source IP toolbox: check your IP address & geolocation, test IP for WebRTC and DNS IP leaks, run an IP quality check, browser fingerprint check, plus speed test, global latency test, MTR test, Whois search, and more.",
     "keywords": "TrustMy.IP, IP tool, IP check, IP Leak Check, IP quality check, IP lookup, DNS leak test, WebRTC leak test, browser fingerprint check, speed test, global latency test, MTR test, DNS lookup, Whois search",
     "footerLink": "https://github.com/shijianus/TrustIP",
-    "copyRightName": "Published by ",
     "copyRightLink": "https://epocanvas.com",
-    "copyRightLinkName": "EpoCanvas"
+    "brand": "EpoCanvas.Trust.IP",
+    "footerIpLookup": "IP Lookup",
+    "footerClaudeCheck": "Claude AI Check",
+    "footerIpScore": "IP Score"
   },
   "helpModal": {
     "Title": "Keyboard Shortcuts"
@@ -2109,17 +2113,60 @@
     },
     "split": {
       "title": "Site routing test",
-      "desc": "If your network splits traffic, this table shows which address each site saw and the rule behind it. An “unknown” row is a destination that does not report one, not a fault in your network.",
-      "colSite": "Site",
-      "colIp": "IP",
-      "colGeo": "Geolocation",
+      "desc": "If your network splits traffic, this shows which address each site saw and where that address is. A row reading “no address sent” is a destination that does not report one, not a fault in your network.",
       "rerun": "Re-run",
-      "split": "Traffic splits across {n} exits",
-      "single": "One exit for every destination",
-      "domestic": "Domestic",
       "international": "International",
-      "waiting": "waiting…",
-      "unknown": "unknown"
+      "col": {
+        "site": "Site",
+        "ip": "IP",
+        "geo": "Geolocation"
+      },
+      "row": {
+        "waiting": "waiting…",
+        "unknown": "unknown",
+        "unreachable": "unreachable",
+        "noAnswer": "no address sent"
+      },
+      "summary": {
+        "split": "Traffic splits across {n} exits",
+        "single": "One exit for every destination"
+      },
+      "rank": "World #{rank} by traffic",
+      "planFailed": "The routing plan could not be fetched, so there is nothing to test yet. Re-run once the back end is reachable.",
+      "footnote": "Egress addresses come from each destination's own Cloudflare echo, requested by your browser; a destination that does not run one is timed instead. The adult sites in the traffic ranking are dropped and the next general-interest sites take their places.",
+      "egress": {
+        "title": "Exit addresses",
+        "primary": "Primary IP",
+        "primarySeen": "Reached from here",
+        "default": "Default egress",
+        "other": "Other exit",
+        "otherShort": "other",
+        "otherHint": "This site saw an address that is not your primary IP",
+        "seen": "{n} of {total} sites",
+        "noEcho": "no site reported it",
+        "routed": "Routed through this exit: {sites}",
+        "none": "Every destination was reached from the same address.",
+        "noneYet": "No exit address yet: the destinations have not answered.",
+        "basis": {
+          "webrtc": "leaked by WebRTC — the machine itself",
+          "volume": "the address the most destinations saw",
+          "source": "your own resolved address"
+        }
+      },
+      "group": {
+        "AI": "AI",
+        "Social": "Social",
+        "Dev": "Developer",
+        "Cloud": "Cloud & CDN",
+        "Music": "Music",
+        "Pay": "Payment",
+        "Shop": "Shopping",
+        "Media": "Streaming",
+        "News": "News",
+        "Gov": "Government",
+        "Search": "Search",
+        "Speed": "Network"
+      }
     }
   }
 }

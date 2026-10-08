@@ -132,6 +132,7 @@ import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/component
 import { useStatusTone, ipFieldTone, isFieldPending as isFieldPendingShared } from '@/composables/use-status-tone.js';
 import { createMaskGate } from '@/composables/use-info-mask.js';
 import { useMaxmind } from '@/composables/use-maxmind.js';
+import { STUN_SERVERS, gatherStunCandidate, natTypeCodeOf } from '@/utils/webrtc-ice.js';
 import { Play, MapPin, EthernetPort, Flower, Network, RotateCw, FileText, ChevronDown } from '@lucide/vue';
 import { Icon } from '@iconify/vue';
 import FitText from '@/components/widgets/FitText.vue';
@@ -153,25 +154,20 @@ const isStarted = ref(false);
 // pass finishes (including the WebRTC-unavailable path).
 const hasEverSettled = ref(false);
 const IPArray = ref([]);
-const stunServers = reactive([
-  { id: 'google', url: 'stun.l.google.com:19302', ip: t('webrtc.StatusWait'), natType: t('webrtc.StatusWait'), country: t('webrtc.StatusWait'), country_code: '', org: t('webrtc.StatusWait'), sdpLog: [], sdpOpen: false },
-  { id: 'blackberry', url: 'stun.voip.blackberry.com:3478', ip: t('webrtc.StatusWait'), natType: t('webrtc.StatusWait'), country: t('webrtc.StatusWait'), country_code: '', org: t('webrtc.StatusWait'), sdpLog: [], sdpOpen: false },
-  { id: 'twilio', url: 'global.stun.twilio.com', ip: t('webrtc.StatusWait'), natType: t('webrtc.StatusWait'), country: t('webrtc.StatusWait'), country_code: '', org: t('webrtc.StatusWait'), sdpLog: [], sdpOpen: false },
-  { id: 'cloudflare', url: 'stun.cloudflare.com', ip: t('webrtc.StatusWait'), natType: t('webrtc.StatusWait'), country: t('webrtc.StatusWait'), country_code: '', org: t('webrtc.StatusWait'), sdpLog: [], sdpOpen: false },
-]);
-
-// Regex extracting the IP portion out of an ICE candidate line
-// (full SDP grammar not needed — just IPv4 / IPv6 with common forms).
-const CANDIDATE_IP_RE = /([0-9a-f]{1,4}(:[0-9a-f]{1,4}){7}|[0-9a-f]{0,4}(:[0-9a-f]{1,4}){0,6}::[0-9a-f]{0,4}|::[0-9a-f]{1,4}(:[0-9a-f]{1,4}){0,6}|[0-9]{1,3}(\.[0-9]{1,3}){3})/i;
-
-// Track in-flight RTCPeerConnections so they can all be closed on unmount.
-// Without this, navigating away mid-test would leave each pc (and its
-// ICE gathering machinery) lingering until GC. Entries are added when
-// the connection is created and removed once it's closed.
-const activeConnections = new Set();
+// The card state, seeded from the shared server list so the homepage's quiet pass
+// and this section cannot drift apart on which STUN servers count.
+const stunServers = reactive(STUN_SERVERS.map((server) => ({
+  ...server,
+  ip: t('webrtc.StatusWait'), natType: t('webrtc.StatusWait'), country: t('webrtc.StatusWait'),
+  country_code: '', org: t('webrtc.StatusWait'), sdpLog: [], sdpOpen: false,
+})));
 
 // WebRTC can be absent entirely: privacy-hardened browsers.
 const isWebRtcAvailable = typeof RTCPeerConnection === 'function';
+
+// One controller per pass, so a refresh or an unmount stops ICE gathering rather
+// than leaving four peer connections running until their own timeouts expire.
+let gatherAbort = null;
 
 // Business status → 4 tone levels. "WebRTC unavailable" renders green on
 // purpose: for a leak test, a browser with WebRTC disabled is a protective
@@ -191,52 +187,27 @@ const isFieldPending = (value) => isFieldPendingShared(value, {
   errorLabels: [t('webrtc.StatusError'), t('webrtc.StatusUnavailable')],
 });
 
-// Run a STUN test against one server. ICE gathering with a 5s backstop.
+// Run a STUN test against one server, then put what it reported on the card.
 //
-// Success criteria: receive a server-reflexive ('srflx') or peer-reflexive
-// ('prflx') candidate with an extractable IP. That IP is what the STUN
-// server reported; host candidates don't prove STUN worked (the browser
-// emits them regardless) and must not be shown as the "STUN IP".
-//
-// Any non-success path — 5s elapsed without srflx / prflx, or an
-// unexpected throw in the try/catch — collapses to StatusError.
-// Distinguishing "timeout" vs "mDNS privacy" looks tempting but the
-// two conditions are independent (mDNS privacy can be on while STUN
-// still works via srflx, and vice versa), so a split label produces
-// false positives — we deliberately stay vague here.
+// The gathering itself lives in `utils/webrtc-ice.js`, shared with the homepage's
+// routing table: two definitions of "what counts as a leak" on one page is how a
+// privacy tool starts disagreeing with itself about the visitor's own address.
 const checkSTUNServer = (stun) => {
-  return new Promise((resolve) => {
-    let pc = null;
-    let timer = null;
-    let settled = false;
+  // A fresh array rather than length = 0, so the panel scroll position resets
+  // cleanly between runs.
+  stun.sdpLog = [];
+  stun.sdpOpen = false;
 
-    // Event log helper: every line is prefixed with a millisecond offset
-    // from the start of this server's test, so the log reads as a timeline.
-    // `stun.sdpLog` is reset to a fresh reactive array (rather than length=0)
-    // so the panel scroll position resets cleanly between runs.
-    const startTime = performance.now();
-    stun.sdpLog = [];
-    stun.sdpOpen = false;
-    const log = (msg) => {
-      const ts = Math.round(performance.now() - startTime).toString().padStart(4, ' ');
-      stun.sdpLog.push(`[+${ts}ms] ${msg}`);
-    };
+  return gatherStunCandidate(stun.url, {
+    signal: gatherAbort.signal,
+    onLog: (line) => { stun.sdpLog.push(line); },
+  }).then(async (result) => {
+    // An aborted pass leaves the card as it was: nobody is reading it any more, and
+    // writing "error" over the previous answer would be a lie about the network.
+    if (result.reason === 'aborted') return;
 
-    const finish = () => {
-      settled = true;
-      if (timer !== null) {
-        clearTimeout(timer);
-        timer = null;
-      }
-      if (pc) {
-        pc.close();
-        activeConnections.delete(pc);
-      }
-      resolve();
-    };
-
-    const failWith = (statusKey) => {
-      if (settled) return;
+    if (!result.ok) {
+      const statusKey = result.reason === 'unavailable' ? 'StatusUnavailable' : 'StatusError';
       const label = t(`webrtc.${statusKey}`);
       stun.ip = label;
       stun.natType = label;
@@ -245,127 +216,26 @@ const checkSTUNServer = (stun) => {
       stun.country = label;
       stun.country_code = '';
       stun.org = label;
-      log(`status: ${statusKey}`);
-      finish();
-    };
+      return;
+    }
 
-    const succeedWith = async (ip, candidate) => {
-      if (settled) return;
-      // Mark settled now so a late candidate can't double-resolve,
-      // but keep pc / timer alive until the country lookup returns.
-      settled = true;
-      if (timer !== null) {
-        clearTimeout(timer);
-        timer = null;
-      }
-      stun.ip = ip;
-      stun.natType = determineNATType(candidate);
-      stun.natTypeCode = natTypeCodeOf(candidate);
-      log(`resolved IP: ${ip}`);
-      IPArray.value = [...IPArray.value, { ip, country: '' }];
-      // useMaxmind swallows its own errors and returns null on miss, so
-      // a single null check handles both "no MaxMind source" and "upstream
-      // failure" paths.
-      const geo = await lookupMaxmind(ip);
-      if (geo) {
-        stun.country_code = geo.country_code;
-        stun.country = geo.country;
-        stun.org = geo.org;
-        // Back-fill details for the Globalping picker + IP history.
-        IPArray.value = [...IPArray.value, { ip, country: geo.country_code, location: geo.country, asn: geo.asn, org: geo.org }];
-      } else {
-        stun.country = t('webrtc.StatusError');
-        stun.org = t('webrtc.StatusError');
-      }
-      if (pc) {
-        pc.close();
-        activeConnections.delete(pc);
-      }
-      resolve();
-    };
-
-    try {
-      log(`new RTCPeerConnection -> stun:${stun.url}`);
-      pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:' + stun.url }] });
-
-      // Privacy extensions may swap RTCPeerConnection for a stub that
-      // constructs fine but lacks the real API surface — the same finding
-      // as a blocked constructor: WebRTC is blocked, not broken. Drop the
-      // stub without close() (it may not have one) before failing.
-      if (typeof pc.createDataChannel !== 'function' || typeof pc.createOffer !== 'function') {
-        log('stubbed RTCPeerConnection: createDataChannel/createOffer missing');
-        pc = null;
-        failWith('StatusUnavailable');
-        return;
-      }
-      activeConnections.add(pc);
-
-      pc.onicegatheringstatechange = () => {
-        if (pc) log(`iceGatheringState: ${pc.iceGatheringState}`);
-      };
-
-      // `RTCIceCandidate` errors fire when STUN/TURN signalling fails
-      // (host unreachable, auth issues). They don't terminate the
-      // connection on their own, but they're highly informative for
-      // debugging "why did this STUN never answer" cases.
-      pc.onicecandidateerror = (event) => {
-        log(`iceCandidateError: ${event.errorCode || ''} ${event.errorText || ''} url=${event.url || ''}`.trim());
-      };
-
-      pc.onicecandidate = (event) => {
-        if (!event.candidate) {
-          log('candidate: (end-of-candidates)');
-          return;
-        }
-        const candidate = event.candidate.candidate;
-        log(`candidate: ${candidate}`);
-        if (settled) return;
-        const type = candidate.split(' ')[7];
-
-        // Only server-reflexive / peer-reflexive candidates represent a
-        // STUN answer. Host candidates (with or without mDNS) don't prove
-        // STUN worked and we must not display them as the "STUN IP".
-        if (type !== 'srflx' && type !== 'prflx') return;
-
-        const ipMatch = CANDIDATE_IP_RE.exec(candidate);
-        if (!ipMatch) return;
-        succeedWith(ipMatch[0], candidate);
-      };
-
-      pc.createDataChannel('');
-      pc.createOffer().then((offer) => {
-        // Offer SDP is multi-line; record it as a single block so the
-        // Collapsible <pre> renders it verbatim.
-        log(`createOffer ok\n--- Offer SDP ---\n${offer.sdp}--- end SDP ---`);
-        return pc.setLocalDescription(offer);
-      }).then(() => {
-        log('setLocalDescription ok');
-      }).catch((error) => {
-        log(`offer/setLocalDescription failed: ${error?.message || error}`);
-      });
-
-      timer = setTimeout(() => {
-        timer = null;
-        failWith('StatusError');
-      }, 5000);
-    } catch (error) {
-      // Some browsers ship the constructor but forbid construction —
-      // NotAllowedError (permissions policy), NotSupportedError (Chromium
-      // with WebRTC disabled) — and privacy extensions replace it with a
-      // non-constructable stub that passes the `typeof` check above. All
-      // are the runtime sibling of the missing-API case: a finding, not
-      // an error.
-      const constructionBlocked = error?.name === 'NotAllowedError'
-        || error?.name === 'NotSupportedError'
-        || (error instanceof TypeError && /not a constructor/i.test(error?.message || ''));
-      if (constructionBlocked) {
-        log(`construction blocked: ${error?.message || error}`);
-        failWith('StatusUnavailable');
-        return;
-      }
-      console.error('STUN Server Test Error:', error);
-      log(`exception: ${error?.message || error}`);
-      failWith('StatusError');
+    stun.ip = result.ip;
+    stun.natType = determineNATType(result.candidate);
+    stun.natTypeCode = natTypeCodeOf(result.candidate);
+    IPArray.value = [...IPArray.value, { ip: result.ip, country: '' }];
+    // useMaxmind swallows its own errors and returns null on miss, so
+    // a single null check handles both "no MaxMind source" and "upstream
+    // failure" paths.
+    const geo = await lookupMaxmind(result.ip);
+    if (geo) {
+      stun.country_code = geo.country_code;
+      stun.country = geo.country;
+      stun.org = geo.org;
+      // Back-fill details for the Globalping picker + IP history.
+      IPArray.value = [...IPArray.value, { ip: result.ip, country: geo.country_code, location: geo.country, asn: geo.asn, org: geo.org }];
+    } else {
+      stun.country = t('webrtc.StatusError');
+      stun.org = t('webrtc.StatusError');
     }
   });
 };
@@ -379,12 +249,6 @@ const determineNATType = (candidate) => {
   if (type === 'prflx') return t('webrtc.NATType.prflx');
   if (type === 'relay') return t('webrtc.NATType.relay');
   return t('webrtc.NATType.unknown');
-};
-
-// Locale-free twin of determineNATType for the report builder.
-const natTypeCodeOf = (candidate) => {
-  const type = candidate.split(' ')[7];
-  return ['host', 'srflx', 'prflx', 'relay'].includes(type) ? type : 'unknown';
 };
 
 // Domain event: snapshot of all STUN cards for the report collector (servers
@@ -407,6 +271,8 @@ const emitWebrtcFinished = () => {
 const checkAllWebRTC = async (isRefresh) => {
   if (isRefresh) trackEvent('Section', 'RefreshClick', 'WebRTC');
   isStarted.value = true;
+  gatherAbort?.abort();
+  gatherAbort = new AbortController();
 
   // No WebRTC in this browser: mark every card with the dedicated state
   // (dl detail fields render as "—" via isFieldPending) and finish the
@@ -456,13 +322,10 @@ onMounted(() => {
   store.setMountingStatus('WebRTC', true);
 });
 
-// Close any still-open peer connections if the component unmounts
-// mid-test — otherwise ICE gathering keeps running for seconds and
-// callbacks fire on refs that no longer exist.
-onBeforeUnmount(() => {
-  activeConnections.forEach((pc) => pc.close());
-  activeConnections.clear();
-});
+// Stop any still-gathering peer connections if the component unmounts mid-test —
+// otherwise ICE keeps running for seconds and callbacks fire on refs that no
+// longer exist.
+onBeforeUnmount(() => { gatherAbort?.abort(); });
 
 watch(IPArray, () => {
   store.updateAllIPs(IPArray.value);

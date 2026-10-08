@@ -18,18 +18,89 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { IMPORT_LISTS, BUILTIN_FAVICONS } from '../frontend/data/connectivity-import-lists.js';
+import {
+    INTERNATIONAL_PACK, COUNTRY_PACKS, WORLD_RANKING,
+} from '../common/site-packs.js';
+
+// The routing table's destinations, flattened. Read here at build time only —
+// this module is tooling, and none of it goes into the browser bundle.
+const CATALOG_ROWS = [
+    ...INTERNATIONAL_PACK,
+    ...WORLD_RANKING,
+    ...Object.values(COUNTRY_PACKS).flat(),
+];
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const outDir = path.join(repoRoot, 'public', 'favicons');
 
-// Every icon the site needs: built-in targets + all import-list members.
+// Every icon the site needs: built-in targets, all import-list members, and
+// every destination the site-routing table can put on screen. The catalog rows
+// carry the file name the frontend will ask for (`row.icon`), so the table's
+// icons are covered by this same run rather than by a second list someone has
+// to remember to update — a destination added to `common/site-packs.js` with no
+// PNG behind it shows up here as a failure, not as a broken image.
+//
+// `iconDomain` is the row's host, not the id: `shopee-th` has to be looked up as
+// shopee.co.th.
 const buildTargets = () => [
     ...BUILTIN_FAVICONS,
     ...IMPORT_LISTS.flatMap((list) => list.members.map((m) => ({
         id: m.id,
         iconDomain: m.iconDomain || new URL(m.url).hostname,
     }))),
+    ...splitCatalog(),
 ];
+
+function splitCatalog() {
+    const seen = new Map();
+    for (const row of CATALOG_ROWS) {
+        if (row?.icon && row?.host && !seen.has(row.icon)) seen.set(row.icon, row.host);
+    }
+    return [...seen].map(([id, host]) => ({
+        id,
+        // The icon services index a brand by its registrable domain, so a
+        // service sub-domain often has nothing on file under its own name while
+        // the parent does (`registry.npmjs.org` is empty, `npmjs.com` is not).
+        iconDomain: ICON_DOMAINS[id] || host,
+    }));
+}
+
+// Catalog ids whose host is not the domain the icon services know the brand by.
+const ICON_DOMAINS = {
+    copilot: 'microsoft.com',
+    registry: 'npmjs.com',
+    'cloudflare-speed': 'cloudflare.com',
+    'cloudflare-dns': 'cloudflare.com',
+    'cloudflare-ip': 'cloudflare.com',
+    daum: 'daum.net',
+    naver: 'naver.com',
+    kakaocorp: 'kakaocorp.com',
+    lazada: 'lazada.com',
+    'lazada-sg': 'lazada.com',
+    'lazada-my': 'lazada.com',
+    'lazada-th': 'lazada.com',
+    'lazada-vn': 'lazada.com',
+    'shopee-sg': 'shopee.com',
+    'shopee-my': 'shopee.com',
+    'shopee-th': 'shopee.com',
+    'shopee-vn': 'shopee.com',
+    'shopee-id': 'shopee.com',
+    'amazon-in': 'amazon.com',
+    'amazon-eg': 'amazon.com',
+    'yahoo-jp': 'yahoo.co.jp',
+    irctc: 'irctc.co.in',
+    ptv: 'ptv.com.pk',
+    hkma: 'hkma.gov.hk',
+    ptt: 'ptt.cc',
+    canada: 'canada.ca',
+    bell: 'bell.ca',
+    administracion: 'administracion.gob.es',
+    kompas: 'kompas.com',
+    oncc: 'on.cc',
+    'i-ua': 'i.ua',
+    govuk: 'gov.uk',
+    'gob-mx': 'gob.mx',
+};
 
 const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
 const isPng = (buf) => buf.length > 8 && buf.subarray(0, 4).equals(PNG_MAGIC);

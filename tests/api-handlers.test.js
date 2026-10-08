@@ -22,6 +22,7 @@ import invisibilityHandler from '../api/invisibility-test.js';
 import macCheckerHandler from '../api/mac-checker.js';
 import githubStarsHandler from '../api/github-stars.js';
 import personaEvaluateHandler from '../api/persona.js';
+import splitHandler from '../api/split.js';
 import updateAchievementHandler from '../api/update-user-achievement.js';
 import ipcheckIngHandler from '../api/ipcheck-ing.js';
 import { getSessionResult as dnsLeakGetResult } from '../api/dns-leak-test.js';
@@ -34,6 +35,7 @@ import createReportHandler, { getReport as getReportHandler, normalizeTtlDays } 
 import { modifyJsonForIPAPI } from '../api/ipapi-is.js';
 import { modifyJson as modifyJsonForIpinfo } from '../api/ipinfo-io.js';
 import { REPORT_VERSION } from '../common/report-schema.js';
+import { EXIT_CANARIES } from '../common/site-packs.js';
 import logger from '../common/logger.js';
 
 // -- shared test utilities ------------------------------------------------
@@ -873,5 +875,87 @@ describe('globalping-probes handler', () => {
         await globalpingProbesHandler(createRequest({ method: 'POST' }), res);
         assert.equal(res.statusCode, 405);
         assert.equal(res.body.error, 'Method Not Allowed');
+    });
+});
+
+// -- split handler ---------------------------------------------------------
+// POST only, and the answer is a list of destinations and nothing else. The
+// method gate, the shape of the work order, and — most importantly — the absence
+// of anything that explains how the order was chosen are the whole surface.
+
+describe('split handler', () => {
+    it('refuses a catalog read', async () => {
+        // Not shyness about the route: publishing the packs and the weights would
+        // hand anyone a copy of the reasoning the browser is deliberately not given.
+        for (const method of ['GET', 'PUT', 'DELETE']) {
+            const res = createResponse();
+            await splitHandler(createRequest({ method }), res);
+            assert.equal(res.statusCode, 405);
+            assert.equal(res.body.error, 'Method Not Allowed');
+        }
+    });
+
+    it('answers a profile with the work order and no explanation', async () => {
+        const res = createResponse();
+        await splitHandler(createRequest({
+            method: 'POST',
+            body: {
+                signals: {
+                    geo: { available: true, countries: ['CN'] },
+                    tz: { available: true, zone: 'Asia/Shanghai' },
+                    lang: { available: true, languages: ['zh-CN'] },
+                },
+            },
+        }), res);
+        assert.equal(res.statusCode, 200);
+        assert.deepEqual(Object.keys(res.body), ['rows'], 'the response carries the order, never the reasoning');
+        assert.ok(res.body.rows.length > 30, `only ${res.body.rows.length} rows: the 国际 block plus the CN pack`);
+        assert.ok(res.body.rows.every((r) => r.host && r.name && r.kind), 'a work order row must be probeable');
+        assert.ok(res.body.rows.some((r) => r.cc === 'CN'), 'the inferred country is the one being tested');
+        assert.ok(res.body.rows.some((r) => r.kind === 'world'), 'the floor always ships');
+        assert.ok(!JSON.stringify(res.body).match(/weight|ranking|geoMissing|osVotes/i), 'nothing about the scoring leaked through');
+    });
+
+    it('tests both countries a split network actually has, in the order the addresses say', async () => {
+        // The traffic goes out in the United States and the WebRTC answer is a
+        // mainland address. Neither half of that is a guess, so neither has to
+        // out-vote the other to earn a place in the table — which is exactly what
+        // used to happen when one network's two countries split the geolocation
+        // signal down the middle.
+        const res = createResponse();
+        await splitHandler(createRequest({
+            method: 'POST',
+            body: {
+                signals: {
+                    geo: { available: true, countries: ['US'] },
+                    net: { available: true, exitCountries: ['US'], leakedCountries: ['CN'] },
+                },
+            },
+        }), res);
+        assert.equal(res.statusCode, 200);
+        const tested = [...new Set(res.body.rows.map((r) => r.cc).filter((cc) => cc === 'CN' || cc === 'US'))];
+        assert.deepEqual(tested, ['CN', 'US'], 'the machine first, then the road it takes');
+        assert.ok(res.body.rows.some((r) => r.host === 'www.baidu.com'), 'the mainland pack is probed, not just named');
+        assert.ok(res.body.rows.some((r) => r.host === 'www.reddit.com'), 'and so is the exit country');
+        assert.ok(!JSON.stringify(res.body).match(/weight|ranking|measured|inferred/i), 'and the response still says nothing about how it was chosen');
+    });
+
+    it('answers an explicit country list without needing signals', async () => {
+        const res = createResponse();
+        await splitHandler(createRequest({ method: 'POST', body: { countries: ['IR', 'ZZ'] } }), res);
+        assert.equal(res.statusCode, 200);
+        assert.ok(res.body.rows.some((r) => r.cc === 'IR'), 'the known country is probed');
+        assert.ok(!res.body.rows.some((r) => r.cc === 'ZZ'), 'an unknown code is dropped, not guessed at');
+    });
+
+    it('answers an empty request with the destinations that need no judgement', async () => {
+        const res = createResponse();
+        await splitHandler(createRequest({ method: 'POST', body: { signals: {} } }), res);
+        assert.equal(res.statusCode, 200);
+        const canaries = new Set(EXIT_CANARIES.map((r) => r.host));
+        assert.ok(res.body.rows.every((r) => r.kind !== 'country' || canaries.has(r.host)),
+            'a country row in an unjudged plan is a canary and nothing else');
+        assert.ok(res.body.rows.some((r) => canaries.has(r.host)),
+            'the canary ships with nothing to go on — a leak hides the very signals that would have picked its country');
     });
 });
