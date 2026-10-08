@@ -41,9 +41,6 @@ const withGeo = async (ip, geoLookup) => {
 export function useEgressLeak({ geoLookup } = {}) {
     const leaks = shallowRef([]);
     const running = shallowRef(false);
-    // True once every server has answered or given up, which is what tells the table
-    // it may stop waiting for a leak that is not coming.
-    const settled = shallowRef(false);
 
     let controller = null;
     let startedOnce = false;
@@ -76,7 +73,6 @@ export function useEgressLeak({ geoLookup } = {}) {
         })));
 
         running.value = false;
-        settled.value = !controller.signal.aborted;
     };
 
     const cancel = () => {
@@ -86,5 +82,5 @@ export function useEgressLeak({ geoLookup } = {}) {
 
     onScopeDispose(cancel);
 
-    return { leaks, running, settled, run, cancel };
+    return { leaks, running, run, cancel };
 }

@@ -29,7 +29,7 @@ export const STUN_SERVERS = [
 
 // Regex extracting the IP portion out of an ICE candidate line
 // (full SDP grammar not needed — just IPv4 / IPv6 with common forms).
-export const CANDIDATE_IP_RE = /([0-9a-f]{1,4}(:[0-9a-f]{1,4}){7}|[0-9a-f]{0,4}(:[0-9a-f]{1,4}){0,6}::[0-9a-f]{0,4}|::[0-9a-f]{1,4}(:[0-9a-f]{1,4}){0,6}|[0-9]{1,3}(\.[0-9]{1,3}){3})/i;
+const CANDIDATE_IP_RE = /([0-9a-f]{1,4}(:[0-9a-f]{1,4}){7}|[0-9a-f]{0,4}(:[0-9a-f]{1,4}){0,6}::[0-9a-f]{0,4}|::[0-9a-f]{1,4}(:[0-9a-f]{1,4}){0,6}|[0-9]{1,3}(\.[0-9]{1,3}){3})/i;
 
 // The candidate's type token is the eighth field of the attribute line, by SDP
 // grammar. Locale-free on purpose: the UI turns this into a translated label, the

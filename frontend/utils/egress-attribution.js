@@ -39,8 +39,8 @@ const rankAddresses = (a, b) => (isV6(a.ip) ? 1 : 0) - (isV6(b.ip) ? 1 : 0)
  *
  * Only a row that *named* an address counts toward `seenBy`. A row that could only be
  * timed — most national services are not behind Cloudflare and never will be — is
- * evidence about the network, not about an address, and is counted separately as
- * `unattributed` rather than silently dropped.
+ * evidence about the network, not about an address, so it names nobody and is left
+ * out of `attributed` rather than being charged to some address it never mentioned.
  *
  * Addresses the visitor's own sources resolved, or a STUN server leaked, appear even
  * with `seenBy = 0`. A forty-row table concluding one exit for a network with two is
@@ -121,7 +121,7 @@ export const classifyEgress = ({ rows = [], ownExits = [], leaks = [], geolocati
     if (!entries.length) {
         return {
             primary: null, defaultEgress: null, conflict: false,
-            entries, others: [], foreignRouted: [], unattributed: 0, attributed: 0,
+            entries, others: [], foreignRouted: [], attributed: 0,
         };
     }
 
@@ -170,7 +170,6 @@ export const classifyEgress = ({ rows = [], ownExits = [], leaks = [], geolocati
                 ip: row.ip,
                 country_code: String(geolocations[row.ip]?.country_code || row.loc || '').toUpperCase(),
             })),
-        unattributed: rows.filter((row) => row?.state === 'ok' && !row.ip).length,
         // The denominator the counts should actually be read against: the
         // destinations that *named* an address. Two thirds of a real table answers a
         // timed request without ever saying whose address it saw, so "18 of 48" would

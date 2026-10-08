@@ -19,14 +19,20 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { IMPORT_LISTS, BUILTIN_FAVICONS } from '../frontend/data/connectivity-import-lists.js';
 import {
-    INTERNATIONAL_PACK, COUNTRY_PACKS, WORLD_RANKING,
+    INTERNATIONAL_PACK, COUNTRY_PACKS, WORLD_RANKING, EXIT_CANARIES,
 } from '../common/site-packs.js';
 
 // The routing table's destinations, flattened. Read here at build time only —
 // this module is tooling, and none of it goes into the browser bundle.
+//
+// The canaries are in here for the same reason `tests/site-split.test.js` counts
+// them in `ALL_ROWS`: a row the table can put on screen needs an icon on disk, and
+// the one host asked of *every* visitor is the worst possible one to discover is
+// missing by reading a red test instead of running the fetcher.
 const CATALOG_ROWS = [
     ...INTERNATIONAL_PACK,
     ...WORLD_RANKING,
+    ...EXIT_CANARIES,
     ...Object.values(COUNTRY_PACKS).flat(),
 ];
 

@@ -55,7 +55,9 @@ export const applyConfigAvailability = (dbs, configs) =>
  * and a fallback that lands on the weakest available source is not a fallback
  * worth having, so the order is declared instead of positional.
  *
- * Unknown ids and an all-disabled set fall back to `preferredId` unchanged.
+ * `preferredId` comes back unchanged when the set is empty, when nothing in it is
+ * enabled, and when it is already enabled — the declared order only speaks when the
+ * stored preference names a source this deployment cannot serve.
  */
 const FALLBACK_PREFERENCE = [
   5, // IP.sb — key-free, names the city, carries the ASN organisation

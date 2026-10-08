@@ -150,9 +150,8 @@ describe('classifyEgress — the other addresses', () => {
         assert.ok(!foreignRouted.some((r) => r.host === 'silent.example'));
     });
 
-    it('counts the rows that answered without naming an address', () => {
+    it('counts only the destinations that named an address', () => {
         const result = classifyEgress(splitTunnel);
-        assert.equal(result.unattributed, 1);
         // The denominator the page reads its counts against: 48 destinations named
         // somebody, and the 49th answered a timed request without saying whose
         // address it saw. "18 of 48" beside "1 of 48" would leave 29 unaccounted.
