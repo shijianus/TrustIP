@@ -1692,7 +1692,11 @@
       "rpki": "RPKI 验证",
       "allocationAge": "网段登记年限",
       "nativeness": "原生分配",
-      "nonPublic": "公网可路由性"
+      "blocklists": "黑名单收录",
+      "nonPublic": "公网可路由性",
+      "proxyVpnDb": "代理 / VPN",
+      "anonymityNetworks": "Tor 出口",
+      "historicalAbuseReports": "滥用记录"
     },
     "verdict": {
       "good": "相符",
@@ -1703,7 +1707,6 @@
     "gap": {
       "proxyVpnDb": "代理与 VPN 数据库",
       "anonymityNetworks": "Tor 出口名录",
-      "blocklists": "黑名单",
       "botTrafficRatio": "人机流量占比",
       "historicalAbuseReports": "历史滥用报告"
     },
@@ -1983,8 +1986,10 @@
     },
     "blocklists": {
       "title": "黑名单",
-      "note": "不查询任何黑名单。",
-      "needs": "一个能如实应答 DNSBL 查询的递归解析器；公共解析器会拒绝或伪造"
+      "listed": "已列入",
+      "clean": "未列入",
+      "through": "查询经由 {resolver} 解析",
+      "needs": "一个如实应答的递归解析器，以及收录该地址族的黑名单区域——公共解析器常会拒绝或伪造应答，而此处没有任何区域收录 IPv6"
     },
     "colocated": {
       "title": "同机房客户",
@@ -2028,7 +2033,6 @@
       "related": "关联域名",
       "locationHistory": "位置历史",
       "neighbours": "同机房 / 客户活跃",
-      "blocklists": "黑名单",
       "asnHistory": "ASN 历史",
       "companyHistory": "企业历史",
       "colocated": "同机房供应商 / 客户",

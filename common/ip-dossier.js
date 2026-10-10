@@ -229,7 +229,7 @@ const SLOTS = {
     asn: { status: 'ready', partial: ['asnKind', 'bandwidth'] },
     technical: { status: 'ready', partial: ['openPorts'] },
     threat: { status: 'partial', missing: ['abuseLevel', 'honeypot'], needs: 'an abuse-intelligence feed; the free registries do not carry per-address abuse history' },
-    deepRisk: { status: 'placeholder', needs: 'VPN / proxy / Tor membership feeds. DNSBL lookups were tried and dropped: an intercepting resolver answers every query with a hit, which is a false accusation, not a measurement' },
+    deepRisk: { status: 'placeholder', needs: 'VPN / proxy / Tor membership feeds, which are subscription data this build does not hold' },
     vpnTrace: { status: 'placeholder', needs: 'a routing-visibility dataset we do not currently query' },
     // The numbers are not ours to produce: measuring from this server would
     // report this datacenter's uplink as if it were the world's. The block
@@ -243,11 +243,28 @@ const SLOTS = {
     locationHistory: { status: 'placeholder', needs: 'a per-address observation history; the IP history we keep is the visitor\'s own, not the address\'s' },
     neighbours: { status: 'placeholder', needs: 'same as relatedDomains' },
     topology: { status: 'ready', partial: true, note: 'CAIDA relationship graph, without path proportions' },
-    blocklists: { status: 'placeholder', needs: 'a resolver that answers DNSBL queries truthfully' },
+    // `ready` describes what this build can ask; the pass below overrides it to
+    // a declared gap when no configured recursor answered truthfully about this
+    // particular address. IPv6 stays partial — no zone in the default list
+    // publishes v6 content, so a v6 address is reported as unasked rather than
+    // as unlisted.
+    blocklists: { status: 'ready', partial: ['ipv6'] },
     asnHistory: { status: 'ready' },
     companyHistory: { status: 'placeholder', needs: 'a registration-history dataset; RIR RDAP answers only for the current object' },
     coLocated: { status: 'placeholder', needs: 'a datacenter-to-customer directory we do not have' },
     actions: { status: 'ready' },
+};
+
+// Why a blocklist pass had nothing to say, keyed on the reason `common/dnsbl.js`
+// reported. Three of these are genuinely different situations and one message
+// for all of them would read a network that blocks DNS as a network that
+// clears the address — and an IPv6 address as one that was asked and found clean.
+const BLOCKLIST_GAP_REASONS = {
+    'no-ipv6-zone': 'no blocklist zone in this build\'s list publishes IPv6 content, so an IPv6 address is never asked about at all',
+    'no-trustworthy-resolver': 'a recursor that answers blocklist queries truthfully; every configured one fabricated its canary answer',
+    'no-zones': 'a blocklist zone to ask — this build\'s list answers no question about this address',
+    unparseable: 'an address that parses into a reverse-DNS query name',
+    'no-answer': 'a recursor that answers blocklist queries truthfully; none of the zones replied',
 };
 
 /**
@@ -284,6 +301,10 @@ export const buildDossier = async (ip, { lang = 'en' } = {}) => {
     // that source failed. MaxMind is the sole local fallback, so consult it
     // before declaring the ASN and topology blocks empty.
     const resolvedAsn = evidence.asn || Number(maxmind.asn) || null;
+    // The abuse feed promotes a panel only when it both was consulted and
+    // carried something readable — an answer that says "the vendor did not tell
+    // us" must not render as a section full of clears.
+    const usablePrivacy = Boolean(evidence.privacy) && !evidence.privacy.failed;
 
     return {
         ip,
@@ -306,6 +327,11 @@ export const buildDossier = async (ip, { lang = 'en' } = {}) => {
             descr: evidence.rir?.descr || null,
             regDate: evidence.rir?.regDate || null,
             country: evidence.rir?.country || null,
+            // The registry's own statement of who originates the block. Whether
+            // it matches the AS carrying the address is already decided and
+            // reported inside `trust.signals.nativeness`; this is the raw half, so
+            // a consumer can see which of the two answers disagreed.
+            originAs: evidence.rir?.originAs || null,
             rdns: evidence.rdns,
             rpki: evidence.rpki,
             announce: evidence.announce,
@@ -316,6 +342,8 @@ export const buildDossier = async (ip, { lang = 'en' } = {}) => {
             // here rather than making the UI parse a registry string.
             holderName: (evidence.asName || '').split(' - ')[0] || null,
         },
+        blocklists: evidence.blocklists || null,
+        privacy: evidence.privacy || null,
         topology: buildTopology(resolvedAsn),
         latency: buildLatencyMatrix(ip),
         asnHistory,
@@ -326,6 +354,22 @@ export const buildDossier = async (ip, { lang = 'en' } = {}) => {
             asnHistory: asnHistory.failed
                 ? { status: 'placeholder', needs: 'RIPEstat routing-history did not answer within our timeout for this prefix' }
                 : { status: 'ready' },
+            // Which recursor the accusations came through is part of their
+            // meaning, so it is reported; a pass with nothing to say is a
+            // declared gap rather than a clean sheet — and the reason it had
+            // nothing to say is the pass's own words, not a guess made here.
+            blocklists: evidence.blocklists
+                ? {
+                    status: 'ready',
+                    note: `${evidence.blocklists.answered} of ${evidence.blocklists.zones} zones answered through ${evidence.blocklists.resolver || 'an unattributed recursor'}`,
+                }
+                : { status: 'placeholder', needs: BLOCKLIST_GAP_REASONS[evidence.blocklistsReason] || BLOCKLIST_GAP_REASONS['no-answer'] },
+            // The two panels the optional keyed feed fills. Off, they stay the
+            // declared gaps they have always been; on, they report what it said,
+            // and the honeypot half — which needs traffic we cannot observe —
+            // stays listed either way.
+            threat: usablePrivacy ? { status: 'ready', partial: ['honeypot'] } : SLOTS.threat,
+            deepRisk: usablePrivacy ? { status: 'ready', partial: ['botTrafficRatio'] } : SLOTS.deepRisk,
         },
         sourcesFailed: evidence.failed,
     };

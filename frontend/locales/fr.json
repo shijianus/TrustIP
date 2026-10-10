@@ -1692,7 +1692,11 @@
       "rpki": "Validation RPKI",
       "allocationAge": "Ancienneté de l'allocation",
       "nativeness": "Allocation native",
-      "nonPublic": "Routable sur Internet"
+      "blocklists": "Listes de blocage",
+      "nonPublic": "Routable sur Internet",
+      "proxyVpnDb": "Proxy / VPN",
+      "anonymityNetworks": "Nœud de sortie Tor",
+      "historicalAbuseReports": "Antécédents d’abus"
     },
     "verdict": {
       "good": "Cohérent",
@@ -1703,7 +1707,6 @@
     "gap": {
       "proxyVpnDb": "bases de proxys et VPN",
       "anonymityNetworks": "appartenance aux sorties Tor",
-      "blocklists": "listes de blocage",
       "botTrafficRatio": "trafic humain versus robot",
       "historicalAbuseReports": "rapports d'abus historiques"
     },
@@ -1983,8 +1986,10 @@
     },
     "blocklists": {
       "title": "Listes de blocage",
-      "note": "Aucune liste de blocage n'est consultée.",
-      "needs": "un résolveur récursif qui répond honnêtement aux requêtes DNSBL ; les résolveurs publics refusent ou fabriquent"
+      "listed": "Listée",
+      "clean": "Non listée",
+      "through": "Réponses lues via {resolver}",
+      "needs": "un résolveur récursif honnête, et une zone qui publie cette famille d'adresses — les résolveurs publics refusent ou fabriquent des réponses, et aucune zone ici ne couvre l'IPv6"
     },
     "colocated": {
       "title": "Même salle",
@@ -2028,7 +2033,6 @@
       "related": "Domaines associés",
       "locationHistory": "Historique de localisation",
       "neighbours": "Activité du même site",
-      "blocklists": "Listes de blocage",
       "asnHistory": "Historique de l'ASN",
       "companyHistory": "Historique sociétaire",
       "colocated": "Fournisseurs et clients du même site",

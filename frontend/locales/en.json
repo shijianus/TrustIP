@@ -1692,7 +1692,11 @@
       "rpki": "RPKI validation",
       "allocationAge": "Allocation age",
       "nativeness": "Native allocation",
-      "nonPublic": "Public routing"
+      "blocklists": "Blocklists",
+      "nonPublic": "Public routing",
+      "proxyVpnDb": "Proxy / VPN",
+      "anonymityNetworks": "Tor exit",
+      "historicalAbuseReports": "Abuse history"
     },
     "verdict": {
       "good": "Consistent",
@@ -1703,7 +1707,6 @@
     "gap": {
       "proxyVpnDb": "proxy and VPN databases",
       "anonymityNetworks": "Tor exit membership",
-      "blocklists": "blocklists",
       "botTrafficRatio": "human versus bot traffic",
       "historicalAbuseReports": "historical abuse reports"
     },
@@ -1983,8 +1986,10 @@
     },
     "blocklists": {
       "title": "Blocklists",
-      "note": "No blocklist is queried.",
-      "needs": "a recursive resolver that answers DNSBL queries truthfully; public resolvers refuse or fabricate"
+      "listed": "Listed",
+      "clean": "Not listed",
+      "through": "Answers read through {resolver}",
+      "needs": "a truthful recursor, and a zone that publishes this address family — public recursors often refuse or invent answers, and no zone here carries IPv6"
     },
     "colocated": {
       "title": "Same facility",
@@ -2028,7 +2033,6 @@
       "related": "Related domains",
       "locationHistory": "Location history",
       "neighbours": "Same facility activity",
-      "blocklists": "Blocklists",
       "asnHistory": "ASN history",
       "companyHistory": "Company history",
       "colocated": "Same facility providers and customers",

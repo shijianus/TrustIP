@@ -6,13 +6,14 @@
 // source card stays hidden (`configs.ipapiis`).
 
 import { makeGeoHandler } from '../common/geo-handler.js';
+import { pickIpApiIsKey } from '../common/ipapi-key.js';
 
 function buildUrl(req) {
     const ipAddress = req.query.ip;
 
-    const keys = (process.env.IPAPIIS_API_KEY || '').split(',');
-    const key = keys[Math.floor(Math.random() * keys.length)];
-    return `https://api.ipapi.is?q=${ipAddress}&key=${key}`;
+    // `requiredEnv` has already proved a key is configured, so the picker
+    // cannot answer null on this path.
+    return `https://api.ipapi.is?q=${ipAddress}&key=${pickIpApiIsKey()}`;
 }
 
 // Both nested objects are optional: the upstream answers 200 with a null

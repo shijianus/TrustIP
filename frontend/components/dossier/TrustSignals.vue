@@ -45,7 +45,7 @@
 
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { Building2, SearchCheck, Route, ShieldCheck, CalendarClock, Globe } from '@lucide/vue';
+import { Building2, SearchCheck, Route, ShieldCheck, CalendarClock, Globe, ListChecks, ShieldAlert, EyeOff, Flag } from '@lucide/vue';
 import { useStatusTone } from '@/composables/use-status-tone.js';
 import { formatIsoDate } from '@/utils/time-utils.js';
 import SectionTitle from '@/components/widgets/SectionTitle.vue';
@@ -68,6 +68,11 @@ const ICONS = {
     rpki: ShieldCheck,
     allocationAge: CalendarClock,
     nativeness: Globe,
+    blocklists: ListChecks,
+    // The three the optional keyed feed fills, in the order the ladder pushes them.
+    proxyVpnDb: ShieldAlert,
+    anonymityNetworks: EyeOff,
+    historicalAbuseReports: Flag,
     publicness: Globe,
 };
 

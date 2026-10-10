@@ -9,17 +9,26 @@
 //
 // Key-free by construction: reverse DNS through public DNS-over-HTTPS, AS,
 // allocation and routing facts through RIPEstat's open data API, the geolocation
-// context through ip.sb, and the AS→org name from the CAIDA snapshot already on
-// disk. Upstream budgets are the reason for the cache below — RIPEstat asks for
-// about one request per second per `sourceapp`, and four data calls per lookup
-// would exceed that on a busy instance.
+// context through ip.sb, blocklist membership through DNS queries to public
+// recursors (common/dnsbl.js), and the AS→org name from the CAIDA snapshot
+// already on disk. Upstream budgets are the reason for the cache below — RIPEstat
+// asks for about one request per second per `sourceapp`, and four data calls per
+// lookup would exceed that on a busy instance.
+//
+// One opt-in exception: `TRUST_IPAPIIS_FEED=true` adds a keyed abuse-feed call
+// per address, which turns three declared gaps into measured signals. Off, this
+// module asks nothing that needs a key, and the gaps stay declared rather than
+// pretending to be unmeasured-by-accident.
 //
 // No active probing happens here: we never connect to the queried address.
 // That keeps the endpoint from becoming an amplification vector, and it means
 // an answer cannot be poisoned by the target.
 
 import { fetchUpstream } from './fetch-with-timeout.js';
-import { expandIPv6, toBgpPrefix } from './bgp-prefix.js';
+import { toBgpPrefix } from './bgp-prefix.js';
+import { reverseName } from './ip-math.js';
+import { pickIpApiIsKey } from './ipapi-key.js';
+import { checkBlocklists } from './dnsbl.js';
 import { lookupAsOrgName } from './as-org-db.js';
 import { rdapAsn } from './rdap.js';
 import logger from './logger.js';
@@ -59,15 +68,8 @@ const cached = (key, producer, ttlMs = CACHE_TTL_MS) => {
 
 // --- name helpers --------------------------------------------------------
 
-const reverseV4 = (ip) => ip.split('.').reverse().join('.') + '.in-addr.arpa';
-
-const reverseV6 = (ip) => {
-    const hextets = expandIPv6(ip);
-    if (!hextets) return null;
-    return hextets.join('').split('').reverse().join('.') + '.ip6.arpa';
-};
-
-export const reverseName = (ip) => (ip.includes(':') ? reverseV6(ip) : reverseV4(ip));
+// `reverseName` lives with the rest of the address arithmetic (common/ip-math.js),
+// where the blocklist lookups read the same shape from the same parser.
 
 // --- reverse DNS ---------------------------------------------------------
 
@@ -245,6 +247,94 @@ const readGeoContext = async (ip) => {
     });
 };
 
+// --- blocklists ----------------------------------------------------------
+
+// The scorer reads three numbers out of a DNSBL pass — how many zones answered
+// truthfully, how many named this address, how many of those are botnet feeds —
+// so a pass with nothing to say becomes `null` rather than a zero, which the
+// ladder reads as "not measured" instead of "clean".
+const blocklistSummary = (pass) => {
+    if (!pass?.tally || pass.tally.answered < 1) return null;
+    const listed = pass.results.filter((r) => r.listed).map((r) => r.label);
+    return {
+        ...pass.tally,
+        resolver: pass.resolver || null,
+        // Kept whole for the dossier: the scorer reads the tally, the page shows
+        // which zone said what, and a stored accusation names its source.
+        results: pass.results,
+        labels: listed.length ? listed : pass.results.filter((r) => r.status === 'clean').map((r) => r.label),
+    };
+};
+
+// --- optional keyed abuse feed -------------------------------------------
+
+const IPAPI_SOURCE = 'ipapi.is';
+// The feed's own verdicts are re-evaluated on roughly a daily cycle, so a day is
+// as long as an answer stays worth repeating and short enough that a cleared
+// address is not accused for a week.
+const FEED_TTL_MS = 24 * 60 * 60 * 1000;
+
+// Off by default. The geolocation card already spends this key's quota one call
+// per visitor; wiring the same feed into every /api/trustscore and /api/dossier
+// lookup multiplies it by whatever an audit script polls, and a key that runs
+// out mid-scan answers as a data gap rather than as an outage. Enabling it is
+// therefore a deployment decision, taken once, in `.env`.
+const feedEnabled = () => process.env.TRUST_IPAPIIS_FEED === 'true';
+
+/**
+ * Read the fields of an upstream abuse answer this build is willing to score.
+ *
+ * Only the documented detection flags and the abuse score are read. The
+ * upstream's `abuse` object — a registrant's name, postal address, e-mail and
+ * phone — is never touched: a trust verdict has no use for it, and passing it
+ * through would turn this endpoint into a people-search proxy, the same line
+ * `api/trust-score.js` holds the RIR records to.
+ *
+ * An answer carrying neither a flag we understand nor a score is `{ failed }`,
+ * not a set of `false`es. That distinction is what keeps "the vendor did not
+ * tell us" from being scored as "the vendor cleared it" — which the free tier
+ * does routinely, by answering without the detection fields at all.
+ *
+ * @param {object} body  the upstream JSON
+ * @returns {object}
+ */
+export const interpretAbuseFeed = (body) => {
+    const src = body && typeof body === 'object' ? body : {};
+    const FLAGS = [['proxy', 'is_proxy'], ['vpn', 'is_vpn'], ['tor', 'is_tor'], ['abuser', 'is_abuser']];
+    const known = FLAGS.filter(([, key]) => typeof src[key] === 'boolean');
+
+    // The score lives beside the ASN and, for a customer network, beside the
+    // company; whichever the answer carries is the one the vendor measured.
+    const scores = [src.asn?.abuser_score, src.company?.abuser_score]
+        .filter((v) => typeof v === 'number' && Number.isFinite(v));
+    const score = scores.length ? Math.max(...scores) : null;
+
+    if (!known.length && score === null) return { failed: true, source: IPAPI_SOURCE };
+
+    const out = { source: IPAPI_SOURCE };
+    for (const [name, key] of known) out[name] = src[key];
+    if (score !== null) out.abuserScore = score;
+    return out;
+};
+
+const readAbuseFeed = (ip) => {
+    if (!feedEnabled()) return Promise.resolve(null);
+    const key = pickIpApiIsKey();
+    if (!key) return Promise.resolve(null);
+    // `cached` takes the producer before its ttl — the second argument is called
+    // as a function, so passing the TTL here would throw before any request left.
+    return cached(`feed:${ip}`, async () => {
+        try {
+            const res = await fetchUpstream(`https://api.ipapi.is?q=${ip}&key=${key}`, { timeoutMs: 8000 });
+            if (!res.ok) return { failed: true, source: IPAPI_SOURCE };
+            return interpretAbuseFeed(await res.json());
+        } catch (err) {
+            logger.warn({ err, ip }, 'trust-score: abuse feed unavailable');
+            return { failed: true, source: IPAPI_SOURCE };
+        }
+    }, FEED_TTL_MS);
+};
+
 // --- the gatherer --------------------------------------------------------
 
 /**
@@ -268,12 +358,14 @@ export const gatherTrustEvidence = async (ip, { geo = null } = {}) => {
     // Independent of each other; run together so the response costs the
     // slowest source, not their sum. RPKI is the exception — it needs the
     // prefix, which only the allocation record can supply.
-    const [ptr, rir, holder, shape, allocated] = await Promise.all([
+    const [ptr, rir, holder, shape, allocated, blocklists, privacy] = await Promise.all([
         queryPtr(ip),
         readRirRecord(ip),
         readAsHolder(asn),
         readAnnounceShape(asn),
         readAsnRegistration(asn),
+        checkBlocklists(ip),
+        readAbuseFeed(ip),
     ]);
 
     evidence.asOrg = asn ? lookupAsOrgName(asn) : null;
@@ -293,6 +385,26 @@ export const gatherTrustEvidence = async (ip, { geo = null } = {}) => {
 
     evidence.asnRegistered = allocated?.failed ? null : (allocated.registered || null);
     if (allocated?.failed) failed.push('rdap-asn');
+
+    evidence.blocklists = blocklistSummary(blocklists);
+    if (!evidence.blocklists) {
+        failed.push('dnsbl');
+        // A pass that had nothing to say names why: no zone in the list answers
+        // questions about this address family, every configured recursor
+        // fabricated an answer, or the address did not parse into a query name.
+        // The dossier renders that reason instead of guessing at it — "we never
+        // asked an IPv6 address" and "nobody accused you" are different messages.
+        evidence.blocklistsReason = blocklists?.reason || 'no-answer';
+    }
+
+    // Carried only when the feed was consulted at all. A missing key here means
+    // the deployment did not enable it, which `assessTrust` reports as a declared
+    // gap and leaves out of the confidence denominator; `{ failed }` means we
+    // asked and could not tell, which does shrink it.
+    if (privacy) {
+        evidence.privacy = privacy;
+        if (privacy.failed) failed.push('abuse-feed');
+    }
 
     // RPKI needs a prefix. Prefer the allocation's own CIDR — RIPE writes
     // `inetnum` as a range (`a - b`) about as often as a CIDR, and only the

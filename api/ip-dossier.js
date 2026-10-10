@@ -21,7 +21,9 @@ export default async (req, res) => {
 
     try {
         const dossier = await buildDossier(ipAddress, { lang });
-        res.json(dossier);
+        // When the evidence was assembled — this route is edge-cached for a day.
+        // See api/trust-score.js for why the write time is not the same fact.
+        res.json({ ...dossier, generatedAt: new Date().toISOString() });
     } catch (e) {
         logger.error({ err: e, ip: ipAddress }, 'dossier handler failed');
         res.status(500).json({ error: e.message });

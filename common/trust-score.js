@@ -15,7 +15,7 @@
 //      every unknown resolved against us.
 //   3. The scale starts neutral, not perfect. An address begins at 70 — "no
 //      reason to distrust it" — and only reaches the top bands by showing
-//      positive registry evidence. A 100 means "we could see six good things
+//      positive registry evidence. A 100 means "we could see ten good things
 //      about this line", not "nothing was found".
 //
 // This is a heuristic classification built from public registry data. It is not
@@ -139,19 +139,33 @@ const RESIDENTIAL_PTR = [
 
 // Signals we deliberately do not measure, and the reason. Surfaced to the UI so
 // the absence is visible instead of looking like an all-clear.
+//
+// Three of these are filled by an *optional* keyed feed. When that feed is off
+// the signal must not merely be absent from this list — it must also stay out of
+// the confidence denominator, because a key-free deployment is how this fork
+// ships and it cannot be penalised for a subscription it never claimed. See
+// `FEED_GAPS`.
 const GAPS = [
     // Subscription abuse databases; a heuristic cannot substitute for them.
     'proxyVpnDb',
     // Tor exit membership: the list endpoints we could reach from a clean
     // install did not answer, and an untested detector is worse than none.
     'anonymityNetworks',
-    // Blocklists resolve differently through every recursive resolver, and
-    // the ones we could test answered with fabricated hits for every query.
-    'blocklists',
-    // Needs traffic visibility we have no way to observe.
-    'botTrafficRatio',
     'historicalAbuseReports',
+    // Needs traffic visibility we have no way to observe, keyed or otherwise.
+    'botTrafficRatio',
 ];
+
+// Which `assessTrust` input carries which optional signal. A signal whose feed
+// was never consulted is a declared capability gap; a signal whose feed was
+// consulted and came back empty is `unknown` and does shrink confidence. That
+// distinction is the whole point — conflating them would let an outage read as a
+// configuration choice, and vice versa.
+const FEED_GAPS = {
+    proxyVpnDb: 'privacy',
+    anonymityNetworks: 'privacy',
+    historicalAbuseReports: 'privacy',
+};
 
 // Some findings do not merely subtract: they disqualify. An address whose
 // route origination is provably unauthorized has contradicted a fact about
@@ -167,6 +181,128 @@ const GATE_CEILING = {
 // naming heuristics must never be, because a wrong guess would be unforgivable
 // in a way a low score is not.
 const GATED_SIGNALS = ['rpki'];
+
+// --- The weight table ----------------------------------------------------
+//
+// Every number that turns evidence into a score lives here, at module scope, so
+// the whole ladder can be fingerprinted into `WEIGHTS_VERSION` below. A consumer
+// that stores a score in a database needs to know which ladder produced it: two
+// rows reading "80" are not comparable once a weight moves.
+const CLASS_EFFECT = {
+    [CLASSES.anycast]: 0,
+    [CLASSES.datacenter]: -34,
+    [CLASSES.isp]: 14,
+    [CLASSES.mobile]: 10,
+    [CLASSES.education]: 12,
+    [CLASSES.government]: 12,
+    [CLASSES.business]: 4,
+    [CLASSES.unknown]: 0,
+};
+
+const PTR_EFFECT = { datacenter: -16, residential: 12, neutral: 0, none: -4, failed: 0 };
+
+const SHAPE_EFFECT = { pool: -12, transit: 8, single: 5, mixed: 0 };
+
+const RPKI_EFFECT = {
+    valid: 6,
+    invalid: -40,
+    invalid_asn: -30,
+    invalid_length: -10,
+    'not-found': -8,
+    unknown: 0,
+};
+
+// Registration age is a ladder over a continuous quantity, so the table holds
+// the rungs rather than the boundaries.
+const AGE_EFFECT = { decade: 10, eightYears: 8, fresh: -8 };
+
+const NATIVE_EFFECT = { mismatch: -6, native: 2 };
+
+// Blocklists. A listing is somebody else's accusation, not a fact about
+// routing, so it subtracts heavily and still does not gate: `GATED_SIGNALS`
+// stays routing-only, because a wrong accusation is unforgivable in a way a
+// stale listing is not — delisting takes days and the address did nothing.
+const BLOCKLIST_EFFECT = { clean: 5, one: -12, two: -18, many: -24, botnet: -6 };
+
+// How many zones must have answered truthfully before "none of them listed it"
+// is worth anything. One clean answer is a sample of one.
+const BLOCKLIST_MIN_TRUSTED_ZONES = 2;
+
+// The keyed abuse-intelligence feed. `tor` is charged as heavily as being a
+// datacenter because deliberately anonymising is a decision the operator made,
+// not an accident of who owns the block — and unlike a rented VM it defeats
+// every other piece of good standing in the answer. Deliberately not gating: a
+// vendor's read of lists we cannot see is not a routing fact, and its false
+// positives are not something a ceiling should enforce.
+const PRIVACY_EFFECT = {
+    proxy: -22, clean: 4,
+    tor: -34,
+    abuseHigh: -14, abuseMedium: -9, abuseLow: -5, abuseClear: 4, abuserFlag: -24,
+};
+
+// The vendor publishes one score with no stated unit, so a value above 1 is read
+// as a percentage. Rungs are descending: the first threshold the score reaches
+// decides the effect.
+const ABUSER_TIERS = [[0.05, 'abuseHigh'], [0.025, 'abuseMedium'], [0.01, 'abuseLow']];
+const ABUSER_PERCENT_MAX = 1;
+
+// The ceiling a partially-evidenced address may claim, indexed by how many
+// signals are missing: fully measured reaches 100, one short 92, two short 79 —
+// inside "good" but never "strong" — and three or more cannot leave the middle.
+const CONFIDENCE_CAPS = [100, 92, 79, 66];
+
+// The worst each signal could have contributed, used to widen `floor`. Every
+// signal the scorer can emit must appear here, or an unknown one turns the floor
+// into NaN.
+//
+// Each value is read off the table it comes from rather than written again: an
+// editor moving a weight must not have to remember a second copy of it, or the
+// floor would silently stop meaning "worst case".
+const WORST_EFFECT = {
+    registryClass: CLASS_EFFECT[CLASSES.datacenter],
+    rdns: PTR_EFFECT.datacenter,
+    announcement: SHAPE_EFFECT.pool,
+    rpki: RPKI_EFFECT.invalid,
+    allocationAge: AGE_EFFECT.fresh,
+    nativeness: NATIVE_EFFECT.mismatch,
+    blocklists: BLOCKLIST_EFFECT.many + BLOCKLIST_EFFECT.botnet,
+    proxyVpnDb: PRIVACY_EFFECT.proxy,
+    anonymityNetworks: PRIVACY_EFFECT.tor,
+    historicalAbuseReports: PRIVACY_EFFECT.abuserFlag,
+};
+
+const WEIGHTS = {
+    BASE, CLASS_EFFECT, PTR_EFFECT, SHAPE_EFFECT, RPKI_EFFECT, AGE_EFFECT,
+    NATIVE_EFFECT, BLOCKLIST_EFFECT, BLOCKLIST_MIN_TRUSTED_ZONES,
+    PRIVACY_EFFECT, ABUSER_TIERS, CONFIDENCE_CAPS, WORST_EFFECT, GATE_CEILING,
+};
+
+// The response shape this module emits. A stored row without it becomes
+// unreadable the day a field changes meaning.
+const TRUST_SCHEMA = 'trustscore/v1';
+
+// FNV-1a (offset basis 2^32-2^24+403, prime 16777619) over the serialised weight
+// table. The version cannot drift out of sync with the arithmetic, because it
+// *is* the arithmetic: move any effect and the fingerprint moves with it. Key
+// order is stable — `JSON.stringify` follows the declaration order of the
+// literals above.
+//
+// The prime matters. Multiplying by a power of two instead shifts the entropy
+// out of the low bits, which leaves a hash that barely depends on its input and
+// would hand two different ladders the same version — the precise failure this
+// exists to catch, made invisible.
+const FNV_PRIME = 16777619;
+const fingerprint = (value) => {
+    const text = JSON.stringify(value);
+    let h = 0x811c9dc5;
+    for (let i = 0; i < text.length; i += 1) {
+        h ^= text.charCodeAt(i);
+        h = Math.imul(h, FNV_PRIME) >>> 0;
+    }
+    return `w-${h.toString(36)}`;
+};
+
+const WEIGHTS_VERSION = fingerprint(WEIGHTS);
 
 const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
 
@@ -206,6 +342,17 @@ const patternFor = (token) => {
 const firstToken = (haystack, list) => list.find((token) => patternFor(token).test(haystack)) || null;
 
 const knownText = (s) => (typeof s === 'string' && s.trim() && s.trim() !== '-') ? s.trim() : null;
+
+// RIR objects write the origin AS as `AS3255` (RIPE, APNIC) or bare `3255`
+// (ARIN), and sometimes as `NOT-SET` or a name we cannot compare. Anything that
+// is not a plain number after the optional prefix is read as absent — an
+// unparseable origin must never become "ASNaN ≠ AS15169".
+const parseAsNumber = (value) => {
+    const m = /^\s*(?:as)?\s*(\d{1,7})\s*$/i.exec(String(value ?? ''));
+    if (!m) return null;
+    const n = Number(m[1]);
+    return n >= 1 && n <= 4294967294 ? n : null;
+};
 
 // --- Registry identity ---------------------------------------------------
 
@@ -305,21 +452,19 @@ const BANDS = [
 
 const bandOf = (score) => BANDS.find((b) => score >= b.min) || BANDS[BANDS.length - 1];
 
-// The score a partially-evidenced address is allowed to reach. Six of six
-// signals may show 100; five of six 92; four of six tops out at 79 — inside
-// "good" but never "strong" — and two or fewer cannot leave the middle.
+// The score a partially-evidenced address is allowed to reach, read off
+// `CONFIDENCE_CAPS` by how many signals went unmeasured.
 const capForConfidence = (measured, total) => {
-    const missing = total - measured;
-    if (missing <= 0) return 100;
-    if (missing === 1) return 92;
-    if (missing === 2) return 79;
-    return 66;
+    const missing = Math.max(0, total - measured);
+    return CONFIDENCE_CAPS[Math.min(missing, CONFIDENCE_CAPS.length - 1)];
 };
 
 // A non-public address has no trust story: it cannot appear in the global
 // routing table at all. Short-circuited so no caller reads a score as
 // "this reserved range is reputable".
 const NON_PUBLIC = () => ({
+    schema: TRUST_SCHEMA,
+    weights: WEIGHTS_VERSION,
     score: null,
     band: null,
     tone: 'none',
@@ -354,6 +499,14 @@ const NON_PUBLIC = () => ({
  *                                      regDate, country }
  * @param {string}  [input.rpki]      'valid' | 'invalid' | 'not-found' | null
  * @param {object}  [input.announce]  { v4Count, smallShare, largest }
+ * @param {object}  [input.blocklists] { answered, listed, botnet, labels } — how
+ *                                   many blocklist zones replied truthfully and
+ *                                   how many of those named this address
+ * @param {object}  [input.privacy]  the optional keyed abuse feed: `{ proxy,
+ *                                   vpn, tor, abuser, abuserScore, source,
+ *                                   failed }`. Omitted entirely when the
+ *                                   deployment did not enable the feed — which
+ *                                   is a declared gap, not an unmeasured signal
  * @param {number}  [input.now]       epoch ms, injectable for tests
  * @returns {object} score, band, tone, class, per-signal breakdown, confidence
  */
@@ -379,16 +532,6 @@ export const assessTrust = (input = {}) => {
 
     // 1 — Registry identity. The heaviest signal, because the operator that
     //       owns a block is what makes it a home line or a rented VM.
-    const CLASS_EFFECT = {
-        [CLASSES.anycast]: 0,
-        [CLASSES.datacenter]: -34,
-        [CLASSES.isp]: 14,
-        [CLASSES.mobile]: 10,
-        [CLASSES.education]: 12,
-        [CLASSES.government]: 12,
-        [CLASSES.business]: 4,
-        [CLASSES.unknown]: 0,
-    };
     const classEffect = CLASS_EFFECT[name.cls] ?? 0;
     signals.push({
         id: 'registryClass',
@@ -405,7 +548,6 @@ export const assessTrust = (input = {}) => {
     const ptr = input.rdnsFailed
         ? { kind: 'failed', matched: null }
         : classifyPtr(input.rdns);
-    const PTR_EFFECT = { datacenter: -16, residential: 12, neutral: 0, none: -4, failed: 0 };
     const ptrEffect = PTR_EFFECT[ptr.kind];
     signals.push({
         id: 'rdns',
@@ -423,7 +565,6 @@ export const assessTrust = (input = {}) => {
     //       customer-facing space everywhere by design, so it is reported as
     //       not-applicable rather than held against the address.
     const shape = anycast ? null : announceShape(input.announce);
-    const SHAPE_EFFECT = { pool: -12, transit: 8, single: 5, mixed: 0 };
     const shapeEffect = shape ? SHAPE_EFFECT[shape.kind] : 0;
     signals.push({
         id: 'announcement',
@@ -444,14 +585,6 @@ export const assessTrust = (input = {}) => {
     //       are different mistakes and cost differently, and `unknown` means
     //       the validator had no answer — which is not the same as, and must
     //       not be charged like, a prefix that provably has no ROA (`not-found`).
-    const RPKI_EFFECT = {
-        valid: 6,
-        invalid: -40,
-        invalid_asn: -30,
-        invalid_length: -10,
-        'not-found': -8,
-        unknown: 0,
-    };
     const rpki = input.rpki || null;
     const rpkiEffect = rpki != null ? (RPKI_EFFECT[rpki] ?? 0) : 0;
     signals.push({
@@ -469,7 +602,10 @@ export const assessTrust = (input = {}) => {
     //       rarely throwaway abuse infrastructure. Note this is the *current
     //       registration* of the block, which a re-allocation resets.
     const years = ageYears(rir.regDate, now);
-    const ageEffect = years == null ? 0 : years >= 10 ? 10 : years >= 8 ? 8 : years <= 1 ? -8 : 0;
+    const ageEffect = years == null ? 0
+        : years >= 10 ? AGE_EFFECT.decade
+            : years >= 8 ? AGE_EFFECT.eightYears
+                : years <= 1 ? AGE_EFFECT.fresh : 0;
     signals.push({
         id: 'allocationAge',
         state: years == null ? 'unknown'
@@ -481,24 +617,136 @@ export const assessTrust = (input = {}) => {
         matched: knownText(rir.regDate),
     });
 
-    // 6 — Nativeness: the country the block is registered in versus the country
-    //       the geo answer places it in. A mismatch on an ordinary unicast
-    //       address means the geo answer and the registry disagree; it is
-    //       reported, and costs little, because one of the two is simply wrong.
+    // 6 — Nativeness: where the registry says this block belongs versus where the
+    //       geo answer puts it. Two disagreements are possible and both belong to
+    //       this one signal, because they are the same claim at two granularities
+    //       — the country a block is registered in against the country it is
+    //       served from, and, when those agree, the origin AS the RIR object
+    //       names against the AS the address is actually seen in. A mismatch on
+    //       an ordinary unicast address means one of the two is simply wrong, so
+    //       it is reported and costs little.
+    //
+    //       Sharing the rung is deliberate: a second signal would widen the
+    //       confidence denominator and move every address on the page, whereas
+    //       this changes nothing for an address whose two answers agree — only
+    //       for the ones whose own registry contradicts their geolocation.
     const rirCountry = knownText(rir.country);
     const geoCountry = knownText(geo.country_code);
     const comparable = Boolean(rirCountry && geoCountry);
-    const mismatch = comparable && rirCountry.toUpperCase() !== geoCountry.toUpperCase();
+    const countryMismatch = comparable
+        && rirCountry.toUpperCase() !== geoCountry.toUpperCase();
+    const originAs = comparable && !anycast ? parseAsNumber(rir.originAs) : null;
+    const originMismatch = comparable && !countryMismatch && !anycast
+        && originAs != null && asn != null && originAs !== asn;
+    const mismatch = countryMismatch || originMismatch;
     signals.push({
         id: 'nativeness',
         state: anycast || !comparable ? 'unknown' : mismatch ? 'caution' : 'positive',
-        effect: anycast || !comparable ? 0 : mismatch ? -6 : 2,
+        effect: anycast || !comparable ? 0 : mismatch ? NATIVE_EFFECT.mismatch : NATIVE_EFFECT.native,
         label: 'trustip.signal.nativeness',
         detail: anycast ? 'not-applicable'
             : !comparable ? null
-                : mismatch ? `${rirCountry.toUpperCase()}≠${geoCountry.toUpperCase()}` : 'native',
-        matched: mismatch && !anycast ? `${rirCountry} / ${geoCountry}` : null,
+                : countryMismatch ? `${rirCountry.toUpperCase()}≠${geoCountry.toUpperCase()}`
+                    : originMismatch ? `AS${originAs}≠AS${asn}` : 'native',
+        matched: anycast || !comparable ? null
+            : countryMismatch ? `${rirCountry} / ${geoCountry}`
+                : originMismatch ? `origin AS${originAs} / carried AS${asn}` : null,
     });
+
+    // 7 — Blocklists: what the abuse feeds say about this exact address. The
+    //       only signal here that is somebody else's accusation rather than a
+    //       fact we read out of a registry, so it is scored on two numbers that
+    //       say how much of the answer is trustworthy — how many zones replied,
+    //       and how many of them named this address. A pass where no zone
+    //       replied is `unknown`, never a clean sheet.
+    const bl = input.blocklists;
+    const blAnswered = Number(bl?.answered) || 0;
+    const blListed = Number(bl?.listed) || 0;
+    const blMeasured = Boolean(bl) && blAnswered > 0;
+    const blEffect = !blMeasured ? 0
+        : blListed > 0 ? (blListed >= 3 ? BLOCKLIST_EFFECT.many
+            : blListed === 2 ? BLOCKLIST_EFFECT.two : BLOCKLIST_EFFECT.one)
+              + ((Number(bl.botnet) || 0) > 0 ? BLOCKLIST_EFFECT.botnet : 0)
+            : blAnswered >= BLOCKLIST_MIN_TRUSTED_ZONES ? BLOCKLIST_EFFECT.clean : 0;
+    const blLabels = Array.isArray(bl?.labels) ? bl.labels.join(', ') : null;
+    signals.push({
+        id: 'blocklists',
+        state: !blMeasured ? 'unknown'
+            : blListed > 0 ? 'negative'
+                : blAnswered >= BLOCKLIST_MIN_TRUSTED_ZONES ? 'positive' : 'neutral',
+        effect: blEffect,
+        label: 'trustip.signal.blocklists',
+        detail: !blMeasured ? null
+            : blListed > 0 ? `${blListed} of ${blAnswered} listed`
+                : blAnswered >= BLOCKLIST_MIN_TRUSTED_ZONES ? 'clean' : 'single-answer',
+        matched: blMeasured ? blLabels : null,
+    });
+
+    // 8–10 — The optional keyed abuse feed. All three come from one upstream
+    //        call, so they arrive together or not at all. "Not at all" here means
+    //        the deployment never turned the feed on, which is a declared
+    //        capability gap — it must not also count as an unmeasured signal and
+    //        shrink confidence, or every key-free instance would be permanently
+    //        capped for a subscription it never claimed to hold.
+    const pv = input.privacy;
+    if (pv) {
+        // Each signal asks whether *its own* field came back, because the free
+        // tier of this feed answers with whichever subset it has — and a field
+        // that is absent is not a field that is false. Reading the difference
+        // away would turn "the vendor did not tell us" into "the vendor cleared
+        // it", which is the inversion this ladder exists to prevent.
+        const canProxy = typeof pv.proxy === 'boolean' || typeof pv.vpn === 'boolean';
+        const proxied = Boolean(pv.proxy || pv.vpn);
+        signals.push({
+            id: 'proxyVpnDb',
+            state: !canProxy ? 'unknown' : proxied ? 'negative' : 'positive',
+            effect: !canProxy ? 0 : proxied ? PRIVACY_EFFECT.proxy : PRIVACY_EFFECT.clean,
+            label: 'trustip.signal.proxyVpnDb',
+            // `vpn` and `proxy` are different postures: one is a subscription the
+            // visitor chose, the other is a relay standing in front of anything.
+            detail: !canProxy ? null
+                : proxied ? (pv.vpn && !pv.proxy ? 'vpn' : 'proxy') : 'clean',
+            matched: !canProxy ? null : knownText(pv.source),
+        });
+
+        // Being a Tor exit is rare enough that *not* being one carries almost no
+        // information, so the clean case is reported and costs nothing. Awarding
+        // bonus for the absence of a 0.01%-prevalence fact would hand out trust
+        // for doing nothing.
+        const canTor = typeof pv.tor === 'boolean';
+        signals.push({
+            id: 'anonymityNetworks',
+            state: !canTor ? 'unknown' : pv.tor ? 'negative' : 'neutral',
+            effect: canTor && pv.tor ? PRIVACY_EFFECT.tor : 0,
+            label: 'trustip.signal.anonymityNetworks',
+            detail: !canTor ? null : pv.tor ? 'tor' : 'not-tor',
+            matched: !canTor ? null : knownText(pv.source),
+        });
+
+        // One score with no stated unit: above 1 it is read as a percentage.
+        const abuserRaw = typeof pv.abuserScore === 'number' && Number.isFinite(pv.abuserScore)
+            ? Math.max(0, pv.abuserScore) : null;
+        const score = abuserRaw === null ? null : (abuserRaw > ABUSER_PERCENT_MAX ? abuserRaw / 100 : abuserRaw);
+        const rung = score === null ? null : ABUSER_TIERS.find(([min]) => score >= min);
+        const canAbuse = typeof pv.abuser === 'boolean' || score !== null;
+        const abuseEffect = !canAbuse ? 0
+            : pv.abuser === true ? PRIVACY_EFFECT.abuserFlag
+                : score !== null ? (rung ? PRIVACY_EFFECT[rung[1]] : PRIVACY_EFFECT.abuseClear)
+                    : 0;
+        signals.push({
+            id: 'historicalAbuseReports',
+            state: !canAbuse ? 'unknown'
+                : abuseEffect < 0 ? 'negative'
+                    : abuseEffect > 0 ? 'positive' : 'neutral',
+            effect: abuseEffect,
+            label: 'trustip.signal.historicalAbuseReports',
+            detail: !canAbuse ? null
+                : pv.abuser === true ? 'abuser'
+                    : rung ? `${rung[1].replace('abuse', '').toLowerCase()} (${Math.round(score * 1000) / 10}%)`
+                        : score !== null ? 'clear' : 'no-flag',
+            matched: !canAbuse ? null : (score === null ? knownText(pv.source) : `score ${score.toFixed(4)}`),
+        });
+    }
 
     // --- arithmetic ------------------------------------------------------
     const measured = signals.filter((s) => s.state !== 'unknown').length;
@@ -520,20 +768,29 @@ export const assessTrust = (input = {}) => {
     const score = Math.min(raw, gatedBy ?? 100, confidenceCap);
 
     // Range the score could have taken had every unknown resolved worst-case.
-    const WORST = {
-        registryClass: -34, rdns: -16, announcement: -12, rpki: -40,
-        allocationAge: -8, nativeness: -6,
-    };
     let floor = score;
     for (const s of signals) {
-        if (s.state === 'unknown') floor = clamp(floor + WORST[s.id], 0, 100);
+        if (s.state === 'unknown') floor = clamp(floor + WORST_EFFECT[s.id], 0, 100);
     }
 
     const level = measured >= total - 1 ? 'high'
         : measured >= Math.ceil(total / 2) ? 'medium' : 'low';
 
+    // A feed that was consulted fills the gap it declares, so the absence list
+    // reports only what this address genuinely has no verdict about.
+    const consulted = new Set(
+        Object.entries(FEED_GAPS)
+            .filter(([, key]) => Boolean(input[key]))
+            .map(([id]) => id),
+    );
+
     const band = bandOf(score);
     return {
+        // Which contract and which ladder produced this number. A row that
+        // stores `score` without these cannot be compared with a row stored
+        // after the next weight change.
+        schema: TRUST_SCHEMA,
+        weights: WEIGHTS_VERSION,
         score,
         raw,
         band: band.band,
@@ -548,8 +805,37 @@ export const assessTrust = (input = {}) => {
             : confidenceCap < raw ? 'evidence' : null,
         floor,
         ceiling: raw,
-        gaps: GAPS,
+        gaps: GAPS.filter((g) => !consulted.has(g)),
     };
 };
 
-export { CLASSES, BANDS, GAPS, BASE, ANYCAST_NETWORKS };
+/**
+ * The verdict without the arithmetic.
+ *
+ * An external consumer — an audit model, a database writer — needs to know what
+ * we concluded and why, and has no business knowing what each conclusion is
+ * *worth*. `effect`, `raw`, `floor` and `ceiling` together are the weight table:
+ * hand them out and the endpoint becomes a feature extractor an adversary can
+ * probe until it finds the combination that scores high. This keeps every field
+ * that names evidence and drops every field that names a number we chose.
+ *
+ * @param {object} result an `assessTrust` return value
+ * @returns {object}
+ */
+const auditView = (result) => ({
+    schema: result.schema,
+    weights: result.weights,
+    score: result.score,
+    band: result.band,
+    tone: result.tone,
+    cls: result.cls,
+    anycast: result.anycast,
+    confidence: result.confidence,
+    capped: result.capped,
+    gaps: result.gaps,
+    signals: result.signals.map(({ id, state, label, detail, matched }) => ({
+        id, state, label, detail, matched,
+    })),
+});
+
+export { CLASSES, BANDS, GAPS, BASE, ANYCAST_NETWORKS, TRUST_SCHEMA, WEIGHTS_VERSION, fingerprint, auditView };

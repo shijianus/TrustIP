@@ -12,9 +12,14 @@
 //
 // Presence, syntax and public routability of `?ip` are guaranteed upstream by
 // `requirePublicIP`, so a reserved or malformed address never reaches here.
+//
+// `?profile=audit` returns the same verdict with the per-signal weights removed,
+// for a consumer that stores conclusions rather than reproducing the ladder.
+// Both shapes carry `schema` and `weights`, so a stored row says which version
+// produced it.
 
 import { gatherTrustEvidence } from '../common/trust-signals.js';
-import { assessTrust } from '../common/trust-score.js';
+import { assessTrust, auditView } from '../common/trust-score.js';
 import logger from '../common/logger.js';
 
 // Only the fields the UI actually renders. Abuse contacts and other registrant
@@ -32,6 +37,12 @@ const pick = (source, keys) => {
     return Object.keys(out).length ? out : null;
 };
 
+// `?profile=audit` answers the same question with the arithmetic taken out. A
+// programmatic consumer stores the verdict; it has no use for — and must not be
+// handed — the weight each signal carries, because that is the recipe for
+// getting a high score.
+const isAuditProfile = (req) => String(req.query.profile || '').toLowerCase() === 'audit';
+
 export default async (req, res) => {
     const ipAddress = req.query.ip;
 
@@ -41,7 +52,13 @@ export default async (req, res) => {
 
         res.json({
             ip: ipAddress,
-            ...result,
+            // When the evidence was assembled, not merely when this response was
+            // served. `/api/trustscore` sits behind a 24h edge cache, so a stored
+            // row that records only its own write time cannot tell a fresh
+            // verdict from one the edge has been repeating for a day — and the
+            // blocklist half of it goes stale within hours.
+            generatedAt: new Date().toISOString(),
+            ...(isAuditProfile(req) ? auditView(result) : result),
             evidence: {
                 geo: evidence.geo?.asn || evidence.geo?.country_code
                     ? {
@@ -59,8 +76,15 @@ export default async (req, res) => {
                 rir: pick(evidence.rir, RIR_FIELDS),
                 announce: evidence.announce || null,
                 rpki: evidence.rpki || null,
+                blocklists: evidence.blocklists || null,
+                // The keyed feed's answer, when it was consulted. Names and
+                // contact details from the upstream are never copied out.
+                privacy: evidence.privacy || null,
             },
-            sources_failed: evidence.failed,
+            // One spelling across the trust endpoints: /api/dossier already
+            // reports `sourcesFailed`, and a stored row must not have to know
+            // which of the two produced it.
+            sourcesFailed: evidence.failed,
         });
     } catch (e) {
         logger.error({ err: e, ip: ipAddress }, 'trustscore handler failed');

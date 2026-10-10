@@ -1692,7 +1692,11 @@
       "rpki": "RPKI 驗證",
       "allocationAge": "網段登記年限",
       "nativeness": "原生分配",
-      "nonPublic": "公网可路由性"
+      "blocklists": "黑名單收錄",
+      "nonPublic": "公网可路由性",
+      "proxyVpnDb": "代理 / VPN",
+      "anonymityNetworks": "Tor 出口",
+      "historicalAbuseReports": "濫用紀錄"
     },
     "verdict": {
       "good": "相符",
@@ -1703,7 +1707,6 @@
     "gap": {
       "proxyVpnDb": "代理與 VPN 資料庫",
       "anonymityNetworks": "Tor 出口名錄",
-      "blocklists": "黑名單",
       "botTrafficRatio": "人機流量占比",
       "historicalAbuseReports": "歷史濫用報告"
     },
@@ -1983,8 +1986,10 @@
     },
     "blocklists": {
       "title": "黑名單",
-      "note": "不查詢任何黑名單。",
-      "needs": "一個能如實應答 DNSBL 查詢的遞迴解析器；公共解析器會拒絕或捏造"
+      "listed": "已列入",
+      "clean": "未列入",
+      "through": "查詢經由 {resolver} 解析",
+      "needs": "一個如實應答的遞迴解析器，以及收錄該地址族的黑名單區域——公共解析器常會拒絕或偽造應答，而此處沒有任何區域收錄 IPv6"
     },
     "colocated": {
       "title": "同機房客戶",
@@ -2028,7 +2033,6 @@
       "related": "關聯網域",
       "locationHistory": "位置歷史",
       "neighbours": "同機房 / 客戶活躍",
-      "blocklists": "黑名單",
       "asnHistory": "ASN 歷史",
       "companyHistory": "企業歷史",
       "colocated": "同機房供應商 / 客戶",

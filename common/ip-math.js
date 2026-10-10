@@ -119,6 +119,26 @@ export const toHextets = (value) => {
     return Array.from({ length: 8 }, (_, i) => Number((value >> BigInt((7 - i) * 16)) & 0xffffn));
 };
 
+// The DNS name a resolver answers for this address: reverse octets under
+// `in-addr.arpa`, reverse nibbles under `ip6.arpa`. Used by every lookup that
+// asks a question *about* an address rather than about a name — PTR, and the
+// blocklist zones, which read the same shape. Returns null for anything that
+// does not parse, so a caller cannot mistake a malformed address for an
+// unlisted one.
+export const reverseName = (str) => {
+    const parsed = parseIp(str);
+    if (!parsed) return null;
+    if (parsed.family === 4) {
+        return `${toOctets(parsed.value).reverse().join('.')}.in-addr.arpa`;
+    }
+    const nibbles = toHextets(parsed.value)
+        .map((h) => h.toString(16).padStart(4, '0'))
+        .join('')
+        .split('')
+        .reverse();
+    return `${nibbles.join('.')}.ip6.arpa`;
+};
+
 export const formatIPv4 = (value) => toOctets(value)?.join('.') ?? null;
 
 // RFC 5952: lowercase, no leading zeros, the longest run of two or more zero

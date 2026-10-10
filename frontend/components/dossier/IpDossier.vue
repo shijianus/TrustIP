@@ -167,13 +167,16 @@
                         </SectionTitle>
                         <dl class="divide-y divide-dashed divide-border">
                             <KeyRow :label="t('dossier.row.riskFlags')">
-                                <VerdictChip tone="muted" :label="t('trustip.verdict.notMeasured')" />
+                                <VerdictChip :tone="riskFlagsChip.tone" :label="riskFlagsChip.label" />
                             </KeyRow>
                             <KeyRow :label="t('dossier.row.abuseLevel')">
-                                <VerdictChip tone="muted" :label="t('trustip.verdict.notMeasured')" />
+                                <VerdictChip :tone="abuseLevelChip.tone" :label="abuseLevelChip.label" />
                             </KeyRow>
+                            <!-- Honeypot hits need traffic this build never sees.
+                                 The row stays, and answers about the gap: an
+                                 absent row is a bug, a declared one is data. -->
                             <KeyRow :label="t('dossier.row.honeypot')">
-                                <VerdictChip tone="muted" :label="t('trustip.verdict.notMeasured')" />
+                                <VerdictChip tone="muted" :label="t('dossier.deep.nodata')" />
                             </KeyRow>
                             <KeyRow :label="t('dossier.row.rpki')">
                                 <VerdictChip :tone="rpkiTone" :label="rpkiLabel" />
@@ -188,7 +191,7 @@
                     <div class="jn-card rounded-[var(--radius)] p-4">
                         <SectionTitle :title="t('dossier.sec.deep')">
                             <template #aside>
-                                <span class="jn-nums text-xs text-muted-foreground">0 / 4</span>
+                                <span class="jn-nums text-xs text-muted-foreground">{{ deepScore }}</span>
                             </template>
                         </SectionTitle>
                         <dl class="divide-y divide-dashed divide-border">
@@ -284,9 +287,7 @@
 
                 <!-- 11 — DNSBL -->
                 <div class="mb-4">
-                    <CapabilitySlot
-                        state="placeholder" :title="t('dossier.sec.blocklists')"
-                        :note="t('dossier.blocklists.note')" :needs="t('dossier.blocklists.needs')" />
+                    <BlocklistPanel :blocklists="dossier.blocklists" />
                 </div>
 
                 <!-- 12 — ASN history | company history -->
@@ -396,6 +397,7 @@ import GeoSources from '@/components/ip-infos/GeoSources.vue';
 import BgpFan from '@/components/dossier/BgpFan.vue';
 import MapPanel from '@/components/dossier/MapPanel.vue';
 import HeatTrend from '@/components/dossier/HeatTrend.vue';
+import BlocklistPanel from '@/components/dossier/BlocklistPanel.vue';
 import LatencyMatrix from '@/components/dossier/LatencyMatrix.vue';
 import SectionTitle from '@/components/widgets/SectionTitle.vue';
 import KeyRow from '@/components/widgets/KeyRow.vue';
@@ -481,22 +483,66 @@ const rpkiLabel = computed(() => network.value.rpki && network.value.rpki !== 'u
     ? t(`trustip.value.${network.value.rpki}`)
     : t('trustip.verdict.notMeasured'));
 
-const threatScore = computed(() => {
-    const measured = network.value.rpki && network.value.rpki !== 'unknown' ? 1 : 0;
-    return `${measured} / 4`;
-});
-
-// The four named lookups, each with its own three-state answer. `detected` and
-// `clear` would be claims about the address; nothing here can make either yet,
-// so every row answers about this build instead.
+// The three answers a risk row can carry. `detected` and `clear` are claims
+// about the address; `unknown` is a claim about this build. Collapsing the third
+// into the second is how an unmeasured network is handed a clean bill, so all
+// three stay on screen even when only one source can fill two of them.
 const DEEP_STATES = {
     detected: { tone: 'bad', key: 'detected' },
     clear: { tone: 'ok', key: 'clear' },
     unknown: { tone: 'muted', key: 'nodata' },
 };
-const deepRows = computed(() => [
-    t('dossier.row.vpn'), t('dossier.row.proxy'), t('dossier.row.tor'), t('dossier.row.crawler'),
-].map((label) => ({ label, tone: DEEP_STATES.unknown.tone, label2: t(`dossier.deep.${DEEP_STATES.unknown.key}`) })));
+
+const chipOf = (state) => {
+    const s = DEEP_STATES[state];
+    return { tone: s.tone, label: t(`dossier.deep.${s.key}`) };
+};
+
+// A row's verdict is read off the signal the server already scored, never
+// re-derived here: a second threshold written in the frontend would be a second
+// definition of "how bad is bad", and the two drift apart the first time a
+// weight moves.
+const stateOfSignal = (id) => (dossier.value?.trust?.signals || [])
+    .find((s) => s.id === id)?.state;
+const chipForSignal = (id) => chipOf(stateOfSignal(id) === 'negative' ? 'detected'
+    : stateOfSignal(id) === 'unknown' ? 'unknown' : 'clear');
+
+const riskFlagsChip = computed(() => chipForSignal('blocklists'));
+const abuseLevelChip = computed(() => chipForSignal('historicalAbuseReports'));
+
+// Three of the four rows are answerable by this build — the honeypot row needs
+// traffic we never see — so a full house is 3 / 4, and the missing fourth is the
+// panel saying so rather than a gap in the page.
+const threatScore = computed(() => {
+    const rpkiKnown = Boolean(network.value.rpki) && network.value.rpki !== 'unknown';
+    const known = [riskFlagsChip.value, abuseLevelChip.value]
+        .filter((chip) => chip.tone !== 'muted').length + (rpkiKnown ? 1 : 0);
+    return `${known} / 4`;
+});
+
+// The optional abuse feed reports VPN, proxy and Tor as three separate postures,
+// so each row answers for itself — and a row whose field the feed did not carry
+// answers about the build, not about the address.
+const privacyFlags = computed(() => {
+    const pv = dossier.value?.privacy;
+    return pv && !pv.failed ? pv : {};
+});
+const deepRows = computed(() => {
+    const pv = privacyFlags.value;
+    const row = (name, known, hit) => {
+        const chip = known ? chipOf(hit ? 'detected' : 'clear') : chipOf('unknown');
+        return { label: t(name), tone: chip.tone, label2: chip.label };
+    };
+    return [
+        row('dossier.row.vpn', typeof pv.vpn === 'boolean', pv.vpn),
+        row('dossier.row.proxy', typeof pv.proxy === 'boolean', pv.proxy),
+        row('dossier.row.tor', typeof pv.tor === 'boolean', pv.tor),
+        // Human-versus-bot traffic is the one capability no abuse feed
+        // substitutes for: it needs observation, not a vendor's list.
+        row('dossier.row.crawler', false, false),
+    ];
+});
+const deepScore = computed(() => `${deepRows.value.filter((r) => r.tone !== 'muted').length} / 4`);
 
 const asnRegisteredDate = computed(() => {
     const raw = network.value.asnRegistered;

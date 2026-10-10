@@ -1692,7 +1692,11 @@
       "rpki": "Validação RPKI",
       "allocationAge": "Idade da alocação",
       "nativeness": "Alocação nativa",
-      "nonPublic": "Roteável na internet"
+      "blocklists": "Listas de bloqueio",
+      "nonPublic": "Roteável na internet",
+      "proxyVpnDb": "Proxy / VPN",
+      "anonymityNetworks": "Nó de saída Tor",
+      "historicalAbuseReports": "Histórico de abuso"
     },
     "verdict": {
       "good": "Consistente",
@@ -1703,7 +1707,6 @@
     "gap": {
       "proxyVpnDb": "bancos de proxies e VPNs",
       "anonymityNetworks": "pertencimento a saídas Tor",
-      "blocklists": "listas de bloqueio",
       "botTrafficRatio": "tráfego humano versus robô",
       "historicalAbuseReports": "denúncias históricas de abuso"
     },
@@ -1983,8 +1986,10 @@
     },
     "blocklists": {
       "title": "Listas de bloqueio",
-      "note": "Nenhuma lista de bloqueio é consultada.",
-      "needs": "um resolvedor recursivo que responda às consultas DNSBL com honestidade; os públicos recusam ou inventam"
+      "listed": "Na lista",
+      "clean": "Fora da lista",
+      "through": "Respostas obtidas por {resolver}",
+      "needs": "um resolutor recursivo honesto, e uma zona que publique esta família de endereços — resolutores públicos costumam recusar ou inventar respostas, e nenhuma zona aqui cobre IPv6"
     },
     "colocated": {
       "title": "Mesmo datacenter",
@@ -2028,7 +2033,6 @@
       "related": "Domínios relacionados",
       "locationHistory": "Histórico de localização",
       "neighbours": "Atividade no mesmo datacenter",
-      "blocklists": "Listas de bloqueio",
       "asnHistory": "Histórico do ASN",
       "companyHistory": "Histórico da empresa",
       "colocated": "Provedores e clientes do mesmo datacenter",
