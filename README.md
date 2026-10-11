@@ -67,6 +67,7 @@ What this fork changes:
 * 🚉 **MTR Test**: Runs MTR from globally distributed probes to see the route packets actually take.
 * 🚧 **Censorship Check**: Shows where a website is blocked worldwide — and by what means.
 * 🚏 **Proxy Rule Test**: Verifies that your proxy software's rule configuration works the way you intended.
+* 🧭 **AI Egress Check**: Shows which address ChatGPT, Claude and Gemini each actually see — measured in your own browser along your real path — whether that exit is in a region the service publishes as served, and the trust score of the address it came from.
 
 ### 🔦 Lookup & Infrastructure
 
@@ -153,6 +154,8 @@ named in [.env.example](.env.example):
 | Cloudflare Radar panels, ASN "live in Radar" links, outage feed | `CLOUDFLARE_API_KEY` |
 | Static map on the IP card | `GOOGLE_MAP_API_KEY` |
 | api.ipapi.is and ip2location.io source cards | their respective keys (both are key-only services) |
+| Anonymiser lists and the abuse census in the trust score | `TRUST_PROVIDERS` plus each vendor's key — off by default, and a gap the page declares rather than a clean bill |
+| A trust cache shared between processes | the same `CLOUDFLARE_*` trio as report links; without it the cache is per-process, which is a working configuration, not a broken one |
 | Earth Online (status feed, visitor map, visit beacon) | `VITE_PULSE_BEACON_URL` (a backend this fork does not run) |
 | In-app docs assistant and Help Center links | `VITE_DOCS_URL` (the upstream's GitBook site) |
 | Curl API card | `VITE_CURL_IPV4_DOMAIN` / `IPV6` / `IPV64` — hostnames you serve yourself |
