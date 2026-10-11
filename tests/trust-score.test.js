@@ -609,3 +609,155 @@ describe('nativeness at routing granularity', () => {
         assert.equal(assessTrust(hosting).confidence.total, 7, 'a widened signal must not add a row');
     });
 });
+
+// A vendor's anonymiser list is secondhand evidence about the question
+// `registryClass` already asks, so it widens that signal rather than growing a row
+// of its own: it speaks only where the registry's own text named no class, it is
+// charged less than the registry's own hosting token, and it can never *pay* for a
+// class — letting a list buy an address trust it did not earn is the same
+// inversion the whole ladder exists to prevent, pointed the other way.
+describe('a class declared only by a vendor list', () => {
+    // A block whose operator describes it with words no token recognises, and
+    // whose other evidence is mediocre enough that the totals stay clear of the
+    // 0–100 clamp — otherwise a comparison of two scores would be measuring the
+    // clamp rather than the rung.
+    const unclassified = {
+        ip: '198.51.100.20',
+        geo: { asn: 64510, country_code: 'ZZ', isp: 'Aardvark Example', org: 'Aardvark Example' },
+        asOrg: 'Aardvark Example',
+        rir: { netName: 'AARDVARK-EXAMPLE', country: 'ZZ', regDate: '2026-09-01T00:00:00Z' },
+        rdns: null,
+        announce: { v4Count: 2, smallShare: 0.6, largest: 32 },
+        rpki: 'unknown',
+        now: NOW,
+    };
+
+    // The feed's fields all answered, so the two fixtures differ *only* in the
+    // class — otherwise the extra three signals would move the confidence cap and
+    // the comparison would be about something else.
+    const list = (over) => ({
+        proxy: false, vpn: false, tor: false, abuser: false, abuserScore: 0,
+        source: 'list.test', ...over,
+    });
+
+    it('starts from a registry that named nothing', () => {
+        const r = assessTrust(unclassified);
+        assert.equal(r.cls, CLASSES.unknown, 'the fixture must genuinely have no class of its own');
+        assert.equal(signal(r, 'registryClass').effect, 0);
+    });
+
+    it('accuses at the secondhand rung, and names who said it', () => {
+        const r = assessTrust({ ...unclassified, privacy: list({ hosting: true, by: { hosting: 'proxycheck.io' } }) });
+        const row = signal(r, 'registryClass');
+        assert.equal(r.cls, CLASSES.datacenter);
+        assert.equal(row.detail, CLASSES.datacenter);
+        assert.equal(row.matched, 'proxycheck.io');
+        assert.equal(row.state, 'negative');
+        assert.equal(row.effect, -16, 'a list is not the registry\'s own -34 token');
+        // Compared against the same feed saying nothing about the block's kind, on
+        // the additive total rather than the capped score: a feed arriving at all
+        // also fills three gaps, which moves the confidence cap out from under the
+        // comparison.
+        assert.equal(
+            r.raw,
+            assessTrust({ ...unclassified, privacy: list({}) }).raw - 16,
+            'the secondhand rung is what moved',
+        );
+        assert.equal(
+            assessTrust({ ...unclassified, privacy: list({ hosting: false }) }).raw,
+            assessTrust({ ...unclassified, privacy: list({}) }).raw,
+            'a clearance is not an accusation',
+        );
+    });
+
+    it('falls back to the whole roster when the row has no single owner', () => {
+        const r = assessTrust({ ...unclassified, privacy: list({ hosting: true, source: 'a.test + b.test' }) });
+        assert.equal(signal(r, 'registryClass').matched, 'a.test + b.test');
+    });
+
+    it('names a declared mobile network without rewarding it', () => {
+        const r = assessTrust({ ...unclassified, privacy: list({ mobile: true, by: { mobile: 'ipapi.is' } }) });
+        assert.equal(r.cls, CLASSES.mobile);
+        assert.equal(signal(r, 'registryClass').effect, 0);
+        assert.equal(signal(r, 'registryClass').state, 'neutral');
+        assert.equal(
+            r.raw,
+            assessTrust({ ...unclassified, privacy: list({}) }).raw,
+            'a secondhand claim cannot buy trust',
+        );
+    });
+
+    // Hosting is checked first: a list saying both has described a datacenter with
+    // a cellular uplink, and the accusation is the fact a visitor came for.
+    it('prefers the hosting claim when one list says both', () => {
+        const r = assessTrust({ ...unclassified, privacy: list({ hosting: true, mobile: true }) });
+        assert.equal(r.cls, CLASSES.datacenter);
+    });
+
+    // The rule that keeps this widening from moving every address on the page:
+    // an operator that names itself is judged exactly as it was before.
+    it('never overwrites a class the registry named itself', () => {
+        const r = assessTrust({ ...hosting, privacy: list({ mobile: true, by: { mobile: 'list.test' } }) });
+        assert.equal(r.cls, CLASSES.datacenter);
+        assert.equal(signal(r, 'registryClass').matched, 'hetzner');
+        assert.equal(signal(r, 'registryClass').effect, -34);
+    });
+
+    it('does not touch an anycast service', () => {
+        const r = assessTrust({ ...unclassified, geo: { ...unclassified.geo, asn: 13335 }, privacy: list({ hosting: true }) });
+        assert.equal(r.cls, CLASSES.anycast, 'a public resolver is not an ordinary datacenter');
+    });
+});
+
+// A clearance one vendor dissented from is a weaker clearance than a unanimous
+// one, and paying the same for both is how a ladder rewards whoever happened to be
+// configured that day.
+describe('a contested clearance', () => {
+    const contested = (votes) => ({
+        proxy: false, vpn: false, tor: false, abuser: false, abuserScore: 0,
+        source: 'a.test + b.test', votes,
+    });
+
+    it('withholds the clean bonus when a source still says yes', () => {
+        const unanimous = assessTrust({ ...hosting, privacy: contested({ proxy: { yes: 0, no: 2 }, vpn: { yes: 0, no: 2 } }) });
+        const contestedProxy = assessTrust({ ...hosting, privacy: contested({ proxy: { yes: 1, no: 2 }, vpn: { yes: 0, no: 2 } }) });
+        assert.equal(signal(unanimous, 'proxyVpnDb').state, 'positive');
+        assert.equal(signal(contestedProxy, 'proxyVpnDb').state, 'neutral');
+        assert.equal(signal(contestedProxy, 'proxyVpnDb').detail, 'clean-contested');
+        assert.equal(signal(unanimous, 'proxyVpnDb').effect, 4);
+        assert.equal(signal(contestedProxy, 'proxyVpnDb').effect, 0);
+        assert.ok(unanimous.score > contestedProxy.score);
+    });
+
+    // The dissent only ever takes the bonus away; a `yes` that wins is charged in
+    // full however many vendors argued with it.
+    it('still charges the accusation in full when the yes column wins', () => {
+        const proxied = assessTrust({ ...hosting, privacy: { ...contested({ proxy: { yes: 2, no: 3 } }), proxy: true } });
+        assert.equal(signal(proxied, 'proxyVpnDb').state, 'negative');
+        assert.equal(signal(proxied, 'proxyVpnDb').effect, -22);
+    });
+
+    it('names the vendor that decided each row', () => {
+        const r = assessTrust({
+            ...hosting,
+            privacy: {
+                proxy: true, by: { proxy: 'proxycheck.io' }, votes: {},
+                tor: false, abuser: false, abuserScore: 0, source: 'proxycheck.io',
+            },
+        });
+        assert.equal(signal(r, 'proxyVpnDb').matched, 'proxycheck.io');
+        assert.equal(signal(r, 'anonymityNetworks').matched, 'proxycheck.io');
+    });
+
+    it('puts the report count beside the score that came from the same place', () => {
+        const r = assessTrust({
+            ...hosting,
+            privacy: {
+                proxy: false, vpn: false, tor: false, abuser: null, abuserScore: 12,
+                abuserReports: 41, by: { abuse: null }, source: 'abuseipdb.com',
+            },
+        });
+        assert.match(signal(r, 'historicalAbuseReports').matched, /abuseipdb\.com/);
+        assert.match(signal(r, 'historicalAbuseReports').matched, /41 reports/);
+    });
+});

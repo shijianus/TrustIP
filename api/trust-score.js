@@ -85,6 +85,12 @@ export default async (req, res) => {
             // reports `sourcesFailed`, and a stored row must not have to know
             // which of the two produced it.
             sourcesFailed: evidence.failed,
+            // Every keyed vendor this deployment asked, and how each one ended.
+            // "four asked, one over quota" is a different fact from "four cleared
+            // it", and a consumer storing the verdict needs the roster beside the
+            // number. Empty means nothing keyed was enabled — a configuration,
+            // not an outage. Vendor payloads are never copied out.
+            sources: evidence.privacy?.status ?? [],
         });
     } catch (e) {
         logger.error({ err: e, ip: ipAddress }, 'trustscore handler failed');

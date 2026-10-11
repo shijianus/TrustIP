@@ -201,6 +201,19 @@ const CLASS_EFFECT = {
 
 const PTR_EFFECT = { datacenter: -16, residential: 12, neutral: 0, none: -4, failed: 0 };
 
+// What a vendor's anonymiser list is worth when it is the only thing that named
+// this block's class at all. Secondhand by definition — the vendor inferred it
+// from the same registry data we read directly, and its classifier is wrong for a
+// whole netblock often enough that a `yes` there must not cost an address the
+// -34 the registry's own "OVH" token costs. So it lands on the same rung as a
+// reverse delegation with no customer names in it (`PTR_EFFECT.datacenter`),
+// which cautions without convicting.
+//
+// A secondhand claim never *pays* either: `mobile` names the class for the page at
+// zero effect, because letting a vendor's list buy an address trust it did not
+// earn is the same inversion, pointed the other way.
+const LIST_CLASS_EFFECT = { [CLASSES.datacenter]: -16, [CLASSES.mobile]: 0 };
+
 const SHAPE_EFFECT = { pool: -12, transit: 8, single: 5, mixed: 0 };
 
 const RPKI_EFFECT = {
@@ -236,6 +249,12 @@ const BLOCKLIST_MIN_TRUSTED_ZONES = 2;
 // positives are not something a ceiling should enforce.
 const PRIVACY_EFFECT = {
     proxy: -22, clean: 4,
+    // Cleared, but at least one source voted the other way. The bonus for being
+    // clean is paid in full only when the tally has nothing left in the yes
+    // column: a 2-vendor "no" against a 1-vendor "yes" is a weaker clearance than
+    // a unanimous one, and paying the same for both is how a ladder rewards
+    // whoever happened to be configured that day.
+    cleanContested: 0,
     tor: -34,
     abuseHigh: -14, abuseMedium: -9, abuseLow: -5, abuseClear: 4, abuserFlag: -24,
 };
@@ -272,7 +291,7 @@ const WORST_EFFECT = {
 };
 
 const WEIGHTS = {
-    BASE, CLASS_EFFECT, PTR_EFFECT, SHAPE_EFFECT, RPKI_EFFECT, AGE_EFFECT,
+    BASE, CLASS_EFFECT, LIST_CLASS_EFFECT, PTR_EFFECT, SHAPE_EFFECT, RPKI_EFFECT, AGE_EFFECT,
     NATIVE_EFFECT, BLOCKLIST_EFFECT, BLOCKLIST_MIN_TRUSTED_ZONES,
     PRIVACY_EFFECT, ABUSER_TIERS, CONFIDENCE_CAPS, WORST_EFFECT, GATE_CEILING,
 };
@@ -386,6 +405,17 @@ const classifyName = ({ asOrg, netName, descr, asName, geoIsp, geoOrg, asn }) =>
     if (hit) return { cls: CLASSES.isp, matched: hit };
 
     return { cls: CLASSES.unknown, matched: null };
+};
+
+// The one class a vendor's list can name, and who said it. Hosting is checked
+// first: a list that says both has described a datacenter with a cellular uplink,
+// and the accusation is the fact a visitor came for. `LIST_CLASS_EFFECT` says what
+// either is worth.
+const listDeclaredClass = (pv) => {
+    if (!pv) return null;
+    if (pv.hosting === true) return { cls: CLASSES.datacenter, matched: pv.by?.hosting || pv.source || null };
+    if (pv.mobile === true) return { cls: CLASSES.mobile, matched: pv.by?.mobile || pv.source || null };
+    return null;
 };
 
 // --- Reverse DNS ---------------------------------------------------------
@@ -530,18 +560,27 @@ export const assessTrust = (input = {}) => {
     });
     const anycast = name.cls === CLASSES.anycast;
 
+    // A vendor's list widens this signal's evidence rather than growing a row of
+    // its own: "what kind of network owns this block" is the question
+    // `registryClass` already asks, and a second row would move every address on
+    // the page by widening the confidence denominator. It speaks only where the
+    // registry's own text named nothing, so an address whose operator describes
+    // itself is judged exactly as it was before.
+    const listClass = name.cls === CLASSES.unknown ? listDeclaredClass(input.privacy) : null;
+    const cls = listClass ? listClass.cls : name.cls;
+    const classEffect = listClass ? LIST_CLASS_EFFECT[listClass.cls] : (CLASS_EFFECT[name.cls] ?? 0);
+
     // 1 — Registry identity. The heaviest signal, because the operator that
     //       owns a block is what makes it a home line or a rented VM.
-    const classEffect = CLASS_EFFECT[name.cls] ?? 0;
     signals.push({
         id: 'registryClass',
-        state: name.cls === CLASSES.unknown ? 'unknown'
+        state: cls === CLASSES.unknown ? 'unknown'
             : classEffect > 0 ? 'positive'
                 : classEffect < 0 ? 'negative' : 'neutral',
         effect: classEffect,
         label: 'trustip.signal.registryClass',
-        detail: name.cls,
-        matched: name.matched,
+        detail: cls,
+        matched: listClass ? listClass.matched : name.matched,
     });
 
     // 2 — Reverse DNS.
@@ -682,31 +721,43 @@ export const assessTrust = (input = {}) => {
         matched: blMeasured ? blLabels : null,
     });
 
-    // 8–10 — The optional keyed abuse feed. All three come from one upstream
-    //        call, so they arrive together or not at all. "Not at all" here means
-    //        the deployment never turned the feed on, which is a declared
+    // 8–10 — The optional keyed lists. Each capability is the verdict of several
+    //        vendors, merged in `common/providers/vote.js` by how much authority
+    //        each kind of source has, and they arrive as one object. "Not at all"
+    //        means the deployment never turned any of them on, which is a declared
     //        capability gap — it must not also count as an unmeasured signal and
     //        shrink confidence, or every key-free instance would be permanently
     //        capped for a subscription it never claimed to hold.
     const pv = input.privacy;
     if (pv) {
         // Each signal asks whether *its own* field came back, because the free
-        // tier of this feed answers with whichever subset it has — and a field
+        // tier of these feeds answers with whichever subset it has — and a field
         // that is absent is not a field that is false. Reading the difference
         // away would turn "the vendor did not tell us" into "the vendor cleared
         // it", which is the inversion this ladder exists to prevent.
         const canProxy = typeof pv.proxy === 'boolean' || typeof pv.vpn === 'boolean';
         const proxied = Boolean(pv.proxy || pv.vpn);
+        // A `clean` that a source dissented from is not the same clean as one
+        // nobody argued with: the bonus for being cleared is paid in full only
+        // when the tally has nothing left in the yes column.
+        const contested = (cap) => (Number(pv.votes?.[cap]?.yes) || 0) > 0;
+        const proxyContested = !proxied && (contested('proxy') || contested('vpn'));
+        const proxyEffect = !canProxy ? 0
+            : proxied ? PRIVACY_EFFECT.proxy
+                : proxyContested ? PRIVACY_EFFECT.cleanContested : PRIVACY_EFFECT.clean;
         signals.push({
             id: 'proxyVpnDb',
-            state: !canProxy ? 'unknown' : proxied ? 'negative' : 'positive',
-            effect: !canProxy ? 0 : proxied ? PRIVACY_EFFECT.proxy : PRIVACY_EFFECT.clean,
+            state: !canProxy ? 'unknown' : proxied ? 'negative' : proxyContested ? 'neutral' : 'positive',
+            effect: proxyEffect,
             label: 'trustip.signal.proxyVpnDb',
             // `vpn` and `proxy` are different postures: one is a subscription the
             // visitor chose, the other is a relay standing in front of anything.
             detail: !canProxy ? null
-                : proxied ? (pv.vpn && !pv.proxy ? 'vpn' : 'proxy') : 'clean',
-            matched: !canProxy ? null : knownText(pv.source),
+                : proxied ? (pv.vpn && !pv.proxy ? 'vpn' : 'proxy')
+                    : proxyContested ? 'clean-contested' : 'clean',
+            // Named per capability, because the vendor that decided this row is
+            // usually not the one that decided the Tor row.
+            matched: !canProxy ? null : knownText(pv.by?.proxy) || knownText(pv.by?.vpn) || knownText(pv.source),
         });
 
         // Being a Tor exit is rare enough that *not* being one carries almost no
@@ -720,10 +771,13 @@ export const assessTrust = (input = {}) => {
             effect: canTor && pv.tor ? PRIVACY_EFFECT.tor : 0,
             label: 'trustip.signal.anonymityNetworks',
             detail: !canTor ? null : pv.tor ? 'tor' : 'not-tor',
-            matched: !canTor ? null : knownText(pv.source),
+            matched: !canTor ? null : knownText(pv.by?.tor) || knownText(pv.source),
         });
 
-        // One score with no stated unit: above 1 it is read as a percentage.
+        // One number per vendor, normalised to a 0–1 confidence fraction at the
+        // merge; a value above 1 is still read as a percentage, because a stored
+        // row written before that normalisation has to keep meaning the same
+        // thing when it is re-scored.
         const abuserRaw = typeof pv.abuserScore === 'number' && Number.isFinite(pv.abuserScore)
             ? Math.max(0, pv.abuserScore) : null;
         const score = abuserRaw === null ? null : (abuserRaw > ABUSER_PERCENT_MAX ? abuserRaw / 100 : abuserRaw);
@@ -733,6 +787,7 @@ export const assessTrust = (input = {}) => {
             : pv.abuser === true ? PRIVACY_EFFECT.abuserFlag
                 : score !== null ? (rung ? PRIVACY_EFFECT[rung[1]] : PRIVACY_EFFECT.abuseClear)
                     : 0;
+        const reports = Number(pv.abuserReports);
         signals.push({
             id: 'historicalAbuseReports',
             state: !canAbuse ? 'unknown'
@@ -744,7 +799,12 @@ export const assessTrust = (input = {}) => {
                 : pv.abuser === true ? 'abuser'
                     : rung ? `${rung[1].replace('abuse', '').toLowerCase()} (${Math.round(score * 1000) / 10}%)`
                         : score !== null ? 'clear' : 'no-flag',
-            matched: !canAbuse ? null : (score === null ? knownText(pv.source) : `score ${score.toFixed(4)}`),
+            // The count is the vendor's census, so it rides in the evidence line
+            // beside the score that came from the same source.
+            matched: !canAbuse ? null : [
+                knownText(pv.by?.abuse) || knownText(pv.source),
+                Number.isFinite(reports) && reports > 0 ? `${reports} reports` : null,
+            ].filter(Boolean).join(' · ') || null,
         });
     }
 
@@ -795,7 +855,7 @@ export const assessTrust = (input = {}) => {
         raw,
         band: band.band,
         tone: band.tone,
-        cls: name.cls,
+        cls,
         anycast,
         signals,
         confidence: { measured, total, level },

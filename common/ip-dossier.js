@@ -301,10 +301,10 @@ export const buildDossier = async (ip, { lang = 'en' } = {}) => {
     // that source failed. MaxMind is the sole local fallback, so consult it
     // before declaring the ASN and topology blocks empty.
     const resolvedAsn = evidence.asn || Number(maxmind.asn) || null;
-    // The abuse feed promotes a panel only when it both was consulted and
-    // carried something readable — an answer that says "the vendor did not tell
-    // us" must not render as a section full of clears.
-    const usablePrivacy = Boolean(evidence.privacy) && !evidence.privacy.failed;
+    // The keyed lists promote a panel only when at least one vendor actually
+    // answered — an object full of `null` because every configured source timed
+    // out must not render as a section of clears.
+    const usablePrivacy = Boolean(evidence.privacy?.sources?.length);
 
     return {
         ip,

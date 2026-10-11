@@ -520,12 +520,13 @@ const threatScore = computed(() => {
     return `${known} / 4`;
 });
 
-// The optional abuse feed reports VPN, proxy and Tor as three separate postures,
-// so each row answers for itself — and a row whose field the feed did not carry
-// answers about the build, not about the address.
+// The keyed lists report VPN, proxy and Tor as three separate postures, so each
+// row answers for itself — and a row whose field no vendor carried answers about
+// the build, not about the address. An object nobody answered is dropped here so
+// every row falls through to "this build did not measure it" rather than a clear.
 const privacyFlags = computed(() => {
     const pv = dossier.value?.privacy;
-    return pv && !pv.failed ? pv : {};
+    return pv?.sources?.length ? pv : {};
 });
 const deepRows = computed(() => {
     const pv = privacyFlags.value;

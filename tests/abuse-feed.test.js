@@ -5,6 +5,10 @@
 // `interpretAbuseFeed` is where a third party's JSON becomes our evidence, so
 // these tests pin the two ways that translation can lie: reading an absent field
 // as a clean one, and copying out registrant contact data nobody asked for.
+//
+// The gatherer half runs the feed's answer through the same merge as the
+// commercial lists (`common/providers/vote.js`), because one vendor's verdict on
+// one address must cost one call however many switches want a piece of it.
 
 import assert from 'node:assert/strict';
 import { afterEach, beforeEach, describe, it } from 'node:test';
@@ -13,7 +17,7 @@ import { Resolver } from 'node:dns/promises';
 import { interpretAbuseFeed, gatherTrustEvidence } from '../common/trust-signals.js';
 import { pickIpApiIsKey } from '../common/ipapi-key.js';
 
-const ENV_KEYS = ['IPAPIIS_API_KEY', 'TRUST_IPAPIIS_FEED'];
+const ENV_KEYS = ['IPAPIIS_API_KEY', 'TRUST_IPAPIIS_FEED', 'TRUST_PROVIDERS', 'PROXYCHECK_API_KEY'];
 let envBackup = {};
 
 beforeEach(() => {
@@ -102,7 +106,7 @@ describe('interpretAbuseFeed', () => {
     it('keeps only the fields the scorer reads', () => {
         assert.deepEqual(
             Object.keys(interpretAbuseFeed(SAMPLE)).sort(),
-            ['abuser', 'abuserScore', 'proxy', 'source', 'tor', 'vpn'],
+            ['abuser', 'abuserScore', 'hosting', 'mobile', 'proxy', 'source', 'tor', 'vpn'],
         );
     });
 });
@@ -176,6 +180,19 @@ describe('gatherTrustEvidence and the optional feed', () => {
         assert.ok(!evidence.failed.includes('abuse-feed'), 'a feed that answered is not a failed source');
     });
 
+    // The vendor's `is_datacenter` is a vote on the same question the registry's
+    // own text answers, so it has to survive the merge to reach the ladder.
+    it('carries the feed\'s read of the block itself', async () => {
+        process.env.TRUST_IPAPIIS_FEED = 'true';
+        process.env.IPAPIIS_API_KEY = 'test-key';
+        stubNetwork(SAMPLE);
+
+        const evidence = await gatherTrustEvidence('203.0.113.58');
+
+        assert.equal(evidence.privacy.hosting, true);
+        assert.equal(evidence.privacy.by.hosting, 'ipapi.is');
+    });
+
     it('reports the feed as failed when it could not be reached', async () => {
         process.env.TRUST_IPAPIIS_FEED = 'true';
         process.env.IPAPIIS_API_KEY = 'test-key';
@@ -183,7 +200,13 @@ describe('gatherTrustEvidence and the optional feed', () => {
 
         const evidence = await gatherTrustEvidence('203.0.113.56');
 
-        assert.equal(evidence.privacy.failed, true);
+        // Asked, and nothing answered: the roster says so, no capability has a
+        // verdict, and the gatherer records the source as failed — which is what
+        // makes the scorer charge it against confidence instead of declaring it a
+        // capability this deployment never claimed.
+        assert.deepEqual(evidence.privacy.sources, []);
+        assert.deepEqual(evidence.privacy.status, [{ source: 'ipapi.is', status: 'error', reason: 'request-failed' }]);
+        assert.equal(evidence.privacy.proxy, null);
         assert.ok(evidence.failed.includes('abuse-feed'), 'a consulted-but-failed feed must shrink confidence');
     });
 
@@ -204,5 +227,40 @@ describe('gatherTrustEvidence and the optional feed', () => {
         assert.ok(!asked.some((u) => u.includes('api.ipapi.is')), `the feed was consulted: ${asked.join(' ')}`);
         assert.ok(!('privacy' in evidence), 'an unconsulted feed must not look like an empty answer');
         assert.ok(!evidence.failed.includes('abuse-feed'), 'a capability never claimed is not a failed source');
+    });
+
+    // Both switches on: one address still costs one call to a vendor, and the two
+    // answers are merged rather than concatenated — which is the whole reason the
+    // feed is re-expressed in the providers' shape instead of scored on its own.
+    it('merges a listed provider with the feed, asking each vendor once', async () => {
+        process.env.TRUST_IPAPIIS_FEED = 'true';
+        process.env.TRUST_PROVIDERS = 'proxycheck';
+        process.env.IPAPIIS_API_KEY = 'test-key';
+        process.env.PROXYCHECK_API_KEY = 'test-proxy-key';
+        const asked = [];
+        stubNetwork(SAMPLE);
+        globalThis.fetch = async (url) => {
+            asked.push(String(url));
+            if (String(url).includes('proxycheck.io')) {
+                return {
+                    ok: true,
+                    status: 200,
+                    json: async () => ({ status: 'ok', '203.0.113.59': { proxy: 'no', tor: 'yes', risk: '40' } }),
+                };
+            }
+            if (String(url).includes('api.ipapi.is')) return { ok: true, status: 200, json: async () => SAMPLE };
+            return { ok: false, status: 500, json: async () => ({}) };
+        };
+
+        const evidence = await gatherTrustEvidence('203.0.113.59');
+
+        assert.equal(asked.filter((u) => u.includes('api.ipapi.is')).length, 1, 'the vendor was asked twice');
+        assert.deepEqual(evidence.privacy.sources, ['ipapi.is', 'proxycheck.io']);
+        // Each row names whoever decided it: the proxy verdict came from the feed,
+        // the Tor one from the list, and neither vendor answers for the other.
+        assert.equal(evidence.privacy.by.proxy, 'ipapi.is');
+        assert.equal(evidence.privacy.by.tor, 'proxycheck.io');
+        assert.deepEqual(evidence.privacy.votes.tor, { yes: 1, no: 1 });
+        assert.ok(!evidence.failed.includes('abuse-feed'));
     });
 });

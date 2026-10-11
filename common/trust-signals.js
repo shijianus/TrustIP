@@ -15,10 +15,17 @@
 // asks for about one request per second per `sourceapp`, and four data calls per
 // lookup would exceed that on a busy instance.
 //
-// One opt-in exception: `TRUST_IPAPIIS_FEED=true` adds a keyed abuse-feed call
-// per address, which turns three declared gaps into measured signals. Off, this
-// module asks nothing that needs a key, and the gaps stay declared rather than
-// pretending to be unmeasured-by-accident.
+// Two opt-in exceptions, both off by default. `TRUST_IPAPIIS_FEED=true` adds the
+// keyed abuse-feed call, and `TRUST_PROVIDERS=proxycheck,abuseipdb,…` adds the
+// commercial anonymiser lists (common/providers/registry.js). Either one turns
+// declared gaps into measured signals. Off, this module asks nothing that needs a
+// key, and the gaps stay declared rather than pretending to be
+// unmeasured-by-accident — which is how this fork ships, and why a key-free
+// deployment is never capped for a subscription it did not claim.
+//
+// Where both are on, one vendor's answer is worth one call: the abuse feed and
+// the provider list are merged, not concatenated, so api.ipapi.is is asked once
+// per address however many signals want a piece of it.
 //
 // No active probing happens here: we never connect to the queried address.
 // That keeps the endpoint from becoming an amplification vector, and it means
@@ -31,6 +38,9 @@ import { pickIpApiIsKey } from './ipapi-key.js';
 import { checkBlocklists } from './dnsbl.js';
 import { lookupAsOrgName } from './as-org-db.js';
 import { rdapAsn } from './rdap.js';
+import { askProviders } from './providers/registry.js';
+import { mergeProviders } from './providers/vote.js';
+import { answered, errored as providerErrored } from './providers/answer.js';
 import logger from './logger.js';
 
 const RIPESTAT_BASE = 'https://stat.ripe.net/data';
@@ -300,7 +310,14 @@ const feedEnabled = () => process.env.TRUST_IPAPIIS_FEED === 'true';
  */
 export const interpretAbuseFeed = (body) => {
     const src = body && typeof body === 'object' ? body : {};
-    const FLAGS = [['proxy', 'is_proxy'], ['vpn', 'is_vpn'], ['tor', 'is_tor'], ['abuser', 'is_abuser']];
+    const FLAGS = [
+        ['proxy', 'is_proxy'], ['vpn', 'is_vpn'], ['tor', 'is_tor'], ['abuser', 'is_abuser'],
+        // What kind of block this is, which the registry's own text sometimes
+        // fails to name. The scorer charges a secondhand class less than its own
+        // token (see `LIST_CLASS_EFFECT`), so a vendor that says nothing about the
+        // address's posture can still tell it is a hosting range.
+        ['hosting', 'is_datacenter'], ['mobile', 'is_mobile'],
+    ];
     const known = FLAGS.filter(([, key]) => typeof src[key] === 'boolean');
 
     // The score lives beside the ASN and, for a customer network, beside the
@@ -321,8 +338,8 @@ const readAbuseFeed = (ip) => {
     if (!feedEnabled()) return Promise.resolve(null);
     const key = pickIpApiIsKey();
     if (!key) return Promise.resolve(null);
-    // `cached` takes the producer before its ttl — the second argument is called
-    // as a function, so passing the TTL here would throw before any request left.
+    // `cached` takes the producer before its ttl; the second argument is called as
+    // a function.
     return cached(`feed:${ip}`, async () => {
         try {
             const res = await fetchUpstream(`https://api.ipapi.is?q=${ip}&key=${key}`, { timeoutMs: 8000 });
@@ -334,6 +351,31 @@ const readAbuseFeed = (ip) => {
         }
     }, FEED_TTL_MS);
 };
+
+// --- the optional provider lists ------------------------------------------
+
+// The abuse feed's answer, re-expressed in the shape the merge reads. It is a
+// `list` authority — that vendor's product *is* the anonymiser database — and it
+// publishes the same claims the commercial adapters do, so folding it in here is
+// what keeps one api.ipapi.is call serving both switches instead of asking twice.
+const feedAnswer = (feed) => {
+    if (!feed) return null;
+    if (feed.failed) return providerErrored(IPAPI_SOURCE, 'request-failed');
+    return answered(IPAPI_SOURCE, {
+        authority: 'list',
+        isProxy: feed.proxy ?? null,
+        isVpn: feed.vpn ?? null,
+        isTor: feed.tor ?? null,
+        isAbuser: feed.abuser ?? null,
+        abuseScore: feed.abuserScore ?? null,
+        isHosting: feed.hosting ?? null,
+        isMobile: feed.mobile ?? null,
+    });
+};
+
+// Cached on the feed's clock: a vendor's list is re-evaluated on roughly a daily
+// cycle, so a day is as long as an answer stays worth repeating.
+const readProviders = (ip) => cached(`prov:${ip}`, () => askProviders(ip), FEED_TTL_MS);
 
 // --- the gatherer --------------------------------------------------------
 
@@ -358,7 +400,7 @@ export const gatherTrustEvidence = async (ip, { geo = null } = {}) => {
     // Independent of each other; run together so the response costs the
     // slowest source, not their sum. RPKI is the exception — it needs the
     // prefix, which only the allocation record can supply.
-    const [ptr, rir, holder, shape, allocated, blocklists, privacy] = await Promise.all([
+    const [ptr, rir, holder, shape, allocated, blocklists, feed, providerAnswers] = await Promise.all([
         queryPtr(ip),
         readRirRecord(ip),
         readAsHolder(asn),
@@ -366,6 +408,7 @@ export const gatherTrustEvidence = async (ip, { geo = null } = {}) => {
         readAsnRegistration(asn),
         checkBlocklists(ip),
         readAbuseFeed(ip),
+        readProviders(ip),
     ]);
 
     evidence.asOrg = asn ? lookupAsOrgName(asn) : null;
@@ -397,13 +440,37 @@ export const gatherTrustEvidence = async (ip, { geo = null } = {}) => {
         evidence.blocklistsReason = blocklists?.reason || 'no-answer';
     }
 
-    // Carried only when the feed was consulted at all. A missing key here means
-    // the deployment did not enable it, which `assessTrust` reports as a declared
-    // gap and leaves out of the confidence denominator; `{ failed }` means we
-    // asked and could not tell, which does shrink it.
-    if (privacy) {
-        evidence.privacy = privacy;
-        if (privacy.failed) failed.push('abuse-feed');
+    // Carried only when the deployment consulted *something* keyed. Nothing
+    // configured means the capability was never claimed, which `assessTrust`
+    // reports as a declared gap and leaves out of the confidence denominator;
+    // configured-and-unanswered is a different fact — the signal goes `unknown`,
+    // which does shrink it — and that is the whole reason the two states are kept
+    // apart on the way through this file.
+    const answers = [feedAnswer(feed), ...providerAnswers].filter(Boolean);
+    const merged = mergeProviders(answers);
+    if (merged.status.length) {
+        evidence.privacy = {
+            proxy: merged.flags.proxy,
+            vpn: merged.flags.vpn,
+            tor: merged.flags.tor,
+            hosting: merged.flags.hosting,
+            mobile: merged.flags.mobile,
+            abuser: merged.abuse.flag,
+            abuserScore: merged.abuse.score,
+            abuserReports: merged.abuse.reports,
+            // Per capability, because the vendor that decided the proxy row is
+            // usually not the one that decided the Tor row, and `matched` has to
+            // name whoever spoke. `source` is every vendor that answered at all,
+            // kept for the shape consumers were written against. The abuse row's
+            // attribution sits on the flag, not on the score, because the worst
+            // score and the loudest flag rarely come from the same vendor.
+            by: { ...merged.by, abuse: merged.abuse.flaggedBy },
+            votes: merged.votes,
+            sources: merged.sources,
+            source: merged.sources.join(' + ') || null,
+            status: merged.status,
+        };
+        if (!merged.sources.length) failed.push('abuse-feed');
     }
 
     // RPKI needs a prefix. Prefer the allocation's own CIDR — RIPE writes
