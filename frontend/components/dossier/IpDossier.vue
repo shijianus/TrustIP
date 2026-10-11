@@ -151,7 +151,18 @@
                                 <span class="break-all font-mono text-xs font-normal">{{ network.rdns || '—' }}</span>
                             </KeyRow>
                             <KeyRow :label="t('dossier.row.ports')">
-                                <VerdictChip tone="muted" :label="t('trustip.verdict.notMeasured')" />
+                                <!-- Three answers, not one: the ports the archive
+                                     saw, an address it has never looked at, and a
+                                     deployment that does not ask it at all. The
+                                     last two both read "nothing here" if the row is
+                                     given a single fallback. -->
+                                <span v-if="openPorts" class="break-all font-mono text-xs font-normal">{{ openPorts }}</span>
+                                <span v-else-if="scanSeen" class="jn-nums text-xs font-normal">—</span>
+                                <VerdictChip
+                                    v-else
+                                    tone="muted"
+                                    :label="scanMissing ? t('dossier.deep.nodata') : t('trustip.verdict.notMeasured')"
+                                />
                             </KeyRow>
                             <KeyRow :label="t('dossier.row.announce')" :nums="true">
                                 {{ network.announce ? `${network.announce.v4Count} · ${Math.round((network.announce.smallShare || 0) * 100)}% ≤/24` : '—' }}
@@ -519,6 +530,17 @@ const threatScore = computed(() => {
         .filter((chip) => chip.tone !== 'muted').length + (rpkiKnown ? 1 : 0);
     return `${known} / 4`;
 });
+
+// The scan archive's answer about what was listening here, when this deployment
+// asks it at all. A `record` with an empty port list is still an observation, so it
+// is not the same as an address nobody looked at, which is not the same as a build
+// that never asks.
+const scan = computed(() => network.value.scan || null);
+const openPorts = computed(() => (scan.value?.status === 'record' && scan.value.ports?.length)
+    ? scan.value.ports.join(' · ')
+    : null);
+const scanSeen = computed(() => scan.value?.status === 'record' && !openPorts.value);
+const scanMissing = computed(() => scan.value?.status === 'no-record');
 
 // The keyed lists report VPN, proxy and Tor as three separate postures, so each
 // row answers for itself — and a row whose field no vendor carried answers about

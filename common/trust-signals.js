@@ -40,7 +40,8 @@ import { lookupAsOrgName } from './as-org-db.js';
 import { rdapAsn } from './rdap.js';
 import { askProviders } from './providers/registry.js';
 import { mergeProviders } from './providers/vote.js';
-import { answered, errored as providerErrored } from './providers/answer.js';
+import { answered, STATUS, errored as providerErrored } from './providers/answer.js';
+import { INTERNETDB_SOURCE } from './providers/internetdb.js';
 import logger from './logger.js';
 
 const RIPESTAT_BASE = 'https://stat.ripe.net/data';
@@ -471,6 +472,26 @@ export const gatherTrustEvidence = async (ip, { geo = null } = {}) => {
             status: merged.status,
         };
         if (!merged.sources.length) failed.push('abuse-feed');
+    }
+
+    // The scan archive's own facts, kept beside the verdict rather than folded into
+    // it: which ports were seen is a different question from who is anonymising, and
+    // an unpatched service is the operator's schedule, not the visitor's posture. It
+    // is absent when the deployment never consulted the archive — which is the
+    // default — so the page declares the gap instead of showing an empty list.
+    const scan = providerAnswers.find((a) => a.source === INTERNETDB_SOURCE);
+    if (scan) {
+        evidence.scan = scan.status === STATUS.error ? { status: 'failed' }
+            : scan.found
+                ? {
+                    status: 'record',
+                    ports: scan.ports,
+                    tags: scan.tags,
+                    vulns: scan.vulns,
+                    hostnames: scan.hostnames,
+                    cpes: scan.cpes,
+                }
+                : { status: 'no-record' };
     }
 
     // RPKI needs a prefix. Prefer the allocation's own CIDR — RIPE writes

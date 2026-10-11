@@ -29,6 +29,10 @@ import { interpretProxycheck, askProxycheck, PROXYCHECK_SOURCE } from '../common
 import { interpretAbuseipdb, askAbuseipdb, ABUSEIPDB_SOURCE } from '../common/providers/abuseipdb.js';
 import { interpretIp2location, askIp2location, IP2LOCATION_SOURCE } from '../common/providers/ip2location.js';
 import { interpretIpinfoLite, askIpinfoLite, IPINFO_SOURCE } from '../common/providers/ipinfo-lite.js';
+import {
+    interpretInternetdb, askInternetdb, INTERNETDB_SOURCE,
+} from '../common/providers/internetdb.js';
+import internetdbHandler from '../api/internetdb.js';
 import { enabledProviders, askProviders } from '../common/providers/registry.js';
 import { mergeProviders } from '../common/providers/vote.js';
 
@@ -397,6 +401,147 @@ describe('providers/ipinfo-lite.js', () => {
     });
 });
 
+// --- Shodan InternetDB ----------------------------------------------------
+
+// A real record: a Tor exit's own ports and tags, as the archive answers them.
+const INTERNETDB_TOR = {
+    cpes: ['cpe:/a:f5:nginx'],
+    hostnames: ['berlin01.tor-exit.example.test'],
+    ip: '185.220.101.1',
+    ports: [443, 9001, 80, 9002],
+    tags: ['tor', 'self-signed'],
+    vulns: [],
+};
+
+describe('providers/internetdb.js', () => {
+    it('reads the record and sorts the ports it saw', () => {
+        const answer = interpretInternetdb(INTERNETDB_TOR, '185.220.101.1');
+        assert.equal(answer.status, 'ok');
+        assert.equal(answer.found, true);
+        assert.equal(answer.authority, 'observation', 'a service listening is not a visitor anonymising');
+        assert.equal(answer.isTor, true);
+        assert.equal(answer.isProxy, null);
+        assert.deepEqual(answer.ports, [80, 443, 9001, 9002]);
+        assert.deepEqual(answer.hostnames, ['berlin01.tor-exit.example.test']);
+    });
+
+    it('reads an open proxy and refuses to read anything else as one', () => {
+        assert.equal(interpretInternetdb({ tags: ['open_proxy'] }, 'i').isProxy, true);
+        assert.equal(interpretInternetdb({ tags: ['http'] }, 'i').isProxy, null);
+        // A tag is matched as a word, so a product named around it cannot accuse.
+        assert.equal(interpretInternetdb({ tags: ['proximity'] }, 'i').isProxy, null);
+    });
+
+    // The inversion this whole folder exists to prevent: the archive only knows
+    // what its scanners happened to see, and most addresses are never scanned.
+    it('leaves an empty tag list as silence, never as a clearance', () => {
+        const answer = interpretInternetdb({ ip: '1.1.1.1', ports: [22], tags: [], vulns: [] }, '1.1.1.1');
+        assert.equal(answer.found, true);
+        assert.equal(answer.isProxy, null);
+        assert.equal(answer.isTor, null);
+    });
+
+    it('drops ports that are not ports', () => {
+        assert.deepEqual(interpretInternetdb({ ports: [80, '443', 0, -1, 70000, null], tags: [] }, 'i').ports, [80]);
+    });
+
+    it('answers no-record for the archive\'s 404, which is not a failure', async () => {
+        const called = stubFetch(() => ({ ok: false, status: 404, json: async () => ({ detail: 'No information available' }) }));
+        const answer = await askInternetdb('203.0.113.77');
+        assert.equal(called.length, 1);
+        assert.equal(answer.status, 'ok', 'an address nobody has looked at is an answer');
+        assert.equal(answer.found, false);
+        assert.equal(answer.isProxy, null);
+    });
+
+    it('reports a refusal and a timeout as the source failing', async () => {
+        stubFetch(() => ({ ok: false, status: 429, json: async () => ({ detail: 'slow down' }) }));
+        assert.equal((await askInternetdb('203.0.113.78')).reason, 'http-429');
+
+        stubFetch(() => Promise.reject(abortError()));
+        assert.equal((await askInternetdb('203.0.113.79')).reason, 'request-failed');
+    });
+
+    // Key-free: there is no configuration that could be missing, so no answer of
+    // ours may be `unavailable`.
+    it('asks with no credential at all', async () => {
+        const called = stubFetch(INTERNETDB_TOR);
+        const answer = await askInternetdb('185.220.101.1');
+        assert.equal(answer.status, 'ok');
+        assert.equal(called[0].url, 'https://internetdb.shodan.io/185.220.101.1');
+        assert.ok(!('key' in (called[0].init.headers || {})));
+    });
+
+    // An observation cannot accuse on its own, and a `no-record` carries no claim
+    // at all — so the archive changes a verdict only when a list vendor agrees.
+    it('corroborates a list vendor but never accuses alone', () => {
+        const observed = answered(INTERNETDB_SOURCE, { authority: 'observation', isTor: true });
+        assert.equal(mergeProviders([observed]).flags.tor, null);
+        const second = answered('abuseipdb.com', { authority: 'observation', isTor: true });
+        assert.equal(mergeProviders([observed, second]).flags.tor, true);
+        assert.equal(mergeProviders([answered(INTERNETDB_SOURCE, { found: false })]).flags.tor, null);
+    });
+});
+
+// --- GET /api/internetdb --------------------------------------------------
+
+// The response double an Express handler is called with, read live: `status` has
+// to be asked for *after* the handler ran, so a test that destructures it would
+// compare the 200 the object started with — a code path that passes whether or not
+// the handler ever refused.
+const collect = () => {
+    const body = {};
+    const out = {
+        statusCode: 200,
+        res: {
+            json: (payload) => { Object.assign(body, payload); return body; },
+            status: (code) => { out.statusCode = code; return out.res; },
+        },
+        body,
+        get status() { return out.statusCode; },
+    };
+    return out;
+};
+
+describe('GET /api/internetdb', () => {
+    it('answers with the record, the schema and the clock', async () => {
+        stubFetch(INTERNETDB_TOR);
+        const c = collect();
+
+        await internetdbHandler({ query: { ip: '185.220.101.1' } }, c.res);
+
+        assert.equal(c.status, 200);
+        assert.equal(c.body.schema, 'internetdb/v1');
+        assert.equal(c.body.status, 'record');
+        assert.deepEqual(c.body.ports, [80, 443, 9001, 9002]);
+        assert.deepEqual(c.body.tags, ['tor', 'self-signed']);
+        assert.ok(c.body.generatedAt, 'an observation without a clock reads as the present');
+        assert.equal(c.body.raw, undefined, 'the vendor payload is not ours to ship');
+    });
+
+    it('says no-record instead of failing when nobody has looked', async () => {
+        stubFetch(() => ({ ok: false, status: 404, json: async () => ({ detail: 'No information available' }) }));
+        const c = collect();
+
+        await internetdbHandler({ query: { ip: '203.0.113.80' } }, c.res);
+
+        assert.equal(c.status, 200);
+        assert.equal(c.body.status, 'no-record');
+        assert.equal(c.body.ports, undefined, 'no record is not a record with nothing in it');
+    });
+
+    it('answers 500 when the archive could not be asked', async () => {
+        stubFetch(() => Promise.reject(abortError()));
+        const c = collect();
+
+        await internetdbHandler({ query: { ip: '203.0.113.81' } }, c.res);
+
+        assert.equal(c.status, 500);
+        assert.equal(c.body.error, 'request-failed');
+        assert.equal(c.body.status, 'failed', 'a 500 that cannot name its own state is unhelpful to store');
+    });
+});
+
 // --- the registry ---------------------------------------------------------
 
 describe('providers/registry.js', () => {
@@ -415,6 +560,13 @@ describe('providers/registry.js', () => {
     it('keeps the catalog order whatever order the variable lists', () => {
         process.env.TRUST_PROVIDERS = 'ipinfo,proxycheck';
         assert.deepEqual(enabledProviders().map((p) => p.id), [PROXYCHECK_SOURCE, IPINFO_SOURCE]);
+    });
+
+    // Key-free, so listing it is a decision about consulting a scan archive, not
+    // about having a credential to spend.
+    it('enables the scan archive without any key', () => {
+        process.env.TRUST_PROVIDERS = 'internetdb';
+        assert.deepEqual(enabledProviders().map((p) => p.id), [INTERNETDB_SOURCE]);
     });
 
     // One vendor's 500 is a missing vote, never a reason to answer nothing.

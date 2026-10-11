@@ -16,6 +16,7 @@ import { Resolver } from 'node:dns/promises';
 
 import { interpretAbuseFeed, gatherTrustEvidence } from '../common/trust-signals.js';
 import { pickIpApiIsKey } from '../common/ipapi-key.js';
+import { INTERNETDB_SOURCE } from '../common/providers/internetdb.js';
 
 const ENV_KEYS = ['IPAPIIS_API_KEY', 'TRUST_IPAPIIS_FEED', 'TRUST_PROVIDERS', 'PROXYCHECK_API_KEY'];
 let envBackup = {};
@@ -262,5 +263,31 @@ describe('gatherTrustEvidence and the optional feed', () => {
         assert.equal(evidence.privacy.by.tor, 'proxycheck.io');
         assert.deepEqual(evidence.privacy.votes.tor, { yes: 1, no: 1 });
         assert.ok(!evidence.failed.includes('abuse-feed'));
+    });
+
+    // The scan archive's facts stay beside the verdict: which ports were seen is a
+    // different question from who is anonymising, and a CVE is the operator's patch
+    // schedule, not the visitor's posture. Absent unless the deployment asks.
+    it('keeps the scan archive\'s observations out of the verdict', async () => {
+        process.env.TRUST_PROVIDERS = 'internetdb';
+        stubNetwork(SAMPLE);
+        globalThis.fetch = async (url) => (String(url).includes('internetdb.shodan.io')
+            ? {
+                ok: true,
+                status: 200,
+                json: async () => ({ ip: '203.0.113.60', ports: [22, 443], tags: ['ssh'], vulns: [], hostnames: [], cpes: [] }),
+            }
+            : { ok: false, status: 500, json: async () => ({}) });
+
+        const evidence = await gatherTrustEvidence('203.0.113.60');
+
+        assert.deepEqual(evidence.scan, {
+            status: 'record', ports: [22, 443], tags: ['ssh'], vulns: [], hostnames: [], cpes: [],
+        });
+        // A tag list naming no anonymiser leaves every capability unanswered —
+        // silence, not a clearance.
+        assert.equal(evidence.privacy.proxy, null);
+        assert.equal(evidence.privacy.hosting, null);
+        assert.deepEqual(evidence.privacy.sources, [INTERNETDB_SOURCE]);
     });
 });

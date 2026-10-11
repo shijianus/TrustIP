@@ -9,11 +9,11 @@
 // opts in deliberately, in `.env`, having decided what its quota is for.
 //
 // `TRUST_PROVIDERS` is a comma-separated list of ids (`proxycheck`, `abuseipdb`,
-// `ip2location`, `ipinfo`; the dotted vendor form is accepted too). An id that is
-// listed but whose key is absent is not a failure: the adapter answers
-// `unavailable / missing_key`, the capability stays a declared gap, and the
-// overall response is still a 200 with the key-free sources in it. An unknown id
-// is dropped rather than guessed at, because a typo that silently enabled
+// `ip2location`, `ipinfo`, `internetdb`; the dotted vendor form is accepted too).
+// An id that is listed but whose key is absent is not a failure: the adapter
+// answers `unavailable / missing_key`, the capability stays a declared gap, and
+// the overall response is still a 200 with the key-free sources in it. An unknown
+// id is dropped rather than guessed at, because a typo that silently enabled
 // *everything* is the worse way to read a list.
 //
 // ipapi.is is deliberately not here. It already has its own switch
@@ -25,6 +25,7 @@ import { askProxycheck, PROXYCHECK_SOURCE } from './proxycheck.js';
 import { askAbuseipdb, ABUSEIPDB_SOURCE } from './abuseipdb.js';
 import { askIp2location, IP2LOCATION_SOURCE } from './ip2location.js';
 import { askIpinfoLite, IPINFO_SOURCE } from './ipinfo-lite.js';
+import { askInternetdb, INTERNETDB_SOURCE } from './internetdb.js';
 import { errored } from './answer.js';
 
 const PROVIDERS = [
@@ -32,6 +33,12 @@ const PROVIDERS = [
     { id: ABUSEIPDB_SOURCE, ask: askAbuseipdb },
     { id: IP2LOCATION_SOURCE, ask: askIp2location },
     { id: IPINFO_SOURCE, ask: askIpinfoLite },
+    // The one entry with no key: the scan archive answers anyone, so listing it
+    // here is not a question of credentials but of whether this deployment wants
+    // a third party's scan history in every lookup. Enabling it claims the
+    // capability — the anonymity rows then read as *measured* rather than as a gap
+    // never promised, which is the deal `TRUST_IPAPIIS_FEED` already spells out.
+    { id: INTERNETDB_SOURCE, ask: askInternetdb },
 ];
 
 // `proxycheck`, `proxycheck.io` and ` PROXYCHECK_IO ` all name the same vendor.
@@ -78,4 +85,4 @@ export const askProviders = async (ip) => {
     ));
 };
 
-export { PROXYCHECK_SOURCE, ABUSEIPDB_SOURCE, IP2LOCATION_SOURCE, IPINFO_SOURCE };
+export { PROXYCHECK_SOURCE, ABUSEIPDB_SOURCE, IP2LOCATION_SOURCE, IPINFO_SOURCE, INTERNETDB_SOURCE };

@@ -7,7 +7,9 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { buildGeo, haversineKm, geoFromEvidence, SLOTS } from '../common/ip-dossier.js';
+import {
+    buildGeo, haversineKm, geoFromEvidence, technicalSlot, SLOTS,
+} from '../common/ip-dossier.js';
 
 const source = (id, over = {}) => ({
     id, label: id.toUpperCase(),
@@ -140,5 +142,35 @@ describe('SLOTS', () => {
         assert.equal(SLOTS.topology.status, 'ready');
         assert.equal(SLOTS.topology.partial, true, 'topology has no path proportions and must say so');
         assert.ok(SLOTS.technical.partial.includes('openPorts'));
+    });
+});
+
+// The open-ports row is the one place the dossier reports a third party's scan
+// history, and the four ways it can come back read the same on screen if the
+// mapping collapses them: an address nobody looked at is not an address with
+// nothing open, and neither of those is a build that never asked.
+describe('technicalSlot', () => {
+    it('declares the gap this instance never claimed', () => {
+        assert.equal(technicalSlot(null), SLOTS.technical);
+        assert.deepEqual(technicalSlot(undefined).partial, ['openPorts']);
+    });
+
+    it('reports a record as measured', () => {
+        assert.deepEqual(technicalSlot({ status: 'record', ports: [22] }), { status: 'ready' });
+    });
+
+    // Asked, answered, and the answer was "nobody has scanned this" — still a
+    // measurement, so the row says what it found rather than the not-measured chip.
+    it('keeps no-record apart from never-asked', () => {
+        const slot = technicalSlot({ status: 'no-record' });
+        assert.equal(slot.status, 'ready');
+        assert.match(slot.note, /no observation/);
+        assert.ok(slot.note !== undefined, 'a ready slot with no note reads as an empty scan');
+    });
+
+    it('names the failure of this lookup as a gap with a need', () => {
+        const slot = technicalSlot({ status: 'failed' });
+        assert.equal(slot.status, 'placeholder');
+        assert.match(slot.needs, /did not answer/);
     });
 });

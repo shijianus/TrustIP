@@ -228,8 +228,8 @@ const SLOTS = {
     usage: { status: 'ready', partial: ['humanBot', 'scenario'] },
     asn: { status: 'ready', partial: ['asnKind', 'bandwidth'] },
     technical: { status: 'ready', partial: ['openPorts'] },
-    threat: { status: 'partial', missing: ['abuseLevel', 'honeypot'], needs: 'an abuse-intelligence feed; the free registries do not carry per-address abuse history' },
-    deepRisk: { status: 'placeholder', needs: 'VPN / proxy / Tor membership feeds, which are subscription data this build does not hold' },
+    threat: { status: 'partial', missing: ['abuseLevel', 'honeypot'], needs: 'an abuse-intelligence feed — `IPAPIIS_API_KEY` with `TRUST_IPAPIIS_FEED=true`, or `ABUSEIPDB_API_KEY` with `TRUST_PROVIDERS=abuseipdb` — plus the honeypot observations, which need traffic we cannot see' },
+    deepRisk: { status: 'placeholder', needs: 'an anonymiser-list feed: `TRUST_PROVIDERS` (proxycheck.io, AbuseIPDB, IP2Location, ipinfo, the scan archive) or the `api.ipapi.is` abuse feed; the free registries do not carry membership in those lists' },
     vpnTrace: { status: 'placeholder', needs: 'a routing-visibility dataset we do not currently query' },
     // The numbers are not ours to produce: measuring from this server would
     // report this datacenter's uplink as if it were the world's. The block
@@ -254,6 +254,22 @@ const SLOTS = {
     coLocated: { status: 'placeholder', needs: 'a datacenter-to-customer directory we do not have' },
     actions: { status: 'ready' },
 };
+
+/**
+ * What the open-ports row can honestly say, given whatever the scan archive said.
+ *
+ * Four states, because collapsing them is how a page lies by omission: a
+ * deployment that never consults the archive has a declared gap; an address the
+ * archive has never looked at *was* asked and got an answer; a record is a
+ * measurement; and a timeout is this lookup's failure, not this instance's.
+ *
+ * @param {object|null} scan  `evidence.scan`, or absent when it was never asked
+ * @returns {object} a slot descriptor
+ */
+const technicalSlot = (scan) => !scan ? SLOTS.technical
+    : scan.status === 'record' ? { status: 'ready' }
+        : scan.status === 'no-record' ? { status: 'ready', note: 'the archive has no observation for this address' }
+            : { status: 'placeholder', needs: 'internetdb.shodan.io did not answer within our timeout' };
 
 // Why a blocklist pass had nothing to say, keyed on the reason `common/dnsbl.js`
 // reported. Three of these are genuinely different situations and one message
@@ -305,6 +321,7 @@ export const buildDossier = async (ip, { lang = 'en' } = {}) => {
     // answered — an object full of `null` because every configured source timed
     // out must not render as a section of clears.
     const usablePrivacy = Boolean(evidence.privacy?.sources?.length);
+    const technical = technicalSlot(evidence.scan);
 
     return {
         ip,
@@ -341,6 +358,12 @@ export const buildDossier = async (ip, { lang = 'en' } = {}) => {
             // the organisation. The card shows them on separate rows, so split
             // here rather than making the UI parse a registry string.
             holderName: (evidence.asName || '').split(' - ')[0] || null,
+            // The scan archive's observations, present only when this deployment
+            // consults it (`TRUST_PROVIDERS=internetdb`). Absent is a declared gap,
+            // not an empty port list: "nobody has looked at this address" and
+            // "nothing was open on it" are different answers, and the row has to be
+            // able to say which one it is showing.
+            scan: evidence.scan || null,
         },
         blocklists: evidence.blocklists || null,
         privacy: evidence.privacy || null,
@@ -370,9 +393,12 @@ export const buildDossier = async (ip, { lang = 'en' } = {}) => {
             // stays listed either way.
             threat: usablePrivacy ? { status: 'ready', partial: ['honeypot'] } : SLOTS.threat,
             deepRisk: usablePrivacy ? { status: 'ready', partial: ['botTrafficRatio'] } : SLOTS.deepRisk,
+            // The open-ports row, which is filled by the scan archive rather than
+            // by any registry — hence its own three states above.
+            technical,
         },
         sourcesFailed: evidence.failed,
     };
 };
 
-export { SLOTS, buildGeo, buildTopology, haversineKm, geoFromEvidence };
+export { SLOTS, buildGeo, buildTopology, haversineKm, geoFromEvidence, technicalSlot };

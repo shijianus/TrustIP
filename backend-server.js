@@ -44,6 +44,7 @@ import splitHandler from './api/split.js';
 import trustScoreHandler from './api/trust-score.js';
 import ipDossierHandler from './api/ip-dossier.js';
 import dnsblHandler from './api/dnsbl.js';
+import internetdbHandler from './api/internetdb.js';
 // User
 import validateConfigs from './api/configs.js';
 import getUserinfo from './api/get-user-info.js';
@@ -318,6 +319,17 @@ const dnsblLimiter = rateLimit({
     message: 'Too Many Requests',
 });
 app.get('/api/dnsbl', requirePublicIP(), dnsblLimiter, cacheable(30 * 60), dnsblHandler);
+// The scan archive is key-free, so this route costs a third party nothing but our
+// own bandwidth — and it is the one trust fact that is a *history*: an address
+// answering on 22 today may not have when Shodan looked. Six hours is short enough
+// that a fresh observation shows up within the working day and long enough that a
+// scanner walking a /8 cannot turn our bandwidth into Shodan's problem.
+const internetdbLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 20,
+    message: 'Too Many Requests',
+});
+app.get('/api/internetdb', requirePublicIP(), internetdbLimiter, cacheable(6 * 60 * 60), internetdbHandler);
 // Long Cache
 app.get('/api/map', cacheable(ONE_YEAR_CACHE), mapHandler);
 // Non-cacheable routes — auth-context, debug tools, or per-request lookups.
