@@ -26,7 +26,8 @@ import { askAbuseipdb, ABUSEIPDB_SOURCE } from './abuseipdb.js';
 import { askIp2location, IP2LOCATION_SOURCE } from './ip2location.js';
 import { askIpinfoLite, IPINFO_SOURCE } from './ipinfo-lite.js';
 import { askInternetdb, INTERNETDB_SOURCE } from './internetdb.js';
-import { errored } from './answer.js';
+import { errored, unavailable, STATUS } from './answer.js';
+import { outOfBudget, recordAsk } from './quota.js';
 
 const PROVIDERS = [
     { id: PROXYCHECK_SOURCE, ask: askProxycheck },
@@ -63,6 +64,29 @@ export const enabledProviders = () => {
 };
 
 /**
+ * Ask one vendor, unless this deployment's own budget says not to.
+ *
+ * A skip answers `unavailable` with its own reason, never `missing_key`: an
+ * operator reading the second would go configure a key they already have, when
+ * the thing to change is the ceiling.
+ *
+ * The charge lands *after* the adapter runs, and not at all for an
+ * `unavailable` answer — a vendor with no key asked nothing of anybody, and
+ * letting it consume the budget of the ones that did answer would throttle a
+ * deployment for calls it never made.
+ *
+ * @param {{id: string, ask: (ip: string) => Promise<object>}} entry
+ * @param {string} ip
+ * @returns {Promise<object>}
+ */
+const askWithinBudget = async (entry, ip) => {
+    if (outOfBudget(entry.id)) return unavailable(entry.id, 'quota');
+    const answer = await entry.ask(ip);
+    if (answer?.status !== STATUS.unavailable) recordAsk(entry.id);
+    return answer;
+};
+
+/**
  * Ask every enabled provider about one address, in parallel.
  *
  * `Promise.allSettled`, not `Promise.all`: these sources are redundant by
@@ -77,7 +101,7 @@ export const enabledProviders = () => {
 export const askProviders = async (ip) => {
     const entries = enabledProviders();
     if (!entries.length) return [];
-    const settled = await Promise.allSettled(entries.map((entry) => entry.ask(ip)));
+    const settled = await Promise.allSettled(entries.map((entry) => askWithinBudget(entry, ip)));
     return settled.map((result, index) => (
         result.status === 'fulfilled'
             ? result.value

@@ -17,13 +17,22 @@ import { Resolver } from 'node:dns/promises';
 import { interpretAbuseFeed, gatherTrustEvidence } from '../common/trust-signals.js';
 import { pickIpApiIsKey } from '../common/ipapi-key.js';
 import { INTERNETDB_SOURCE } from '../common/providers/internetdb.js';
+import { resetTrustCache } from '../common/trust-cache.js';
+import { resetQuota } from '../common/providers/quota.js';
 
-const ENV_KEYS = ['IPAPIIS_API_KEY', 'TRUST_IPAPIIS_FEED', 'TRUST_PROVIDERS', 'PROXYCHECK_API_KEY'];
+const ENV_KEYS = [
+    'IPAPIIS_API_KEY', 'TRUST_IPAPIIS_FEED', 'TRUST_PROVIDERS', 'PROXYCHECK_API_KEY',
+    'TRUST_PROVIDER_DAILY_MAX', 'TRUST_CACHE_TTL_SECONDS',
+];
 let envBackup = {};
 
 beforeEach(() => {
     envBackup = Object.fromEntries(ENV_KEYS.map((k) => [k, process.env[k]]));
     for (const k of ENV_KEYS) delete process.env[k];
+    // A warm cache would make the "off path asks nothing keyed" tests pass
+    // vacuously, so every test starts with an empty one.
+    resetTrustCache();
+    resetQuota();
 });
 afterEach(() => {
     for (const [k, v] of Object.entries(envBackup)) {
@@ -152,16 +161,27 @@ describe('gatherTrustEvidence and the optional feed', () => {
     // did or did not answer. Blocklist zones are answered at the Resolver, which
     // is not a fetch, so it is stubbed to a truthful NXDOMAIN.
     const stubNetwork = (feedBody) => {
+        const calls = [];
         Resolver.prototype.resolve4 = () => Promise.reject(
             Object.assign(new Error('ENOTFOUND'), { code: 'ENOTFOUND' }),
         );
         globalThis.fetch = async (url) => {
+            calls.push(String(url));
             if (String(url).includes('api.ipapi.is')) {
                 if (feedBody === 'boom') throw new Error('feed timeout');
                 return { ok: true, status: 200, json: async () => feedBody };
             }
+            if (String(url).includes('proxycheck.io')) {
+                const ip = String(url).split('/v2/')[1].split('?')[0];
+                return {
+                    ok: true,
+                    status: 200,
+                    json: async () => ({ status: 'ok', [ip]: { proxy: 'yes', type: 'Tor', risk: '1' } }),
+                };
+            }
             return { ok: false, status: 500, json: async () => ({}) };
         };
+        return calls;
     };
 
     afterEach(() => {
@@ -289,5 +309,46 @@ describe('gatherTrustEvidence and the optional feed', () => {
         assert.equal(evidence.privacy.proxy, null);
         assert.equal(evidence.privacy.hosting, null);
         assert.deepEqual(evidence.privacy.sources, [INTERNETDB_SOURCE]);
+    });
+
+    // The cache's whole purpose, asserted as a count rather than a feeling: one
+    // address costs one fan-out per clock, not one per request. A visitor sharing
+    // the link, a second reader of that link and the dossier that embeds the score
+    // all ask about the same address, and without this the key behind the opt-in
+    // feeds would be spent once per page view.
+    it('asks nothing on a second lookup of the same address', async () => {
+        process.env.TRUST_IPAPIIS_FEED = 'true';
+        process.env.IPAPIIS_API_KEY = 'test-key';
+        process.env.TRUST_PROVIDERS = 'proxycheck';
+        process.env.PROXYCHECK_API_KEY = 'test-key';
+        const calls = stubNetwork(SAMPLE);
+
+        const first = await gatherTrustEvidence('203.0.113.90');
+        const spent = calls.length;
+        assert.ok(spent > 0, 'the first lookup should have asked the feed and the vendor');
+        assert.ok(first.privacy.sources.includes('proxycheck.io'), 'the keyed vendor was not asked at all');
+
+        const second = await gatherTrustEvidence('203.0.113.90');
+
+        assert.equal(calls.length, spent, `${calls.length - spent} upstream calls on a cached address`);
+        assert.deepEqual(second.privacy, first.privacy, 'the cached answer is not the same answer');
+    });
+
+    // The budget and the cache are different switches, and a reader of the response
+    // has to be able to tell them apart: `missing_key` sends an operator to a key
+    // they already have, when the thing to change is the ceiling.
+    it('answers quota, not missing_key, once the declared budget is spent', async () => {
+        process.env.TRUST_PROVIDERS = 'proxycheck';
+        process.env.PROXYCHECK_API_KEY = 'test-key';
+        process.env.TRUST_PROVIDER_DAILY_MAX = '1';
+        const calls = stubNetwork(SAMPLE);
+
+        const first = await gatherTrustEvidence('203.0.113.91');
+        assert.deepEqual(first.privacy.status, [{ source: 'proxycheck.io', status: 'ok', reason: null }]);
+
+        const second = await gatherTrustEvidence('203.0.113.92');
+        const asked = calls.filter((url) => url.includes('proxycheck.io')).length;
+        assert.equal(asked, 1, 'a vendor over its budget was still asked');
+        assert.deepEqual(second.privacy.status, [{ source: 'proxycheck.io', status: 'unavailable', reason: 'quota' }]);
     });
 });

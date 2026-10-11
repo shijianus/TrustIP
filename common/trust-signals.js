@@ -38,6 +38,7 @@ import { pickIpApiIsKey } from './ipapi-key.js';
 import { checkBlocklists } from './dnsbl.js';
 import { lookupAsOrgName } from './as-org-db.js';
 import { rdapAsn } from './rdap.js';
+import { readEntry, writeEntry } from './trust-cache.js';
 import { askProviders } from './providers/registry.js';
 import { mergeProviders } from './providers/vote.js';
 import { answered, STATUS, errored as providerErrored } from './providers/answer.js';
@@ -55,26 +56,22 @@ const DOH_RELAYS = [
 ];
 
 // Address-level cache: registry facts about one IP or one prefix do not change
-// minute to minute, and the same address is looked up again the moment a
-// visitor shares the link. Entries expire after `ttlMs`; the cap stops a
-// scanner walking a /8 from growing this unboundedly.
+// minute to minute, and the same address is looked up again the moment a visitor
+// shares the link. `common/trust-cache.js` holds it — this process' LRU, plus
+// Workers KV when the deployment configures it, since a second instance or an
+// overnight restart used to mean asking RIPEstat for the whole world again. The
+// cap stops a scanner walking a /8 from growing the memory half unboundedly.
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
-const CACHE_MAX = 2000;
-const cache = new Map();
 
-const cached = (key, producer, ttlMs = CACHE_TTL_MS) => {
-    const hit = cache.get(key);
-    if (hit && hit.expires > Date.now()) return hit.value;
-    return producer().then((value) => {
-        if (cache.size >= CACHE_MAX) {
-            // Drop the oldest insert rather than a random entry: Map keeps
-            // insertion order, so the first key is the stale one.
-            const oldest = cache.keys().next().value;
-            if (oldest !== undefined) cache.delete(oldest);
-        }
-        cache.set(key, { value, expires: Date.now() + ttlMs });
-        return value;
-    });
+// `ttlMs` is the clock of the family being cached, not a per-call whim: the
+// registry families below keep the 6h default, and the opt-in keyed feeds
+// override it with `LIST_TTL_MS`, which an operator can set.
+const cached = async (key, producer, ttlMs = CACHE_TTL_MS) => {
+    const hit = await readEntry(key);
+    if (hit !== undefined) return hit;
+    const value = await producer();
+    writeEntry(key, value, ttlMs / 1000);
+    return value;
 };
 
 // --- name helpers --------------------------------------------------------
@@ -280,10 +277,24 @@ const blocklistSummary = (pass) => {
 // --- optional keyed abuse feed -------------------------------------------
 
 const IPAPI_SOURCE = 'ipapi.is';
-// The feed's own verdicts are re-evaluated on roughly a daily cycle, so a day is
-// as long as an answer stays worth repeating and short enough that a cleared
-// address is not accused for a week.
-const FEED_TTL_MS = 24 * 60 * 60 * 1000;
+// The list clock — how long an answer from a keyed feed or a vendor's anonymiser
+// database stays worth repeating. The vendors re-evaluate their own verdicts on
+// roughly a daily cycle, so a day is as long as an answer is worth holding and
+// short enough that a cleared address is not accused for a week.
+const DEFAULT_LIST_TTL_MS = 24 * 60 * 60 * 1000;
+const MIN_LIST_TTL_MS = 60 * 1000;
+const MAX_LIST_TTL_MS = 7 * DEFAULT_LIST_TTL_MS;
+
+// `TRUST_CACHE_TTL_SECONDS` lets a deployment trade freshness for the key's quota,
+// which is the same lever that decides whether these feeds are enabled at all. Both
+// ends are clamped rather than trusted: a five-second cache spends the quota on every
+// visitor anyway, and a decade-long one holds an accusation long past the evidence
+// that produced it. An unset or unparseable value is the default, not an error.
+export const listTtlMs = () => {
+    const raw = Number(process.env.TRUST_CACHE_TTL_SECONDS ?? '');
+    if (!Number.isInteger(raw) || raw <= 0) return DEFAULT_LIST_TTL_MS;
+    return Math.min(Math.max(raw * 1000, MIN_LIST_TTL_MS), MAX_LIST_TTL_MS);
+};
 
 // Off by default. The geolocation card already spends this key's quota one call
 // per visitor; wiring the same feed into every /api/trustscore and /api/dossier
@@ -350,7 +361,7 @@ const readAbuseFeed = (ip) => {
             logger.warn({ err, ip }, 'trust-score: abuse feed unavailable');
             return { failed: true, source: IPAPI_SOURCE };
         }
-    }, FEED_TTL_MS);
+    }, listTtlMs());
 };
 
 // --- the optional provider lists ------------------------------------------
@@ -374,9 +385,9 @@ const feedAnswer = (feed) => {
     });
 };
 
-// Cached on the feed's clock: a vendor's list is re-evaluated on roughly a daily
-// cycle, so a day is as long as an answer stays worth repeating.
-const readProviders = (ip) => cached(`prov:${ip}`, () => askProviders(ip), FEED_TTL_MS);
+// Cached on the list clock: a vendor's list is re-evaluated on roughly a daily
+// cycle, and one address costs one call per vendor however many switches want it.
+const readProviders = (ip) => cached(`prov:${ip}`, () => askProviders(ip), listTtlMs());
 
 // --- the gatherer --------------------------------------------------------
 
