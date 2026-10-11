@@ -144,6 +144,41 @@
                     </p>
                 </div>
             </div>
+
+            <!-- The road the names took, kept apart from the addresses above. One rule
+                 decides what this row means: a resolver whose country is not the exit's
+                 is the split tunnel not covering DNS, which is the commonest way a
+                 "working" proxy leaks a location. Nothing is claimed when either side
+                 is unknown. -->
+            <div v-if="dnsResolvers.length || dnsRunning" class="mb-4">
+                <p class="mb-1.5 text-[0.85em] text-muted-foreground">
+                    {{ t('home.query.dnsTitle', { n: dnsResolvers.length }) }}
+                </p>
+                <div class="flex flex-wrap gap-2">
+                    <span
+                        v-for="row in dnsResolvers" :key="row.ip"
+                        data-mask="ip"
+                        class="flex min-w-0 items-center gap-1.5 overflow-hidden rounded-[6px] border border-dashed bg-card px-2.5 py-1.5 font-mono text-[0.85em]"
+                        :title="row.provider">
+                        <Icon
+                            v-if="row.country_code"
+                            :icon="'circle-flags:' + row.country_code.toLowerCase()"
+                            class="size-4 shrink-0 rounded-[2px]" />
+                        <span class="jn-nums truncate">{{ row.ip }}</span>
+                        <span
+                            v-if="resolverDiverges(row)"
+                            class="shrink-0 rounded-full bg-warning-soft px-1.5 py-0.5 text-[10px] font-sans font-semibold text-warning-soft-fg">
+                            {{ t('home.query.dnsDiverges') }}
+                        </span>
+                    </span>
+                    <p v-if="dnsRunning && !dnsResolvers.length" class="text-[0.88em] text-muted-foreground">
+                        {{ t('home.query.probing') }}
+                    </p>
+                </div>
+                <p class="mt-1.5 text-[0.82em] leading-relaxed text-muted-foreground">
+                    {{ t('home.query.dnsNote') }}
+                </p>
+            </div>
         </div>
     </section>
 </template>
@@ -176,6 +211,11 @@ const props = defineProps({
     egressIps: { type: Array, default: () => [] },
     geolocations: { type: Object, default: () => ({}) },
     splitRunning: { type: Boolean, default: false },
+    // The recursor(s) answering this browser's DNS lookups. Kept out of the exit list
+    // above on purpose: a resolver address belongs to whoever resolves for you, and
+    // presenting it as one of your own exits would be a different claim entirely.
+    dnsResolvers: { type: Array, default: () => [] },
+    dnsRunning: { type: Boolean, default: false },
     // Which of those addresses the routing table has decided the visitor *is* — the
     // same answer the table's own panel is built on, read from one source so the two
     // cannot name different addresses for one network.
@@ -206,6 +246,14 @@ const geo6 = computed(() => cards.value.find((c) => c.ip && String(c.ip).include
 // `utils/egress-attribution.js` for why a rented exit and the machine behind it are
 // two different answers to two different questions.
 const classified = computed(() => props.attribution?.primary || null);
+
+// Both sides must name a country before the row may say anything: an unplaced
+// resolver is a lookup that failed, not a resolver at home.
+const resolverDiverges = (row) => {
+    const exit = props.geolocations[classified.value]?.country_code
+        || props.geolocations[props.egressIps[0]]?.country_code;
+    return Boolean(row.country_code) && Boolean(exit) && row.country_code !== exit;
+};
 
 // The one address in this column: the one the visitor came to read, at the page's
 // largest type, linking to the dossier rather than offering a copy button. Every

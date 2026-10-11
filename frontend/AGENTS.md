@@ -26,7 +26,10 @@ Every file opens with a header comment stating its purpose — read those.
 ## Routing
 
 `data/rail.js` is the single registry of destinations; `router/index.js` builds
-one route per entry backed by a section or an advanced tool. Add the rail item
+one route per entry backed by a section or an advanced tool. A tool row may carry
+`props` (bound by both `StandaloneTool.vue` and the drawer's `component :is`), which
+is how one component serves several destinations: `AiServiceCheck.vue` is `/claude`
+and `/gpt` as two rows with a different `service`, never two templates. Add the rail item
 and the route, the header row and the standalone-chrome flag follow — a
 hand-written `<router-link>` is how the row and the table disagree.
 
@@ -57,6 +60,16 @@ and never shipped to the browser (why: api/AGENTS.md):
 
 - **Helpers shared with the backend live in `common/`**, re-exported through a thin `utils/` bridge so consumers keep `@/utils/...` imports (`utils/valid-ip.js`).
 - **Helper placement:** Vue reactivity / lifecycle → `composables/` (`useXxx`); otherwise `utils/` (never `use-` prefixed). `lib/` stays shadcn-only. A pure function beside a composable exports from that composable's file.
+- **The backend's address is a build flag, not a code change.** Every call site
+  writes `/api/...`; `SITE_FUNCTIONS=1 vite build` bakes in a boot-time `fetch`
+  rebase (`utils/site-functions-api.js`, installed from `main.js`) that sends
+  same-origin `/api/*` to `/functions/v1/app/*`, which is where a Qoder Sites
+  deployment can put server code. Unset, the bundle is untouched and the Express
+  server answers `/api` as always. Third-party calls (traces, Globalping, DNS-leak
+  providers, IP echoes) are never rebased — they are not this app's backend.
+  The same build renames the `pt-BR` chunk to `pt_BR`: a locale tag plus a content
+  hash spells a credential-shaped token, and the publishing platform rejects the
+  artifact for it. The locale code itself is unchanged everywhere else.
 - **A module a test imports uses relative specifiers with extensions** (`../store.js`, `../utils/getips/index.js`), not `@/`. The runner is plain `node --test`: it has no Vite alias resolution, so one `@/` in a chain makes the whole file unimportable and the module quietly goes untested — which is how `use-ip-cards.js` lost its settle-check coverage. `@/` stays the right choice for anything only the app loads (`*.vue` files, `data/`, `router/`).
 
 ### Events, commands, the report

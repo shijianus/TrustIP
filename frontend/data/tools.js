@@ -16,6 +16,11 @@
 //   emoji                — card glyph + drawer header glyph
 //   titleKey / noteKey   — i18n keys for the tool title and one-line description
 //   component            — lazy import of the tool's .vue (drawer + standalone)
+//   props                — bindings both hosts pass to `component :is`. The rail
+//                          carries one destination per subject, so a component that
+//                          serves several of them (`AiServiceCheck.vue` is Claude and
+//                          ChatGPT) is two registry rows over one template rather
+//                          than two copies of a measurement.
 //   requiresOriginalSite — gate: only shown on the original site (private API +
 //                          sign-in required); omitted == public tool
 
@@ -26,6 +31,13 @@ export const ADVANCED_TOOLS = [
   { slug: 'dnsresolver', emoji: '📟', titleKey: 'dnsresolver.Title', noteKey: 'advancedtools.DNSResolverNote', component: () => import('@/components/advanced-tools/DnsResolver.vue') },
   { slug: 'censorshipcheck', emoji: '🚧', titleKey: 'censorshipcheck.Title', noteKey: 'advancedtools.CensorshipCheck', component: () => import('@/components/advanced-tools/CensorshipCheck.vue') },
   { slug: 'aichk', emoji: '🧭', titleKey: 'aiCheck.Title', noteKey: 'advancedtools.AiCheckNote', component: () => import('@/components/advanced-tools/AiCheck.vue') },
+  // One AI vendor per destination, the way the reference site's visitor asks about
+  // one vendor at a time. `AiServiceCheck.vue` is the same measurement the aggregate
+  // page makes, narrowed to the service this row names.
+  { slug: 'claudechk', emoji: '🤖', titleKey: 'claudechk.Title', noteKey: 'advancedtools.ClaudeCheck', component: () => import('@/components/advanced-tools/AiServiceCheck.vue'), props: { service: 'claude' } },
+  { slug: 'gptchk', emoji: '🧠', titleKey: 'gptchk.Title', noteKey: 'advancedtools.GptCheck', component: () => import('@/components/advanced-tools/AiServiceCheck.vue'), props: { service: 'chatgpt' } },
+  { slug: 'cfchk', emoji: '🌩️', titleKey: 'cfchk.Title', noteKey: 'advancedtools.CloudflareCheck', component: () => import('@/components/advanced-tools/CloudflareCheck.vue') },
+  { slug: 'ainews', emoji: '📰', titleKey: 'ainews.Title', noteKey: 'advancedtools.AiNews', component: () => import('@/components/advanced-tools/AiNews.vue') },
   { slug: 'whois', emoji: '📓', titleKey: 'whois.Title', noteKey: 'advancedtools.Whois', component: () => import('@/components/advanced-tools/Whois.vue') },
   { slug: 'macchecker', emoji: '🗄️', titleKey: 'macchecker.Title', noteKey: 'advancedtools.MacChecker', component: () => import('@/components/advanced-tools/MacChecker.vue') },
   { slug: 'ipcalculator', emoji: '🔢', titleKey: 'ipcalculator.Title', noteKey: 'advancedtools.IpCalculator', component: () => import('@/components/advanced-tools/IpCalculator.vue') },

@@ -113,6 +113,61 @@
       </Card>
     </div>
 
+    <!-- Every address this browser hands out, not only the one a STUN server
+         reflected. The cards above answer "did the network say who I am"; this table
+         answers the broader question a visitor compares against browserleaks-style
+         results — what does each ICE path leak, including the interface addresses the
+         browser emits whether or not any server replied. A `host` row is therefore
+         never counted as a leak, and the verdict row says which kinds appeared. -->
+    <div class="mt-4 jn-card rounded-[var(--radius)] p-4">
+      <SectionTitle :title="t('webrtc.CandTitle')">
+        <template #aside>
+          <VerdictChip
+            v-if="candState === 'done'"
+            :tone="candTone"
+            :label="candVerdict"
+          />
+          <span v-else-if="candState === 'running'" class="text-xs text-muted-foreground">{{ t('webrtc.StatusTesting') }}</span>
+        </template>
+      </SectionTitle>
+
+      <div v-if="candidates.length" class="overflow-x-auto">
+        <table class="w-full border-collapse text-sm">
+          <thead>
+            <tr class="border-b text-start">
+              <th scope="col" class="py-2 pe-3 text-start text-xs font-medium uppercase tracking-wide text-muted-foreground">{{ t('webrtc.CandColType') }}</th>
+              <th scope="col" class="py-2 pe-3 text-start text-xs font-medium uppercase tracking-wide text-muted-foreground">{{ t('webrtc.CandColAddress') }}</th>
+              <th scope="col" class="py-2 pe-3 text-start text-xs font-medium uppercase tracking-wide text-muted-foreground">{{ t('webrtc.CandColScope') }}</th>
+              <th scope="col" class="py-2 text-start text-xs font-medium uppercase tracking-wide text-muted-foreground">{{ t('webrtc.CandColPath') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(row, i) in candidates" :key="`${row.raw}-${i}`" class="border-b last:border-0">
+              <td class="py-2 pe-3 whitespace-nowrap">{{ t(`webrtc.NATType.${row.type}`) }}</td>
+              <td class="py-2 pe-3 min-w-0">
+                <span class="break-all font-mono text-xs">{{ row.address || '—' }}</span>
+              </td>
+              <td class="py-2 pe-3">
+                <VerdictChip
+                  :tone="row.public ? 'warn' : 'muted'"
+                  :label="row.public ? t('webrtc.CandPublic') : t('webrtc.CandPrivate')"
+                />
+              </td>
+              <td class="py-2 text-xs font-normal text-muted-foreground">
+                {{ [row.protocol, row.port].filter(Boolean).join(' · ') || '—' }}
+                <span class="whitespace-nowrap"> · {{ t('webrtc.CandVia', { url: candServer }) }}</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p v-else-if="candState === 'done'" class="text-sm leading-relaxed text-muted-foreground">
+        {{ t('webrtc.CandNone') }}
+      </p>
+      <p class="mt-2 text-xs leading-relaxed text-muted-foreground">{{ t('webrtc.CandNote') }}</p>
+    </div>
+
     <!-- Section banner slot (data-driven; see InfoBanner.vue) -->
     <InfoBanner section="webrtc" :settled="hasEverSettled" />
   </section>
@@ -132,12 +187,15 @@ import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/component
 import { useStatusTone, ipFieldTone, isFieldPending as isFieldPendingShared } from '@/composables/use-status-tone.js';
 import { createMaskGate } from '@/composables/use-info-mask.js';
 import { useMaxmind } from '@/composables/use-maxmind.js';
-import { STUN_SERVERS, gatherStunCandidate, natTypeCodeOf } from '@/utils/webrtc-ice.js';
+import { STUN_SERVERS, gatherStunCandidate, gatherAllCandidates, natTypeCodeOf } from '@/utils/webrtc-ice.js';
+import { isUsablePublicIP } from '@/utils/valid-ip.js';
 import { Play, MapPin, EthernetPort, Flower, Network, RotateCw, FileText, ChevronDown } from '@lucide/vue';
 import { Icon } from '@iconify/vue';
 import FitText from '@/components/widgets/FitText.vue';
 import CopyButton from '@/components/widgets/CopyButton.vue';
 import InfoBanner from '@/components/widgets/InfoBanner.vue';
+import SectionTitle from '@/components/widgets/SectionTitle.vue';
+import VerdictChip from '@/components/widgets/VerdictChip.vue';
 import { INLINE_TIERS } from '@/composables/use-fit-text.js';
 
 const { t } = useI18n();
@@ -164,6 +222,51 @@ const stunServers = reactive(STUN_SERVERS.map((server) => ({
 
 // WebRTC can be absent entirely: privacy-hardened browsers.
 const isWebRtcAvailable = typeof RTCPeerConnection === 'function';
+
+// The candidate enumeration asks one server, not all four: a `host` candidate is the
+// browser repeating its own interfaces, so every pass would report the same list, and
+// four peer connections for one finding is four times the UDP for nothing new.
+const candServer = STUN_SERVERS[0].url;
+const candidates = ref([]);
+const candState = ref('idle');
+
+const runCandidateGather = (signal) => {
+  candidates.value = [];
+  candState.value = 'running';
+  return gatherAllCandidates(candServer, { signal, timeoutMs: 6000 }).then((result) => {
+    if (result.reason === 'aborted') return;
+    candidates.value = (result.candidates || []).map((row) => ({
+      ...row,
+      public: Boolean(row.ip) && isUsablePublicIP(row.ip),
+    }));
+    candState.value = 'done';
+    // Same recorder the cards use: an address this browser gave out is an address the
+    // visitor may want looked up later, and the IP page it links to is the only place
+    // that says what it is. A `host` address is excluded — it is a LAN name, not
+    // something the internet can see.
+    const fresh = candidates.value.filter((row) => row.public && row.ip);
+    if (fresh.length) {
+      IPArray.value = [...IPArray.value, ...fresh.map((row) => ({ ip: row.ip, country: '' }))];
+    }
+  });
+};
+
+// The verdict is about the reflection, not the interface address: a `host` row is
+// this machine's own LAN name and every browser emits it, while an address a server
+// said back is the finding the cards above already report. Both are listed, because
+// the point of this table is to show what each path produced.
+const candTone = computed(() => {
+  if (!candidates.value.length) return 'muted';
+  return candidates.value.some((row) => row.public) ? 'warn' : 'ok-fast';
+});
+
+const candVerdict = computed(() => {
+  if (!candidates.value.length) return t('webrtc.CandNone');
+  const publicCount = candidates.value.filter((row) => row.public).length;
+  return publicCount
+    ? t('webrtc.CandPublicSeen', { n: publicCount })
+    : t('webrtc.CandPrivateOnly');
+});
 
 // One controller per pass, so a refresh or an unmount stops ICE gathering rather
 // than leaving four peer connections running until their own timeouts expire.
@@ -301,6 +404,11 @@ const checkAllWebRTC = async (isRefresh) => {
     server.org = t('webrtc.StatusTesting');
     return checkSTUNServer(server);
   });
+
+  // Alongside the cards, on the same controller: one refresh must not leave an
+  // earlier enumeration gathering after the section has moved on.
+  const gathered = runCandidateGather(gatherAbort.signal);
+  promises.push(gathered);
 
   const allSettledPromise = Promise.allSettled(promises);
   const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 6000));

@@ -20,7 +20,7 @@
           <span aria-hidden="true">{{ tool.emoji }}</span>
           {{ t(tool.titleKey) }}
         </h1>
-        <component :is="toolComponent" v-if="toolComponent" />
+        <component :is="toolComponent" v-if="toolComponent" v-bind="tool.props" />
       </div>
     </main>
 

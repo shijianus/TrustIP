@@ -11,6 +11,8 @@
         :geolocations="splitGeos"
         :split-running="splitRunning"
         :attribution="splitAttribution"
+        :dns-resolvers="dnsResolvers"
+        :dns-running="dnsRunning"
         @toggle-mask="toggleInfoMask" />
       <SiteSplitTest
         :table-rows="splitTableRows"
@@ -85,6 +87,7 @@ import { useShortcuts } from '@/composables/use-shortcuts.js';
 import { useDocumentMeta } from '@/composables/use-document-meta.js';
 import { useSiteSplit } from '@/composables/use-site-split.js';
 import { useEgressLeak } from '@/composables/use-egress-leak.js';
+import { useDnsEgress } from '@/composables/use-dns-egress.js';
 import { fetchWithTimeout } from '@/utils/fetch-with-timeout.js';
 import { isUsablePublicIP } from '@/utils/valid-ip.js';
 
@@ -171,6 +174,11 @@ const geoLookup = async (ip) => {
 // needs an address, not a second record of a test the visitor never asked to run.
 const { leaks, running: leakRunning, run: runLeakCheck } = useEgressLeak({ geoLookup });
 
+// The recursor, read in the same quiet way. It is not an exit address and never joins
+// that list: it is the witness that says whether DNS went out with the tunnel or stayed
+// at home, which is the thing a split network is most often wrong about.
+const { resolvers: dnsResolvers, running: dnsRunning, run: runDnsCheck } = useDnsEgress({ geoLookup });
+
 const {
     tableRows: splitTableRows, geolocations: splitGeos,
     egressIps, answered: splitAnswered, planFailed: splitPlanFailed,
@@ -217,6 +225,7 @@ onMounted(() => {
     // and takes as long as their slowest destination — nothing else on the page
     // depends on either of them.
     runLeakCheck();
+    runDnsCheck();
     runSplit();
 });
 </script>

@@ -32,8 +32,9 @@ const readPack = (code) => JSON.parse(fs.readFileSync(new URL(`${code}.json`, lo
 describe('RAIL_ITEMS', () => {
   it('is the rail in order, one page per tool', () => {
     assert.deepEqual(RAIL_ITEMS.map((item) => item.path), [
-      '/', '/ipinfo', '/ip', '/link', '/webrtc', '/dns', '/ai', '/speedtest',
-      '/ping', '/status', '/whois', '/tools',
+      '/', '/ipinfo', '/ip', '/link', '/webrtc', '/dns', '/ai',
+      '/claude', '/gpt', '/cloudflare', '/speedtest',
+      '/ping', '/status', '/whois', '/news', '/tools',
     ]);
   });
 
@@ -145,7 +146,8 @@ describe('STANDALONE_RAIL_NAMES', () => {
     assert.ok(!STANDALONE_RAIL_NAMES.includes('home'), 'the dashboard keeps the fixed Nav');
     assert.ok(!STANDALONE_RAIL_NAMES.includes('ip'), 'until its route lands, /ip is the dashboard');
     assert.deepEqual(RAIL_PAGE_ITEMS.map((item) => item.id), [
-      'ipinfo', 'link', 'webrtc', 'dns', 'ai', 'speedtest', 'ping', 'status', 'whois', 'tools',
+      'ipinfo', 'link', 'webrtc', 'dns', 'ai', 'claude', 'gpt', 'cloudflare',
+      'speedtest', 'ping', 'status', 'whois', 'news', 'tools',
     ]);
   });
 });

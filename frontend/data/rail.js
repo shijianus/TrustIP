@@ -38,10 +38,24 @@ export const RAIL_ITEMS = [
   // Which address the AI services actually see — a leak test in the same family as
   // the two above it, because all three ask what left the machine.
   { id: 'ai', path: '/ai', tool: 'aichk' },
+  // The aggregate row above answers "am I splitting?". These two answer the question
+  // a visitor with one subscription asks instead — what does *that* service see, and
+  // is that address a problem — so each is its own destination, not a filter on the
+  // aggregate page.
+  { id: 'claude', path: '/claude', tool: 'claudechk' },
+  { id: 'gpt', path: '/gpt', tool: 'gptchk' },
+  // Which edge answered, over which protocol, and what that edge's risk controls
+  // will make of this address. Same family again: the address the CDN sees is a
+  // second ruler for "where did my traffic leave from".
+  { id: 'cloudflare', path: '/cloudflare', tool: 'cfchk' },
   { id: 'speedtest', path: '/speedtest', section: 'SpeedTest' },
   { id: 'ping', path: '/ping', tool: 'pingtest' },
   { id: 'status', path: '/status', tool: 'servicestatus' },
   { id: 'whois', path: '/whois', tool: 'whois' },
+  // Vendor and model news, from the sources this build can actually read. It sits
+  // after the lookups because unlike every item above it, nothing here is measured
+  // about the visitor.
+  { id: 'news', path: '/news', tool: 'ainews' },
   { id: 'tools', path: '/tools', section: 'AdvancedTools' },
 ];
 

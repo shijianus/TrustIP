@@ -6,6 +6,14 @@
 // gathering would mean two definitions of what "a leak" is, and the whole point of
 // the primary-address rule is that there is only one.
 //
+// `gatherStunCandidate` settles on the first public candidate and nothing else, and
+// `gatherAllCandidates` below records every candidate the browser emits. The two are
+// deliberately separate functions rather than one with a flag: the first answers
+// "did the network tell me who I am" and its answer feeds the primary-address rule,
+// the second answers "what does this browser hand out over each path" and its answer
+// is only ever displayed. Merging them would let a `host` address — which a browser
+// emits whether or not any STUN server replied — be read as a leak.
+//
 // What counts as an answer, and why the rest does not: a `host` candidate is the
 // browser repeating its own interface address, which it emits whether or not the
 // STUN server ever replied, and a `relay` candidate is the TURN server's address —
@@ -46,6 +54,99 @@ export const natTypeCodeOf = (candidate) => {
 const isConstructionBlocked = (error) => error?.name === 'NotAllowedError'
     || error?.name === 'NotSupportedError'
     || (error instanceof TypeError && /not a constructor/i.test(error?.message || ''));
+
+/**
+ * Record every ICE candidate one gathering pass produces, and settle only when the
+ * browser stops producing them.
+ *
+ * This is the multi-method pass a visitor reads as "what does each path hand out":
+ * `host` (this machine's own interface address), `srflx`/`prflx` (what a STUN server
+ * reflected back) and `relay` (a TURN server's address) are each kept as their own
+ * row, because telling them apart is the whole finding — a `host` address is not a
+ * leak, and a `relay` address is somebody else's machine.
+ *
+ * Resolves `{ ok: true, candidates }` when ICE reports end-of-candidates or the
+ * gathering state reaches `complete`, and with whatever arrived when the timeout
+ * runs out — a partial list is still a list. `unavailable` and `aborted` mean the
+ * same findings as in `gatherStunCandidate`. Never rejects.
+ *
+ * @param {string} url
+ * @returns {Promise<object>}
+ */
+export const gatherAllCandidates = (url, { timeoutMs = 6000, signal } = {}) => new Promise((resolve) => {
+    const candidates = [];
+    let pc = null;
+    let timer = null;
+    let settled = false;
+
+    const settle = (result) => {
+        if (settled) return;
+        settled = true;
+        if (timer !== null) { clearTimeout(timer); timer = null; }
+        if (pc) {
+            try { pc.close(); } catch { /* already gone */ }
+            pc = null;
+        }
+        if (signal) signal.removeEventListener('abort', onAbort);
+        resolve(result);
+    };
+    const onAbort = () => settle({ ok: false, reason: 'aborted', candidates });
+
+    if (typeof RTCPeerConnection !== 'function') {
+        settle({ ok: false, reason: 'unavailable', candidates });
+        return;
+    }
+    if (signal?.aborted) { settle({ ok: false, reason: 'aborted', candidates }); return; }
+    if (signal) signal.addEventListener('abort', onAbort, { once: true });
+
+    try {
+        pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:' + url }] });
+        if (typeof pc.createDataChannel !== 'function' || typeof pc.createOffer !== 'function') {
+            pc = null;
+            settle({ ok: false, reason: 'unavailable', candidates });
+            return;
+        }
+
+        pc.onicegatheringstatechange = () => {
+            if (pc?.iceGatheringState === 'complete') settle({ ok: true, candidates });
+        };
+        pc.onicecandidate = (event) => {
+            if (!event.candidate) { settle({ ok: true, candidates }); return; }
+            const line = String(event.candidate.candidate || '');
+            const fields = line.split(' ');
+            const type = natTypeCodeOf(line);
+            const ip = CANDIDATE_IP_RE.exec(line)?.[0] || null;
+            // A candidate whose address is an mDNS `.local` name yields no IP here.
+            // That is the browser's privacy mode working, so the row keeps the raw
+            // address rather than dropping the candidate.
+            const address = ip ?? (fields[4] || null);
+            if (type === 'unknown' && !address) return;
+            candidates.push({
+                type,
+                address,
+                ip,
+                protocol: fields[2] || null,
+                port: fields[5] || null,
+                related: fields[9] || null,
+                raw: line,
+            });
+        };
+
+        pc.createDataChannel('');
+        pc.createOffer()
+            .then((offer) => pc.setLocalDescription(offer))
+            .catch(() => { /* a failed offer still reports whatever candidates gathered */ });
+
+        timer = setTimeout(() => { timer = null; settle({ ok: candidates.length > 0, reason: candidates.length ? null : 'error', candidates }); }, timeoutMs);
+    } catch (error) {
+        if (isConstructionBlocked(error)) {
+            settle({ ok: false, reason: 'unavailable', candidates });
+            return;
+        }
+        console.error('ICE gather error:', error);
+        settle({ ok: false, reason: 'error', candidates });
+    }
+});
 
 /**
  * Ask one STUN server what it can see of this machine.

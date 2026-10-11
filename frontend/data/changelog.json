@@ -2278,6 +2278,50 @@
           "ru": "Новый инструмент: Проверка исходящего адреса ИИ — какой адрес на самом деле видят ChatGPT, Claude и Gemini, относится ли этот выход к объявленным поддерживаемым регионам и оценка доверия к этому адресу",
           "pt-BR": "Nova ferramenta: Checagem de saída de IA — qual endereço ChatGPT, Claude e Gemini veem de fato, se essa saída está numa região declarada atendida e a nota de confiança desse endereço"
         }
+      },
+      {
+        "type": "add",
+        "change": {
+          "en": "Four new pages, laid out the way the IP-tool sites you already use arrange them: a Claude egress check, a ChatGPT · Codex egress check, a Cloudflare edge check, and an AI incident feed",
+          "zh": "新增四个页面，按常用 IP 工具站的编排组织：Claude 出口检测、ChatGPT · Codex 出口检测、Cloudflare 边缘节点检测，以及 AI 服务事件时间线",
+          "zh-TW": "新增四個頁面，依常用 IP 工具站的編排組織：Claude 出口偵測、ChatGPT · Codex 出口偵測、Cloudflare 邊緣節點偵測，以及 AI 服務事件時間軸",
+          "fr": "Quatre nouvelles pages, rangées comme celles des outils IP que vous utilisez déjà : contrôle de sortie Claude, contrôle ChatGPT · Codex, contrôle de la bordure Cloudflare et flux d'incidents IA",
+          "ru": "Четыре новые страницы в привычной для IP-сервисов компоновке: проверка выхода Claude, проверка ChatGPT · Codex, проверка граничного узла Cloudflare и лента сбоев ИИ-сервисов",
+          "pt-BR": "Quatro novas páginas, organizadas como as dos sites de IP que você já usa: checagem de saída do Claude, checagem ChatGPT · Codex, checagem da borda da Cloudflare e painel de incidentes de IA"
+        }
+      },
+      {
+        "type": "add",
+        "change": {
+          "en": "Each AI page now answers one question at a time — the address that service sees, its trust score, what kind of network it belongs to, and what else leaves this machine alongside it",
+          "zh": "每个 AI 页面各自回答一个问题：那个服务看到的地址、它的信任评分、该地址属于什么网络，以及还有哪些信息与它一同离开这台机器",
+          "zh-TW": "每個 AI 頁面各自回答一個問題：那個服務看到的位址、它的信任評分、該位址屬於什麼網路，以及還有哪些資訊與它一同離開這台裝置",
+          "fr": "Chaque page IA répond à une seule question : l'adresse que ce service voit, son score de confiance, la nature du réseau concernée, et ce qui sort de cette machine avec elle",
+          "ru": "Каждая ИИ-страница отвечает на один вопрос: какой адрес видит сервис, его индекс доверия, к какому типу сети он относится и что ещё уходит из этой машины вместе с ним",
+          "pt-BR": "Cada página de IA responde a uma pergunta por vez: o endereço que o serviço vê, o índice de confiança dele, o tipo de rede a que pertence e o mais que sai desta máquina junto com ele"
+        }
+      },
+      {
+        "type": "improve",
+        "change": {
+          "en": "The navigation rail carries every destination as its own page, so a capability this build cannot measure shows up as a stated gap in the layout instead of a missing row",
+          "zh": "导航栏把每个功能都列成独立页面：本构建无法测量的能力会在原位置显式标注为空缺，而不是整行消失",
+          "zh-TW": "導覽列將每個功能列為獨立頁面：本建置無法量測的能力會在原位明確標示為空缺，而不是整列消失",
+          "fr": "Le rail de navigation donne une page par destination : une capacité que cette version ne mesure pas apparaît comme un manque déclaré dans la mise en page, et non comme une ligne absente",
+          "ru": "Панель навигации выносит каждый раздел на отдельную страницу: то, что эта сборка не измеряет, показано как явный пробел в макете, а не как пропавшая строка",
+          "pt-BR": "A barra de navegação agora dá uma página a cada destino: o que esta versão não mede aparece como uma lacuna declarada no layout, e não como uma linha que sumiu"
+        }
+      },
+      {
+        "type": "add",
+        "change": {
+          "en": "WebRTC now lists every address the browser hands out — local interface, reflected, relayed — not only the public one, and the homepage summary reads which DNS resolver is answering you alongside your exits",
+          "zh": "WebRTC 现在会列出浏览器交出的每一个地址——本机接口、被反射的、经由中继的——而不只是公网那一个；首页汇总也会同步显示正在应答的 DNS 解析器",
+          "zh-TW": "WebRTC 現在會列出瀏覽器交出的每一個位址——本機介面、被反射的、中繼轉發的——而不只是公網那一個；首頁摘要也會同步顯示正在應答的 DNS 解析器",
+          "fr": "WebRTC liste désormais chaque adresse remise par le navigateur — interface locale, reflétée, relayée — et plus la seule publique ; l'aperçu signale aussi le résolveur DNS qui vous répond",
+          "ru": "WebRTC теперь перечисляет все выданные браузером адреса — адрес интерфейса, отражённый и ретранслированный, а не только публичный; сводная страница показывает и отвечающий DNS-резолвер",
+          "pt-BR": "O WebRTC agora lista todo endereço que o navegador entrega — interface local, refletido, retransmitido — e não apenas o público; o resumo da inicial também mostra qual resolvedor DNS está te respondendo"
+        }
       }
     ]
   }
