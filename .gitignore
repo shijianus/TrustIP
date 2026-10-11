@@ -80,3 +80,6 @@ public/ads.txt
 
 # Private AI context (per-machine, not for the public repo)
 local-context.md
+
+# Qoder Sites publication descriptor (machine-local preview record, never source)
+*.qoder.site

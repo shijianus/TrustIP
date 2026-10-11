@@ -31,7 +31,7 @@ attribution, so the upstream name stays in comments wherever it names the
 | UI | shadcn-vue copy-in primitives (reka-ui) · lucide · circle-flags · vaul drawer · vue-sonner |
 | Backend | Express 5 · pino (`common/logger.js`, `pino-http` opt-in) |
 | Optional, env-gated | Firebase Auth · Sentry on both halves |
-| Delivery | PWA `manifest.webmanifest` only, no service worker · tests on `node --test` |
+| Delivery | PWA `manifest.webmanifest` only, no service worker · tests on `node --test` · optional Qoder Sites target: `functions/` (one edge `app` function, key-free routes only) with `dev/function-local.mjs` as its local harness |
 
 Already in the bundle — reuse before adding a dependency: chart.js ·
 chartjs-chart-geo · @cloudflare/speedtest · maxmind · whoiser · thumbmarkjs ·
@@ -45,6 +45,7 @@ ua-parser-js · detect-gpu · @vueuse/core.
 | `pnpm build` / `pnpm preview` | Front-end production build / Vite preview of it |
 | `pnpm start` | Built front-end + backend |
 | `pnpm test` / `pnpm check` | `tests/*.test.js` / `test` + `build` — the pre-commit self-check |
+| `SITE_FUNCTIONS=1 pnpm build` | Same build, addressed to a Qoder Sites edge function instead of `/api` (see frontend/AGENTS.md) |
 
 **pnpm only** (`packageManager` pin, committed lockfile, `pnpm-workspace.yaml`
 `allowBuilds` approvals); npm / yarn would produce a competing lockfile.

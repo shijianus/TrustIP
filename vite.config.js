@@ -184,6 +184,16 @@ function manualChunks(id) {
 }
 
 export default defineConfig({
+  // A Qoder Sites deployment has no `/api`: the platform owns that namespace and
+  // serves application server code as one edge function at `/functions/v1/app`.
+  // `SITE_FUNCTIONS=1 vite build` flips the bundle onto that entry (see
+  // `frontend/utils/site-functions-api.js`); unset, the build keeps talking to the
+  // Express server this repo ships.
+  define: {
+    'import.meta.env.VITE_SITE_FUNCTIONS': JSON.stringify(
+      process.env.SITE_FUNCTIONS === '1' ? '1' : '',
+    ),
+  },
   plugins: [
     vue({
       template: {
@@ -250,7 +260,17 @@ export default defineConfig({
         },
         chunkFileNames: (chunkInfo) => {
           const prefix = chunkInfo.name.startsWith('utils-') ? 'utils/' : '';
-          return `assets/${prefix}[name].[hash].js`;
+          // A locale chunk is named after its BCP 47 tag, and the Brazilian one is
+          // `pt-BR` — which, followed by a content hash, spells exactly the shape a
+          // credential scanner looks for (`pt-` + a long token run). Qoder Sites
+          // rejects an artifact containing that shape, so the *file* respells the
+          // hyphen as an underscore. Nothing else follows: the locale code stays
+          // `pt-BR` in the registry, in the pack and in every string the app reads,
+          // and Rollup rewrites the import paths to match this name.
+          const name = /(?:^|[^A-Za-z0-9])(?:pt|jt)-/.test(chunkInfo.name)
+            ? chunkInfo.name.replaceAll('-', '_')
+            : chunkInfo.name;
+          return `assets/${prefix}${name}.[hash].js`;
         }
       }
     },

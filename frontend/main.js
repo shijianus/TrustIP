@@ -8,11 +8,21 @@ import { analytics } from './utils/analytics';
 import { getTimezoneInfo } from './utils/time-utils';
 import { isRunningAsPwa } from './utils/pwa';
 import { readAuthHint } from './utils/auth-hint';
+import { installSiteFunctionsApi } from './utils/site-functions-api';
 import { unregisterLegacyServiceWorker } from './utils/unregister-service-worker';
 import { addCollection } from '@iconify/vue';
 
 import { detectOS } from './utils/system-detect';
 import './style/style.css'
+
+// Where this bundle's own back end is. In the self-hosted app the answer is
+// `/api`, written literally at every call site; on a Qoder Sites deployment the
+// platform owns `/api` and the server half of the site is one edge function. The
+// flag is baked in at build time, so a normal build never carries the rewrite and
+// never pays for it at runtime.
+if (import.meta.env.VITE_SITE_FUNCTIONS === '1') {
+    installSiteFunctionsApi();
+}
 
 // vConsole — mobile on-screen devtools. Dev-only AND mobile-only.
 // Sets `window.__vConsoleActive` so `frontend/utils/shortcut.js` can disable
