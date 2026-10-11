@@ -360,6 +360,7 @@
       "link": "Conectividade de rede",
       "webrtc": "Teste de vazamento WebRTC",
       "dns": "Teste de vazamento de DNS",
+      "ai": "Saída de IA",
       "speedtest": "Teste de velocidade",
       "ping": "Latência global",
       "status": "Status dos serviços",
@@ -373,6 +374,7 @@
       "link": "Acesso",
       "webrtc": "WebRTC",
       "dns": "DNS",
+      "ai": "IA",
       "speedtest": "Velocidade",
       "ping": "Ping",
       "status": "Status",
@@ -893,6 +895,7 @@
     "EnhancedDnsLeakTest": "Captura todos os resolvedores recursivos, com análise de ECS e DNSSEC",
     "RuleTestNote": "Verifique as regras do software de proxy",
     "CensorshipCheck": "Verifique em quais países um site está bloqueado",
+    "AiCheckNote": "Veja qual endereço ChatGPT, Claude e Gemini recebem de fato, e se essa saída está numa região que o serviço declara atender",
     "ServiceStatus": "Verifique a disponibilidade ao vivo de serviços conhecidos de IA e desenvolvimento, e se um incidente recente explica a falha que você está vendo",
     "Whois": "Pesquise informações de registro de domínio/IP",
     "InvisibilityTest": "Verifique se você está usando proxy ou VPN",
@@ -2171,6 +2174,41 @@
         "Search": "Busca",
         "Speed": "Rede"
       }
+    }
+  },
+  "aiCheck": {
+    "Title": "Checagem de saída de IA",
+    "Note": "Qual endereço cada serviço de IA realmente vê neste navegador e se essa saída está numa região que o serviço declara atender. Cada requisição sai do seu próprio navegador pelo seu caminho real; este servidor não carrega nenhuma delas.",
+    "Run": "Checar as saídas",
+    "Checking": "Checando…",
+    "Control": "Endereço de controle",
+    "Ruler": "Referência",
+    "RulerNote": "O endereço que 1.0.0.1 informa sobre este navegador — a mesma requisição que o cartão de IP da página inicial. Um serviço que responde com outro endereço está saindo por outro caminho.",
+    "Egress": "Endereço de saída",
+    "Country": "País",
+    "Regions": "Disponibilidade",
+    "RoundTrip": "Ida e volta",
+    "Split": "Roteamento",
+    "Trust": "Nota de confiança",
+    "Source": "Lista oficial",
+    "RegionSupported": "Na lista publicada",
+    "RegionUnsupported": "Fora da lista publicada",
+    "RegionNoList": "Nenhuma lista que esta versão conseguiu ler",
+    "RegionNoCountry": "Este endereço não nomeia um país",
+    "TrustFailed": "Sem nota de confiança",
+    "SplitYes": "Dividido",
+    "SplitNo": "Mesma saída",
+    "SplitUnknown": "Sem comparação",
+    "Caveat": "Uma lista de disponibilidade é a política do fornecedor sobre contas, não uma previsão sobre a requisição de hoje: OpenAI e Anthropic escrevem que acessar fora da lista pode levar ao bloqueio da conta, e ambas também recusam endereços de data centers dentro dos países que atendem. A nota ao lado de cada saída é a parte que mede o endereço.",
+    "locNote": {
+      "addressAnnotation": "Uma anotação sobre o endereço, não um país",
+      "europeUnion": "União Europeia — um bloco, não um país",
+      "unknownCountry": "País desconhecido"
+    },
+    "reason": {
+      "noEndpoint": "Sem endpoint de trace: o host respondeu, mas não com o endereço que viu. Ou ele não fica atrás do Cloudflare, ou esse caminho está bloqueado.",
+      "timeout": "Silêncio após seis segundos — o eco não voltou.",
+      "blocked": "Não foi possível alcançar. O navegador não diz se foi recusa de CORS, caminho bloqueado ou conexão morta, então a causa fica sem nome."
     }
   }
 }

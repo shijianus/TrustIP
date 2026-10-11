@@ -2267,6 +2267,17 @@
           "ru": "Теперь проверяются сайты каждой страны, где определяется ваш адрес, а строки каждой страны упорядочены по реальному местному использованию",
           "pt-BR": "Cada país onde seus endereços resolvem agora tem seus sites testados, com as linhas de cada país ordenadas pelo uso real de quem mora lá"
         }
+      },
+      {
+        "type": "add",
+        "change": {
+          "en": "New tool: AI Egress Check — which address ChatGPT, Claude and Gemini each actually see, whether that exit is in a region the service says it serves, and the trust score of the address it came from",
+          "zh": "新工具：AI 出口检测——查看 ChatGPT、Claude 与 Gemini 各自实际看到的地址、该出口是否在服务方公布的范围内，以及那个出口地址的信任分",
+          "zh-TW": "新工具：AI 出口檢測——查看 ChatGPT、Claude 與 Gemini 各自實際看見的位址、該出口是否在服務方公布的範圍內，以及那個出口位址的信任分",
+          "fr": "Nouvel outil : Vérification de la sortie IA — quelle adresse ChatGPT, Claude et Gemini voient réellement, si cette sortie est dans une zone déclarée desservie, et le score de confiance de cette adresse",
+          "ru": "Новый инструмент: Проверка исходящего адреса ИИ — какой адрес на самом деле видят ChatGPT, Claude и Gemini, относится ли этот выход к объявленным поддерживаемым регионам и оценка доверия к этому адресу",
+          "pt-BR": "Nova ferramenta: Checagem de saída de IA — qual endereço ChatGPT, Claude e Gemini veem de fato, se essa saída está numa região declarada atendida e a nota de confiança desse endereço"
+        }
       }
     ]
   }

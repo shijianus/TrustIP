@@ -360,6 +360,7 @@
       "link": "网络连通性",
       "webrtc": "WebRTC 泄露测试",
       "dns": "DNS 泄露测试",
+      "ai": "AI 出口",
       "speedtest": "网速测试",
       "ping": "全球延迟",
       "status": "服务可用性",
@@ -373,6 +374,7 @@
       "link": "连通",
       "webrtc": "WebRTC",
       "dns": "DNS",
+      "ai": "AI",
       "speedtest": "网速",
       "ping": "延迟",
       "status": "可用性",
@@ -893,6 +895,7 @@
     "EnhancedDnsLeakTest": "捕获所有递归解析器，并分析 ECS 与 DNSSEC",
     "RuleTestNote": "检查代理软件的规则设置",
     "CensorshipCheck": "检查一个网站在全球哪些国家被封锁",
+    "AiCheckNote": "查看 ChatGPT、Claude 与 Gemini 各自实际收到的地址，以及那个出口是否落在服务方公布的支持范围内",
     "ServiceStatus": "查看知名 AI 与开发者服务的实时可用性，确认你遇到的中断是不是对方的故障",
     "Whois": "对域名或 IP 进行 Whois 查询",
     "InvisibilityTest": "猜猜看我是否知道你挂了代理",
@@ -2171,6 +2174,41 @@
         "Search": "搜索",
         "Speed": "网络"
       }
+    }
+  },
+  "aiCheck": {
+    "Title": "AI 出口检测",
+    "Note": "每个 AI 服务实际看到的浏览器出口地址，以及该出口是否落在该服务公布的服务范围内。所有请求都从你自己的浏览器沿真实链路发出，这台服务器不经手任何流量。",
+    "Run": "检测出口",
+    "Checking": "检测中…",
+    "Control": "对照地址",
+    "Ruler": "基准",
+    "RulerNote": "1.0.0.1 为这个浏览器报出的地址——与首页 IP 卡片发出的是同一个请求，因此某个服务若报出别的地址，说明它走的是另一条出口。",
+    "Egress": "出口地址",
+    "Country": "国家/地区",
+    "Regions": "开放范围",
+    "RoundTrip": "往返耗时",
+    "Split": "分流",
+    "Trust": "信任分",
+    "Source": "官方清单",
+    "RegionSupported": "在官方清单内",
+    "RegionUnsupported": "不在官方清单内",
+    "RegionNoList": "本构建无法读到任何清单",
+    "RegionNoCountry": "这个地址不对应任何国家/地区",
+    "TrustFailed": "没有信任分答案",
+    "SplitYes": "分流中",
+    "SplitNo": "同一出口",
+    "SplitUnknown": "无从比较",
+    "Caveat": "开放清单是厂商对账号的政策，不是对今晚这次请求的预测：OpenAI 与 Anthropic 都写明，从清单之外访问可能导致账号被封，而且两家都会拒绝其服务国家境内数据中心地址的流量。每个出口旁的分数，才是对这个地址的测量。",
+    "locNote": {
+      "addressAnnotation": "这是地址的属性标注，不是国家/地区",
+      "europeUnion": "欧盟——是一个区域组织，不是国家",
+      "unknownCountry": "国家/地区未知"
+    },
+    "reason": {
+      "noEndpoint": "没有 trace 端点：主机有回应，但没有报出它看到的地址。要么它不由 Cloudflare 前置，要么这条路径被封了。",
+      "timeout": "六秒内没有回应——回显始终没有回来。",
+      "blocked": "无法连接。浏览器不会说明这是 CORS 拒绝、路径被封锁还是连接已断，所以原因保持不指名。"
     }
   }
 }

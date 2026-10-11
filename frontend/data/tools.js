@@ -25,6 +25,7 @@ export const ADVANCED_TOOLS = [
   { slug: 'ruletest', emoji: '🚏', titleKey: 'ruletest.Title', noteKey: 'advancedtools.RuleTestNote', component: () => import('@/components/advanced-tools/RuleTest.vue') },
   { slug: 'dnsresolver', emoji: '📟', titleKey: 'dnsresolver.Title', noteKey: 'advancedtools.DNSResolverNote', component: () => import('@/components/advanced-tools/DnsResolver.vue') },
   { slug: 'censorshipcheck', emoji: '🚧', titleKey: 'censorshipcheck.Title', noteKey: 'advancedtools.CensorshipCheck', component: () => import('@/components/advanced-tools/CensorshipCheck.vue') },
+  { slug: 'aichk', emoji: '🛰️', titleKey: 'aiCheck.Title', noteKey: 'advancedtools.AiCheckNote', component: () => import('@/components/advanced-tools/AiCheck.vue') },
   { slug: 'whois', emoji: '📓', titleKey: 'whois.Title', noteKey: 'advancedtools.Whois', component: () => import('@/components/advanced-tools/Whois.vue') },
   { slug: 'macchecker', emoji: '🗄️', titleKey: 'macchecker.Title', noteKey: 'advancedtools.MacChecker', component: () => import('@/components/advanced-tools/MacChecker.vue') },
   { slug: 'ipcalculator', emoji: '🔢', titleKey: 'ipcalculator.Title', noteKey: 'advancedtools.IpCalculator', component: () => import('@/components/advanced-tools/IpCalculator.vue') },

@@ -35,6 +35,9 @@ export const RAIL_ITEMS = [
   { id: 'link', path: '/link', section: 'Connectivity' },
   { id: 'webrtc', path: '/webrtc', section: 'WebRTC' },
   { id: 'dns', path: '/dns', section: 'DNSLeakTest' },
+  // Which address the AI services actually see — a leak test in the same family as
+  // the two above it, because all three ask what left the machine.
+  { id: 'ai', path: '/ai', tool: 'aichk' },
   { id: 'speedtest', path: '/speedtest', section: 'SpeedTest' },
   { id: 'ping', path: '/ping', tool: 'pingtest' },
   { id: 'status', path: '/status', tool: 'servicestatus' },

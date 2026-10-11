@@ -360,6 +360,7 @@
       "link": "網路連通性",
       "webrtc": "WebRTC 洩漏測試",
       "dns": "DNS 洩漏測試",
+      "ai": "AI 出口",
       "speedtest": "網速測試",
       "ping": "全球延遲",
       "status": "服務狀態",
@@ -373,6 +374,7 @@
       "link": "連通",
       "webrtc": "WebRTC",
       "dns": "DNS",
+      "ai": "AI",
       "speedtest": "網速",
       "ping": "延遲",
       "status": "可用性",
@@ -893,6 +895,7 @@
     "EnhancedDnsLeakTest": "找出所有正在使用的遞迴 DNS 解析器，並分析 ECS 與 DNSSEC",
     "RuleTestNote": "檢查代理軟體的規則設定",
     "CensorshipCheck": "檢查一個網站在全球哪些國家被封鎖",
+    "AiCheckNote": "查看 ChatGPT、Claude 與 Gemini 各自實際收到的位址，以及那個出口是否落在服務方公布的支持範圍內",
     "ServiceStatus": "檢視知名 AI 與開發者服務的即時可用性，確認你遇到的中斷是不是對方的故障",
     "Whois": "對網域名稱或 IP 進行 Whois 查詢",
     "InvisibilityTest": "猜猜看我是否知道你掛了代理",
@@ -2171,6 +2174,41 @@
         "Search": "搜尋",
         "Speed": "網路"
       }
+    }
+  },
+  "aiCheck": {
+    "Title": "AI 出口檢測",
+    "Note": "每個 AI 服務實際看到的瀏覽器出口位址，以及該出口是否落在該服務公布的服務範圍內。所有請求都從你自己的瀏覽器沿真實路徑發出，這台伺服器不經手任何流量。",
+    "Run": "檢測出口",
+    "Checking": "檢測中…",
+    "Control": "對照位址",
+    "Ruler": "基準",
+    "RulerNote": "1.0.0.1 為這個瀏覽器回報的位址——與首頁 IP 卡片發出的是同一個請求，因此某個服務若回報別的位址，代表它走的是另一條出口。",
+    "Egress": "出口位址",
+    "Country": "國家/地區",
+    "Regions": "開放範圍",
+    "RoundTrip": "往返時間",
+    "Split": "分流",
+    "Trust": "信任分",
+    "Source": "官方清單",
+    "RegionSupported": "在官方清單內",
+    "RegionUnsupported": "不在官方清單內",
+    "RegionNoList": "本次建置無法讀取任何清單",
+    "RegionNoCountry": "這個位址不對應任何國家/地區",
+    "TrustFailed": "沒有信任分答案",
+    "SplitYes": "分流中",
+    "SplitNo": "同一出口",
+    "SplitUnknown": "無從比較",
+    "Caveat": "開放清單是廠商對帳號的政策，不是對今晚這個請求的預測：OpenAI 與 Anthropic 都寫明，從清單之外存取可能導致帳號被封，而且兩家都會拒絕其服務國家境內資料中心位址的流量。每個出口旁的分數，才是對這個位址的量測。",
+    "locNote": {
+      "addressAnnotation": "這是位址的屬性標註，不是國家/地區",
+      "europeUnion": "歐盟——是一個區域組織，不是國家",
+      "unknownCountry": "國家/地區未知"
+    },
+    "reason": {
+      "noEndpoint": "沒有 trace 端點：主機有回應，但沒有回報它看到的位址。要嘛它不由 Cloudflare 前置，要嘛這條路徑被封鎖。",
+      "timeout": "六秒內沒有回應——回顯始終沒有回來。",
+      "blocked": "無法連線。瀏覽器不會說明這是 CORS 拒絕、路徑被封鎖，還是連線已斷，所以原因保持不指名。"
     }
   }
 }

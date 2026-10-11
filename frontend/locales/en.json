@@ -360,6 +360,7 @@
       "link": "Network Connectivity",
       "webrtc": "WebRTC Leak Test",
       "dns": "DNS Leak Test",
+      "ai": "AI Egress",
       "speedtest": "Speed Test",
       "ping": "Global Latency",
       "status": "Service Status",
@@ -373,6 +374,7 @@
       "link": "Reach",
       "webrtc": "WebRTC",
       "dns": "DNS",
+      "ai": "AI",
       "speedtest": "Speed",
       "ping": "Ping",
       "status": "Status",
@@ -893,6 +895,7 @@
     "EnhancedDnsLeakTest": "Captures every recursive resolver, with ECS and DNSSEC analysis",
     "RuleTestNote": "Check the rule settings of proxy software",
     "CensorshipCheck": "Check which countries a website is blocked in",
+    "AiCheckNote": "See which address ChatGPT, Claude and Gemini each actually receive, and whether that exit is in a region the service says it serves",
     "ServiceStatus": "Check the live availability of well-known AI and developer services, and whether a recent incident explains the outage you're seeing",
     "Whois": "Search for domain/IP registration information",
     "InvisibilityTest": "Check if you are using a proxy or VPN",
@@ -2171,6 +2174,41 @@
         "Search": "Search",
         "Speed": "Network"
       }
+    }
+  },
+  "aiCheck": {
+    "Title": "AI Egress Check",
+    "Note": "Which address each AI service sees this browser coming from, and whether that exit is in a region the service publishes as served. Every request leaves your own browser along your real path; this server carries none of it.",
+    "Run": "Check the exits",
+    "Checking": "Checking…",
+    "Control": "Control address",
+    "Ruler": "Ruler",
+    "RulerNote": "The address 1.0.0.1 reports for this browser — the same request the homepage’s IP card makes, so a service that answers something else is leaving by a different way.",
+    "Egress": "Egress address",
+    "Country": "Country",
+    "Regions": "Availability",
+    "RoundTrip": "Round trip",
+    "Split": "Routing",
+    "Trust": "Trust score",
+    "Source": "Official list",
+    "RegionSupported": "On the published list",
+    "RegionUnsupported": "Not on the published list",
+    "RegionNoList": "No list this build could read",
+    "RegionNoCountry": "This address names no country",
+    "TrustFailed": "No trust answer",
+    "SplitYes": "Split",
+    "SplitNo": "Same exit",
+    "SplitUnknown": "Not comparable",
+    "Caveat": "An availability list is a vendor’s policy about accounts, not a prediction about tonight’s request: OpenAI and Anthropic both write that access from outside the listed set may get an account blocked, and both also refuse addresses in datacenters inside the countries they do serve. The score beside each exit is the part that measures the address.",
+    "locNote": {
+      "addressAnnotation": "An annotation on the address, not a country",
+      "europeUnion": "European Union — a bloc, not a country",
+      "unknownCountry": "Country unknown"
+    },
+    "reason": {
+      "noEndpoint": "No trace endpoint: the host answered, but not with the address it saw. Either it is not fronted by Cloudflare, or that path is blocked.",
+      "timeout": "Silent after six seconds — the echo never came back.",
+      "blocked": "Could not be reached. A browser will not say whether that was a CORS refusal, a blocked path or a dead connection, so the cause stays unnamed."
     }
   }
 }
