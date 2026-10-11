@@ -45,6 +45,7 @@ import trustScoreHandler from './api/trust-score.js';
 import ipDossierHandler from './api/ip-dossier.js';
 import dnsblHandler from './api/dnsbl.js';
 import internetdbHandler from './api/internetdb.js';
+import ipCardHandler from './api/ip-card.js';
 // User
 import validateConfigs from './api/configs.js';
 import getUserinfo from './api/get-user-info.js';
@@ -229,12 +230,23 @@ const cacheable = (maxAge) => (req, res, next) => {
     const maxAgeSeconds = typeof maxAge === 'function' ? maxAge(req) : maxAge;
     if (maxAgeSeconds) {
         res.locals.cacheControl = `public, max-age=${maxAgeSeconds}`;
+        // Both writers, not just `json`: a route that answers with bytes (`/api/ip-card`
+        // sends a PNG) went out `no-store` while its handler believed it was cached,
+        // and a shared image is the one response that pays for a cold registry fan-out
+        // on every viewer of the same link.
         const originalJson = res.json.bind(res);
         res.json = function (body) {
             if (res.statusCode < 400) {
                 res.setHeader('Cache-Control', res.locals.cacheControl);
             }
             return originalJson(body);
+        };
+        const originalSend = res.send.bind(res);
+        res.send = function (body) {
+            if (res.statusCode < 400) {
+                res.setHeader('Cache-Control', res.locals.cacheControl);
+            }
+            return originalSend(body);
         };
     }
     next();
@@ -330,6 +342,16 @@ const internetdbLimiter = rateLimit({
     message: 'Too Many Requests',
 });
 app.get('/api/internetdb', requirePublicIP(), internetdbLimiter, cacheable(6 * 60 * 60), internetdbHandler);
+// The shareable card is the same evidence as the score, drawn once: a PNG is a
+// published artifact, so it lives or dies by the same 24h clock the score it shows
+// sits behind — and it is asked for by the same address, so a per-IP limiter of the
+// dossier's size is the right ceiling.
+const ipCardLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 10,
+    message: 'Too Many Requests',
+});
+app.get('/api/ip-card', requirePublicIP(), ipCardLimiter, cacheable(24 * 60 * 60), ipCardHandler);
 // Long Cache
 app.get('/api/map', cacheable(ONE_YEAR_CACHE), mapHandler);
 // Non-cacheable routes — auth-context, debug tools, or per-request lookups.

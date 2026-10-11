@@ -146,6 +146,7 @@ pnpm start
 | api.ipapi.is 與 ip2location.io 來源卡片 | 各自的關鍵（兩者都必須帶著金鑰） |
 | 信任分數裡的匿名器清單與濫用統計 | `TRUST_PROVIDERS` 加上各供應商的金鑰 —— 預設關閉，頁面會把它宣告成缺口，而不是當成「乾淨」 |
 | 跨程序共用的信任快取 | 與分享報告相同的 `CLOUDFLARE_*` 三項；沒有設定時快取只屬於單一程序，那是可用設定，不是壞掉的設定 |
+| 可分享的 IP 卡片（PNG） | `IP_CARD_FONT_PATH`，或任何可讀的系統字型 —— 沒有字型就沒有卡片，按鈕會自己隱藏 |
 | Earth Online（狀態動態、訪客地圖、到訪 beacon） | `VITE_PULSE_BEACON_URL`（本分支並未執行這個後端） |
 | 應用程式內的文件助理與說明中心入口 | `VITE_DOCS_URL`（上游的 GitBook 站台） |
 | Curl API 卡片 | `VITE_CURL_IPV4_DOMAIN` / `IPV6` / `IPV64` —— 由你自己對外服務的網域名稱 |

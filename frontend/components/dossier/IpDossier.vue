@@ -359,6 +359,18 @@
                                 {{ a.label }}
                             </RouterLink>
                         </div>
+                        <!-- The shareable card. Gated on a font rather than a key:
+                             a host that cannot draw text answers 503, so the button
+                             is hidden instead of offering a download that fails. -->
+                        <div v-if="canShareCard"
+                            class="mt-3 flex flex-wrap gap-2 border-t border-dashed border-border pt-3 lg:flex-col lg:items-stretch">
+                            <a :href="cardUrl" :download="`trustip-${target}.png`"
+                                class="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium text-foreground-secondary no-underline transition-colors hover:bg-accent">
+                                <ImageIcon class="size-4 shrink-0" />
+                                {{ t('ipCard.download') }}
+                            </a>
+                            <CopyButton :value="cardUrl" :tooltip="t('ipCard.copyLink')" :aria-label="t('ipCard.copyLink')" />
+                        </div>
                     </div>
 
                     <div class="jn-card rounded-[var(--radius)] p-4">
@@ -396,7 +408,8 @@ import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { RouterLink } from 'vue-router';
 import { Icon } from '@iconify/vue';
-import { ArrowUpRight, Globe2, Activity, Radar, Gauge } from '@lucide/vue';
+import { ArrowUpRight, Globe2, Activity, Radar, Gauge, Image as ImageIcon } from '@lucide/vue';
+import { useMainStore } from '@/store.js';
 import { isValidIP } from '@/utils/valid-ip.js';
 import { formatIsoDate } from '@/utils/time-utils.js';
 import { fetchWithTimeout } from '@/utils/fetch-with-timeout.js';
@@ -427,6 +440,15 @@ const router = useRouter();
 const { t, locale } = useI18n();
 
 const target = ref(route.params.ip || route.query.q || '');
+
+const store = useMainStore();
+// The card is rendered by this server, so it needs the language as a query
+// parameter rather than the app's runtime locale — and the address has to be in
+// the URL, because `/ip` without one is the visitor's own, which the server
+// cannot see.
+const cardUrl = computed(() => `/api/ip-card?ip=${encodeURIComponent(target.value)}`
+    + `&lang=${encodeURIComponent(store.lang || 'en')}`);
+const canShareCard = computed(() => Boolean(store.configs?.ipCard) && isValidIP(target.value));
 const draft = ref(target.value);
 const dossier = ref(null);
 const error = ref('');

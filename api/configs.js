@@ -1,6 +1,7 @@
 // Validate environment variables exist to enable/disable frontend features
 import { isReportSharingConfigured } from './share-report.js';
 import { isMaxMindReady } from '../common/maxmind-service.js';
+import { isCardConfigured } from '../common/ip-card.js';
 
 export default (req, res) => {
     // defensive; app.get() in backend-server.js already gates method, but a
@@ -35,6 +36,10 @@ export default (req, res) => {
         // key-free source (its entry has no other reason to be off) and burns
         // a request per lookup on a deployment that will never answer.
         maxmind: isMaxMindReady(),
+        // Not a credential: the card needs a font this host can read, and a host
+        // without one answers 503. The UI hides the share button on this flag rather
+        // than offering a link that downloads an error page.
+        ipCard: isCardConfigured(),
     };
     let result = {};
     for (const key in envConfigs) {

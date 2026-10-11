@@ -156,6 +156,7 @@ named in [.env.example](.env.example):
 | api.ipapi.is and ip2location.io source cards | their respective keys (both are key-only services) |
 | Anonymiser lists and the abuse census in the trust score | `TRUST_PROVIDERS` plus each vendor's key — off by default, and a gap the page declares rather than a clean bill |
 | A trust cache shared between processes | the same `CLOUDFLARE_*` trio as report links; without it the cache is per-process, which is a working configuration, not a broken one |
+| Shareable IP card (PNG) | `IP_CARD_FONT_PATH` or any readable system font — no font, no card, and the button hides itself |
 | Earth Online (status feed, visitor map, visit beacon) | `VITE_PULSE_BEACON_URL` (a backend this fork does not run) |
 | In-app docs assistant and Help Center links | `VITE_DOCS_URL` (the upstream's GitBook site) |
 | Curl API card | `VITE_CURL_IPV4_DOMAIN` / `IPV6` / `IPV64` — hostnames you serve yourself |

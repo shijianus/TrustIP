@@ -2210,5 +2210,13 @@
       "timeout": "Silêncio após seis segundos — o eco não voltou.",
       "blocked": "Não foi possível alcançar. O navegador não diz se foi recusa de CORS, caminho bloqueado ou conexão morta, então a causa fica sem nome."
     }
+  },
+  "ipCard": {
+    "kind": "Tipo de rede",
+    "score": "Nota de confiança",
+    "generated": "Evidências reunidas",
+    "footnote": "Registros públicos · TrustMy.IP",
+    "download": "Baixar cartão",
+    "copyLink": "Copiar link do cartão"
   }
 }

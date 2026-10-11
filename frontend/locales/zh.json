@@ -2210,5 +2210,13 @@
       "timeout": "六秒内没有回应——回显始终没有回来。",
       "blocked": "无法连接。浏览器不会说明这是 CORS 拒绝、路径被封锁还是连接已断，所以原因保持不指名。"
     }
+  },
+  "ipCard": {
+    "kind": "网络类型",
+    "score": "信任分",
+    "generated": "证据汇总于",
+    "footnote": "公开注册机构数据 · TrustMy.IP",
+    "download": "下载卡片",
+    "copyLink": "复制卡片链接"
   }
 }

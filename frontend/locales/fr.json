@@ -2210,5 +2210,13 @@
       "timeout": "Silence après six secondes — l’écho n’est jamais revenu.",
       "blocked": "Joint impossible. Un navigateur ne dit pas s’il s’agit d’un refus CORS, d’un chemin bloqué ou d’une connexion morte ; la cause reste donc anonyme."
     }
+  },
+  "ipCard": {
+    "kind": "Type de réseau",
+    "score": "Score de confiance",
+    "generated": "Preuves rassemblées",
+    "footnote": "Données publiques de registres · TrustMy.IP",
+    "download": "Télécharger la carte",
+    "copyLink": "Copier le lien de la carte"
   }
 }
