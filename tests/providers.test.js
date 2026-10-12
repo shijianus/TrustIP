@@ -359,6 +359,30 @@ describe('providers/ipinfo-lite.js', () => {
         assert.equal(answer.lon, -122.0841);
     });
 
+    // Captured live from `api.ipinfo.io/lite/8.8.8.8` with a free token — the body
+    // this deployment actually receives. Privacy detection is a separate paid
+    // product, so no anonymity flag is in it, and an adapter that understood only
+    // the paid nested shape would read `asn: "AS15169"` as no ASN at all.
+    it('reads the flat free-tier body for the facts it does carry', () => {
+        const answer = interpretIpinfoLite({
+            ip: '8.8.8.8',
+            asn: 'AS15169',
+            as_name: 'Google LLC',
+            as_domain: 'google.com',
+            country_code: 'US',
+            country: 'United States',
+            continent_code: 'NA',
+            continent: 'North America',
+        });
+        assert.equal(answer.status, 'ok');
+        assert.equal(answer.asn, 15169);
+        assert.equal(answer.asName, 'Google LLC');
+        assert.equal(answer.country, 'US', 'a display name is never an alpha-2');
+        assert.equal(answer.isProxy, null, 'a body with no privacy block clears nothing');
+        assert.equal(answer.isTor, null);
+        assert.equal(answer.isHosting, null);
+    });
+
     it('counts a Warp relay as an anonymising exit', () => {
         assert.equal(interpretIpinfoLite({ privacy: { relay: true } }).isVpn, true);
         assert.equal(interpretIpinfoLite({ privacy: {} }).isVpn, null, 'an empty block is not a denial');

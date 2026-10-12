@@ -8,9 +8,8 @@
 // adapter asks only where a token is configured, and reports `missing_key`
 // where it is not.
 //
-// The `abuse` object is not read, and the task's suggested Lite URL is kept
-// exactly as documented: `company`, `asn` and `privacy` are the three objects
-// this build scores, and a registrant's street address is nobody's evidence.
+// The `abuse` object is not read: `company`, `asn` and `privacy` are what this
+// build scores, and a registrant's street address is nobody's evidence.
 
 import { fetchUpstream } from '../fetch-with-timeout.js';
 import {
@@ -44,6 +43,13 @@ export const interpretIpinfoLite = (body) => {
     if (body.error || body.bogon) return errored(IPINFO_SOURCE, body.bogon ? 'bogon' : 'vendor-error');
 
     const privacy = body.privacy && typeof body.privacy === 'object' ? body.privacy : {};
+    // Two live shapes. The paid body nests the ASN record (`asn: {route, type,
+    // domain}`, `company: {name}`) and answers `country` with an alpha-2. The free
+    // Lite body is flat — `asn: "AS15169"`, `as_name`, `as_domain`, `country_code` —
+    // and carries no privacy block, because privacy detection is a separate paid
+    // product. Reading only the nested shape turns the flat one into a null ASN plus
+    // a display name ("United States") where every consumer expects `US`.
+    const asnRecord = body.asn && typeof body.asn === 'object' ? body.asn : {};
     const { lat, lon } = splitLoc(body.loc);
     // A `relay` is Cloudflare Warp, an anonymising exit the vendor names
     // separately from a proxy — and it is the one field on this API that accuses
@@ -56,12 +62,13 @@ export const interpretIpinfoLite = (body) => {
         isProxy,
         isVpn,
         isTor: toFlag(privacy.tor),
-        isHosting: toFlag(privacy.hosting) ?? usageFlags(body.asn?.type).isHosting,
+        isHosting: toFlag(privacy.hosting) ?? usageFlags(asnRecord.type).isHosting,
         isMobile: null,
-        asn: toAsn(body.asn?.route ?? body.asn?.asn),
-        asName: toText(body.company?.name) || toText(body.asn?.domain),
-        country: toText(body.country),
-        usageType: toText(body.asn?.type),
+        asn: toAsn(asnRecord.route ?? asnRecord.asn ?? body.asn),
+        asName: toText(body.company?.name) || toText(asnRecord.domain)
+            || toText(body.as_name) || toText(body.as_domain),
+        country: toText(body.country_code) || toText(body.country),
+        usageType: toText(asnRecord.type),
         lat,
         lon,
         raw: body,
