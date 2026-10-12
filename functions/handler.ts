@@ -4,17 +4,20 @@
 // Express mounted as middleware, and the `Cache-Control` default of `no-store`
 // with opt-in `public, max-age=N` on 2xx/3xx only.
 //
-// Two deliberate absences. Rate limiting (`express-rate-limit` / `express-slow-down`)
-// is in-process state this runtime does not keep. And `requireReferer`: its
-// allow-list is `ALLOWED_DOMAINS` from the environment, which a key-free edge
-// deployment has no way to read — enforcing the empty default would 403 every
-// real visitor, so the gate is left to the platform's own origin binding.
+// Two things the Express app does that this file cannot copy. Rate limiting exists
+// here (see shared/rate-limit.js) but only per isolate: this runtime keeps no
+// memory shared across instances, so the ceiling is a brake on one abuser, not a
+// distributed counter. And `requireReferer` is left out entirely: its allow-list is
+// `ALLOWED_DOMAINS` from the environment, which a key-free edge deployment has no
+// way to read — enforcing the empty default would 403 every real visitor, so the
+// gate is left to the platform's own origin binding.
 
 import { json } from './shared/respond.js';
 import {
     requirePublicIP, requireValidDomain, requireValidPrefix,
     requireValidRecordType, requireValidProviderId,
 } from './shared/guards.js';
+import { clientIpOf, createRateLimiter, rateLimitConfig } from './shared/rate-limit.js';
 
 import configs from './shared/configs.js';
 import ipsb from './shared/geo-ipsb.js';
@@ -55,6 +58,14 @@ const ROUTES: Record<string, Route> = {
 
 const FUNCTION_PREFIX = '/functions/v1/app';
 
+// Built once per isolate, so the buckets survive across invocations of a warm
+// instance — which is the entire mechanism the limit has. A cold start begins
+// clean, and that is the documented scope rather than a bug to close.
+const { limit, windowMs } = rateLimitConfig(
+    typeof process === 'undefined' ? {} : process.env,
+);
+const rateLimit = createRateLimiter({ limit, windowMs });
+
 /**
  * The logical route name a URL asks for.
  *
@@ -86,6 +97,18 @@ const parseBody = async (request: Request): Promise<{ body?: unknown; error?: st
 
 const handler = async (request: Request): Promise<Response> => {
     const url = new URL(request.url);
+
+    // Before routing: the requests worth refusing are the ones that would have
+    // asked an upstream something, and a probe walking unknown paths costs the
+    // isolate too. Retry-After tells an honest client when to come back.
+    const verdict = rateLimit.check(clientIpOf(request.headers));
+    if (!verdict.allowed) {
+        return json(
+            { error: 'Too many requests' },
+            { status: 429, headers: { 'Retry-After': String(verdict.retryAfterSeconds) } },
+        );
+    }
+
     const name = routeNameOf(url.pathname);
     const route = ROUTES[name];
 

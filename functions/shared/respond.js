@@ -6,16 +6,16 @@
 // cache a failed lookup. Same rule here: `cacheSeconds` is ignored once the
 // status is 400 or above.
 
-const jsonHeaders = (cacheSeconds, status) => {
-    const headers = { 'Content-Type': 'application/json; charset=utf-8' };
+const jsonHeaders = (cacheSeconds, status, extra) => {
+    const headers = { 'Content-Type': 'application/json; charset=utf-8', ...extra };
     headers['Cache-Control'] = cacheSeconds && status < 400
         ? `public, max-age=${cacheSeconds}`
         : 'no-store';
     return headers;
 };
 
-export const json = (body, { status = 200, cacheSeconds = 0 } = {}) =>
-    new Response(JSON.stringify(body), { status, headers: jsonHeaders(cacheSeconds, status) });
+export const json = (body, { status = 200, cacheSeconds = 0, headers } = {}) =>
+    new Response(JSON.stringify(body), { status, headers: jsonHeaders(cacheSeconds, status, headers) });
 
 export const serverError = (message, extra = {}, { cacheSeconds = 0 } = {}) =>
     json({ error: message, ...extra }, { status: 500, cacheSeconds });

@@ -2333,6 +2333,28 @@
           "ru": "В hosted-сборке индекс доверия и IP-досье теперь прямо сообщают, что это развёртывание их не предоставляет, а не показывают сбой запроса: отсутствие возможности — это информация, а не авария",
           "pt-BR": "Na versão hospedada, a pontuação de confiança e o dossiê de IP agora dizem explicitamente que esta implantação não os oferece, em vez de exibir uma falha de consulta: capacidade ausente é informação, não indisponibilidade"
         }
+      },
+      {
+        "type": "add",
+        "change": {
+          "en": "The hosted API carries its own per-address request ceiling, so one script can no longer spend the free upstream quota every visitor depends on",
+          "zh": "托管版 API 自带按客户端地址的请求上限，一个脚本再也不能耗尽所有访客赖以应答的免费上游额度",
+          "zh-TW": "託管版 API 自帶依客戶端位址的請求上限，一個腳本再也無法耗盡所有訪客仰賴的免費上游額度",
+          "fr": "L'API hébergée applique son propre plafond de requêtes par adresse cliente : un script ne peut plus dépenser le quota amont gratuit dont dépendent tous les visiteurs",
+          "ru": "Hosted API вводит собственный потолок запросов на клиентский адрес: один скрипт больше не может израсходовать бесплатный лимит провайдера, от которого зависят все посетители",
+          "pt-BR": "A API hospedada aplica o próprio teto de requisições por endereço de cliente, então um script não pode mais gastar a cota gratuita do provedor upstream de que todos os visitantes dependem"
+        }
+      },
+      {
+        "type": "add",
+        "change": {
+          "en": "Whois now takes an autonomous system number as well as a domain and an address — AS15169, as15169 or the bare 15169 all resolve through IANA's bootstrap to whichever registry actually holds that number",
+          "zh": "Whois 现在除了域名和 IP 之外也接受自治系统编号——AS15169、as15169 或直接写 15169，都会经由 IANA 引导文件定位到真正持有该号码的注册机构",
+          "zh-TW": "Whois 現在除了網域名稱與 IP 之外也接受自治系統編號——AS15169、as15169 或直接寫 15169，都會經由 IANA 引導檔案定位到真正持有該號碼的註冊機構",
+          "fr": "Le WHOIS accepte désormais un numéro de système autonome en plus d'un domaine et d'une adresse : AS15169, as15169 ou le seul 15169 passent tous par l'annuaire IANA pour joindre le registre qui détient vraiment ce numéro",
+          "ru": "WHOIS теперь принимает и номер автономной системы, а не только домен и адрес: AS15169, as15169 или просто 15169 — все они через загрузочный реестр IANA попадают к тому регистратору, который действительно держит этот номер",
+          "pt-BR": "O Whois agora aceita um número de sistema autônomo além de domínio e endereço — AS15169, as15169 ou o puro 15169 passam pelo bootstrap da IANA até o registro que realmente detém esse número"
+        }
       }
     ]
   }
