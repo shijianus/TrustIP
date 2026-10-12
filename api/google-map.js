@@ -97,7 +97,7 @@ export default async (req, res) => {
         if (e?.code === 'ERR_STREAM_PREMATURE_CLOSE') return;
         logger.error({ err: e, latitude, longitude, language, CanvasMode }, 'google-map handler failed');
         if (!res.headersSent && !res.destroyed) {
-            return res.status(500).json({ error: e.message });
+            return res.status(500).json({ error: 'Upstream request failed' });
         }
         if (!res.destroyed) res.destroy();
     }

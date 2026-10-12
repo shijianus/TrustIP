@@ -1,5 +1,6 @@
 import { fetchUpstream } from '../common/fetch-with-timeout.js';
 import logger from '../common/logger.js';
+import { upstreamHeaders } from '../common/upstream-headers.js';
 
 export default async (req, res) => {
     const key = process.env.IPCHECKING_API_KEY;
@@ -16,9 +17,7 @@ export default async (req, res) => {
 
     try {
         const apiResponse = await fetchUpstream(url, {
-            headers: {
-                ...req.headers,
-            }
+            headers: upstreamHeaders(req),
         });
 
         if (!apiResponse.ok) {
@@ -29,6 +28,6 @@ export default async (req, res) => {
         res.json(data);
     } catch (error) {
         logger.error({ err: error }, 'get-user-info upstream request failed');
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'Upstream request failed' });
     }
 }

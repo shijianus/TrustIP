@@ -28,6 +28,7 @@ import { buildAsnHistoryBlock } from './asn-announcement-history.js';
 import { buildLatencyMatrix } from './latency-matrix.js';
 import { toBgpPrefix } from './bgp-prefix.js';
 import { isIPv6 } from './valid-ip.js';
+import { normalizeLang } from './lang-param.js';
 import logger from './logger.js';
 
 // Second-hop breadth. Two upstreams deep is enough to show the shape of a
@@ -75,7 +76,7 @@ const GEO_SOURCES = [
     {
         id: 'ipapicom',
         label: 'IP-API.com',
-        url: (ip, lang) => `http://ip-api.com/json/${ip}?fields=status,country,countryCode,regionName,city,lat,lon&lang=${lang}`,
+        url: (ip, lang) => `http://ip-api.com/json/${ip}?fields=status,country,countryCode,regionName,city,lat,lon&lang=${encodeURIComponent(normalizeLang(lang))}`,
         normalise: normaliseIpApi,
     },
 ];

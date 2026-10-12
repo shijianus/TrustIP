@@ -96,7 +96,8 @@ const createReport = async (req, res) => {
         return res.status(201).json({ id, expiresAt });
     } catch (error) {
         logger.error({ err: error }, 'Report share create failed');
-        return res.status(500).json({ error: error.message });
+        // Detail (KV error text) stays in the log, not the response.
+        return res.status(500).json({ error: 'Report storage failed' });
     }
 };
 
@@ -123,7 +124,7 @@ export const getReport = async (req, res) => {
         return res.status(200).json(JSON.parse(await response.text()));
     } catch (error) {
         logger.error({ err: error, reportId: req.params.id }, 'Report share read failed');
-        return res.status(500).json({ error: error.message });
+        return res.status(500).json({ error: 'Report storage failed' });
     }
 };
 

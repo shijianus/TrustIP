@@ -51,7 +51,7 @@ export default async (req, res) => {
             return res.json(ipinfo);
         } catch (e) {
             logger.error({ err: e, query }, 'Failed to get IP info');
-            return res.status(500).json({ error: e.message });
+            return res.status(500).json({ error: 'Upstream request failed' });
         }
     }
 
@@ -83,6 +83,6 @@ export default async (req, res) => {
             return res.status(404).json({ error: e.message });
         }
         logger.error({ err: e, query }, 'Failed to get RDAP info');
-        return res.status(500).json({ error: e.message });
+        return res.status(500).json({ error: 'Upstream request failed' });
     }
 };

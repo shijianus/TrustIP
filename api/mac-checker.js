@@ -42,7 +42,7 @@ export default async (req, res) => {
         res.json(modifyData(json));
     } catch (e) {
         logger.error({ err: e, mac: macAddress }, 'mac-checker handler failed');
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Upstream request failed' });
     }
 };
 

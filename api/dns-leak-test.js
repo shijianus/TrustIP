@@ -1,7 +1,8 @@
 // Enhanced DNS leak detection — thin proxy to the main IPCheck.ing API.
 //
 //   - validates the 32-hex token locally (fail fast before any network hop),
-//   - forwards request headers (notably Authorization: Bearer <Firebase ID>),
+//   - forwards an allow-list of request headers (notably Authorization:
+//     Bearer <Firebase ID>) — see common/upstream-headers.js,
 //   - attaches the apikey query param and forwards ?lang untouched,
 //   - passes the upstream status + JSON back to the caller verbatim so the
 //     frontend can surface "Sign in required" / "Invalid token" etc.
@@ -10,6 +11,7 @@
 
 import { fetchUpstream } from '../common/fetch-with-timeout.js';
 import logger from '../common/logger.js';
+import { upstreamHeaders } from '../common/upstream-headers.js';
 
 const TOKEN_RE = /^[0-9a-f]{32}$/;
 
@@ -39,7 +41,7 @@ export async function getSessionResult(req, res) {
 
     try {
         const apiResponse = await fetchUpstream(url, {
-            headers: { ...req.headers },
+            headers: upstreamHeaders(req),
         });
 
         // Parse as JSON if we can, otherwise just keep an empty object so the
@@ -50,6 +52,6 @@ export async function getSessionResult(req, res) {
         res.status(apiResponse.status).json(data);
     } catch (error) {
         logger.error({ err: error }, 'dnsleaktest upstream fetch failed');
-        res.status(502).json({ error: 'Upstream fetch failed', detail: error.message });
+        res.status(502).json({ error: 'Upstream fetch failed' });
     }
 }

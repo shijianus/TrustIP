@@ -33,7 +33,7 @@ export const makeGeoHandler = ({ name, buildUrl, normalize, requiredEnv, cacheSe
         return json(normalize(await apiRes.json()), { cacheSeconds });
     } catch (error) {
         console.error(`[${name}] handler failed`, { ip: ipAddress, error: error?.message });
-        return json({ error: error?.message || String(error) }, { status: 500, cacheSeconds });
+        return json({ error: 'Upstream request failed' }, { status: 500, cacheSeconds });
     }
 };
 
