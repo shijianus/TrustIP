@@ -75,6 +75,21 @@ describe('refererCheck — ALLOWED_DOMAINS parsing', () => {
   });
 });
 
+describe('refererCheck — empty hostnames', () => {
+  it('rejects file:, data: and javascript: referers when ALLOWED_DOMAINS is unset', () => {
+    delete process.env.ALLOWED_DOMAINS;
+    for (const ref of ['file:///etc/passwd', 'data:text/plain,hi', 'javascript:alert(1)']) {
+      assert.equal(refererCheck(ref), false, ref);
+    }
+  });
+
+  it('ignores empty entries from stray commas in ALLOWED_DOMAINS', () => {
+    process.env.ALLOWED_DOMAINS = 'example.com,,';
+    assert.equal(refererCheck('https://example.com/'), true);
+    assert.equal(refererCheck('file:///x'), false);
+  });
+});
+
 describe('refererCheck — malformed inputs', () => {
   it('returns false on non-URL strings instead of throwing', () => {
     // Scanners send garbage Referer headers; parse failure means denial,

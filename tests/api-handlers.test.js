@@ -66,7 +66,7 @@ const ENV_KEYS = [
     'IPCHECKING_API_KEY', 'IPCHECKING_API_ENDPOINT',
     'MAC_LOOKUP_API_KEY', 'IPAPIIS_API_KEY',
     'IPINFO_API_KEY', 'IP2LOCATION_API_KEY',
-    'CLOUDFLARE_API_KEY',
+    'CLOUDFLARE_API_KEY', 'GOOGLE_MAP_API_KEY',
     'CLOUDFLARE_ACCOUNT_ID', 'CLOUDFLARE_KV_NAMESPACE_ID',
     // Pre-rename spellings, still honored as fallbacks.
     'IPINFO_API_TOKEN', 'CLOUDFLARE_API',
@@ -157,6 +157,20 @@ describe('google-map handler', () => {
     );
 
     const mapQuery = { query: { latitude: '1', longitude: '2', language: 'en' } };
+
+    // The upstream-path cases below need a key; the shared afterEach restores it.
+    beforeEach(() => { process.env.GOOGLE_MAP_API_KEY = 'test-map-key'; });
+
+    it('answers 500 before any request leaves when no key is configured', async () => {
+        delete process.env.GOOGLE_MAP_API_KEY;
+        let fetched = false;
+        globalThis.fetch = async () => { fetched = true; return new Response(''); };
+        const res = createResponse();
+        await googleMapHandler(createRequest(mapQuery), res);
+        assert.equal(res.statusCode, 500);
+        assert.deepEqual(res.body, { error: 'API key is missing' });
+        assert.equal(fetched, false);
+    });
 
     it('rejects invalid map parameters without calling the external API', () => {
         const res = createResponse();
@@ -472,6 +486,15 @@ describe('cf-radar handler', () => {
         assert.deepEqual(res.body, { error: 'Invalid ASN' });
     });
 
+    it("runs the asn view's guard: ASN outside the 32-bit range", async () => {
+        for (const asn of ['0', 'AS0', '4294967296', '99999999999999999999']) {
+            const res = createResponse();
+            await cfRadarHandler(createRequest({ query: { view: 'asn', asn } }), res);
+            assert.equal(res.statusCode, 400, asn);
+            assert.deepEqual(res.body, { error: 'Invalid ASN' });
+        }
+    });
+
     it("runs the country-traffic view's guard: missing ?country", async () => {
         const res = createResponse();
         await cfRadarHandler(createRequest({ query: { view: 'country-traffic' } }), res);
@@ -552,6 +575,13 @@ describe('mac-checker handler', () => {
     it('rejects invalid MAC format', async () => {
         const res = createResponse();
         await macCheckerHandler(createRequest({ query: { mac: 'not-a-mac' } }), res);
+        assert.equal(res.statusCode, 400);
+        assert.deepEqual(res.body, { error: 'Invalid MAC address' });
+    });
+
+    it('rejects a repeated ?mac (array) with 400 instead of throwing', async () => {
+        const res = createResponse();
+        await macCheckerHandler(createRequest({ query: { mac: ['00:1A:2B:3C:4D:5E', 'x'] } }), res);
         assert.equal(res.statusCode, 400);
         assert.deepEqual(res.body, { error: 'Invalid MAC address' });
     });

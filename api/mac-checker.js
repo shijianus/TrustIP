@@ -14,6 +14,9 @@ export default async (req, res) => {
     let macAddress = req.query.mac;
     if (!macAddress) {
         return res.status(400).json({ error: 'No MAC address provided' });
+    } else if (typeof macAddress !== 'string') {
+        // ?mac=a&mac=b arrives as an array; .replace() on it used to throw a 500.
+        return res.status(400).json({ error: 'Invalid MAC address' });
     } else {
         macAddress = macAddress.replace(/:/g, '').replace(/-/g, '');
     }

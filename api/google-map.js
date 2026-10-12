@@ -61,7 +61,12 @@ export default async (req, res) => {
     const scale = 2;
     const zoom = 3;
 
-    const apiKeys = (process.env.GOOGLE_MAP_API_KEY || '').split(',');
+    const apiKeys = (process.env.GOOGLE_MAP_API_KEY || '').split(',').filter(Boolean);
+    // Key-mandatory route: answer before any request leaves, like the other
+    // keyed handlers, instead of calling Google with an empty `key=`.
+    if (apiKeys.length === 0) {
+        return res.status(500).json({ error: 'API key is missing' });
+    }
     const apiKey = apiKeys[Math.floor(Math.random() * apiKeys.length)];
 
     let styleParam = '';

@@ -55,11 +55,14 @@ import { startMaxMindAutoUpdate, bootstrapMaxMindIfMissing } from './common/maxm
 import { startCaidaAutoUpdate, bootstrapCaidaIfMissing } from './common/caida-updater.js';
 import { bootstrapServiceStatus, startServiceStatusPolling } from './common/service-status-store.js';
 import { initUpstreamUserAgent } from './common/upstream-ua.js';
+import { apiNotFound, jsonErrorHandler } from './common/error-handler.js';
 
 dotenv.config({ quiet: true });
 initUpstreamUserAgent();
 
 const app = express();
+// Don't advertise the framework on every response.
+app.disable('x-powered-by');
 const backEndPort = parseInt(process.env.BACKEND_PORT || 11966, 10);
 // Local rate-limit ledger file — opt-in: empty means no file is written.
 // The logger.warn in the limiter handler always fires regardless (and flows
@@ -402,6 +405,11 @@ if (process.env.SENTRY_DSN_BACKEND) {
     Sentry.setupExpressErrorHandler(app);
     logger.info('🛰️ Sentry backend monitoring enabled');
 }
+
+// JSON 404 for unknown /api/* paths, then a last-resort error handler that
+// never renders a stack trace — see common/error-handler.js.
+app.use('/api', apiNotFound);
+app.use(jsonErrorHandler);
 
 
 // Bootstrap every offline dataset (MaxMind, CAIDA) before accepting traffic

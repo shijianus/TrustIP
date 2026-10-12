@@ -83,7 +83,8 @@ export const requireValidASN = (paramName = 'asn') => (req, res, next) => {
         return res.status(400).json({ error: 'No ASN provided' });
     }
     const numeric = String(raw).replace(/^AS/i, '');
-    if (!/^[0-9]+$/.test(numeric)) {
+    // ASNs are 32-bit: 0 is reserved and anything past 4294967295 doesn't exist.
+    if (!/^[0-9]{1,10}$/.test(numeric) || Number(numeric) < 1 || Number(numeric) > 4294967295) {
         return res.status(400).json({ error: 'Invalid ASN' });
     }
     req.query[paramName] = numeric;
