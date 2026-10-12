@@ -2355,6 +2355,17 @@
           "ru": "WHOIS теперь принимает и номер автономной системы, а не только домен и адрес: AS15169, as15169 или просто 15169 — все они через загрузочный реестр IANA попадают к тому регистратору, который действительно держит этот номер",
           "pt-BR": "O Whois agora aceita um número de sistema autônomo além de domínio e endereço — AS15169, as15169 ou o puro 15169 passam pelo bootstrap da IANA até o registro que realmente detém esse número"
         }
+      },
+      {
+        "type": "fix",
+        "change": {
+          "en": "A domain that simply is not registered, and an AS number no registry holds, now report \"no record\" instead of a failed lookup — the page no longer says the service broke when the answer was that there is nothing there",
+          "zh": "未注册的域名、以及没有任何注册机构持有的 AS 号码，现在会返回“无记录”，而不再报查询失败——答案本来是“这里没有东西”，页面不再声称服务出了故障",
+          "zh-TW": "未註冊的網域名稱，以及沒有任何註冊機構持有的 AS 號碼，現在會回報「無記錄」而不再報查詢失敗——答案本來就是「這裡沒有東西」，頁面不再聲稱服務出了故障",
+          "fr": "Un domaine non enregistré et un numéro AS qu'aucun registre ne détiennent renvoient désormais « aucun enregistrement » au lieu d'un échec de recherche : la page ne dit plus que le service est cassé quand la réponse était qu'il n'y a rien",
+          "ru": "Незарегистрированный домен и номер AS, которого нет ни у одного регистратора, теперь отвечают «нет записи», а не сбоем поиска: страница больше не заявляет о поломке сервиса, когда ответ состоял в том, что данных нет",
+          "pt-BR": "Um domínio não registrado e um número AS que nenhum registro detém agora informam \"nenhum registro\" em vez de falha na consulta — a página não diz mais que o serviço quebrou quando a resposta era que não há nada ali"
+        }
       }
     ]
   }

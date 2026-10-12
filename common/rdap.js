@@ -16,6 +16,12 @@
 //   rdapAsn(asn)      →  { registered, name }
 //     The AS object's allocation date and holder name, for the IP dossier's
 //     ASN card. Nothing in a BGP dataset says when a number was allocated.
+//   rdapAsnRecord(asn) →  { [host]: { __raw, ...rdapJson } }
+//     The whole registry object for an autonomous system, keyed like a domain
+//     lookup — what `whois?q=AS15169` answers with.
+//
+// A 404 from any registry arrives as `RdapNotFound`, because "no such object" is
+// an answer the page can show, not a failure it should report as an outage.
 //
 // Bootstrap (IANA's TLD / address-space → RDAP endpoint maps) is cached
 // in-memory for 24h per file. Upstream calls go through `fetchUpstream`
@@ -25,6 +31,12 @@ import { fetchUpstream } from './fetch-with-timeout.js';
 import { isIPv6 } from './valid-ip.js';
 import { ipToBigInt, parseCidr, prefixContains } from './ip-math.js';
 import logger from './logger.js';
+
+// The registry answered "there is no such object". That is data, not an outage:
+// the WHOIS page renders it as *no record*, and a caller that lumps it with a 500
+// tells the visitor the lookup broke instead of the name being unregistered —
+// which is the single most common reason anyone queries a WHOIS endpoint.
+export class RdapNotFound extends Error {}
 
 const BOOTSTRAP_BASE = 'https://data.iana.org/rdap/';
 const CACHE_TTL_MS   = 24 * 60 * 60 * 1000;
@@ -67,7 +79,7 @@ export async function rdapDomain(domain, { timeoutMs = 5000 } = {}) {
     const url  = `${trimSlash(base)}/domain/${encodeURIComponent(domain)}`;
     const res  = await fetchUpstream(url, { timeoutMs });
     if (res.status === 404) {
-        throw new Error(`Domain not found: ${domain}`);
+        throw new RdapNotFound(`Domain not found: ${domain}`);
     }
     if (!res.ok) {
         logger.error({ domain, status: res.status }, 'RDAP query failed');
@@ -115,7 +127,7 @@ export const rdapIp = async (ip, { timeoutMs = 5000 } = {}) => {
     const url = `${trimSlash(base)}/ip/${ip}`;
     const res = await fetchUpstream(url, { timeoutMs });
     if (res.status === 404) {
-        throw new Error(`IP not found: ${ip}`);
+        throw new RdapNotFound(`IP not found: ${ip}`);
     }
     if (!res.ok) {
         logger.error({ ip, status: res.status }, 'RDAP IP query failed');
@@ -155,7 +167,7 @@ export const rdapAsn = async (asn, { timeoutMs = 5000 } = {}) => {
     if (!base) throw new Error(`No RDAP endpoint for AS${asn}`);
 
     const res = await fetchUpstream(`${trimSlash(base)}/autnum/${Number(asn)}`, { timeoutMs });
-    if (res.status === 404) throw new Error(`AS${asn} not found at ${base}`);
+    if (res.status === 404) throw new RdapNotFound(`AS${asn} not found at ${base}`);
     if (!res.ok) {
         logger.error({ asn, status: res.status }, 'RDAP ASN query failed');
         throw new Error(`RDAP ASN query failed: ${res.status}`);
@@ -165,6 +177,83 @@ export const rdapAsn = async (asn, { timeoutMs = 5000 } = {}) => {
         .find((e) => e.eventAction === 'registration')?.eventDate || null;
 
     return { registered, name: data.name || null };
+};
+
+// -- The full autonomous system record ----------------------------------
+
+// `rdapAsn()` above answers two questions for the dossier's ASN card. This
+// answers the page: the whole registry object, formatted into the same `__raw`
+// text block an IP or domain lookup produces, so Whois.vue renders an AS without
+// needing a third shape.
+//
+// What the RIRs agree on, verified against all five: `objectClassName: autnum`,
+// `handle` carrying the `AS` prefix (`"AS15169"`, not the bare number), `name`,
+// `startAutnum`/`endAutnum`, `status`, `events`, `entities`. What they do not:
+// APNIC and LACNIC add `country`, ARIN omits it; `type` is absent everywhere
+// except RIPE's older objects. So every line below is conditional, and a field a
+// registry did not write is a line that does not appear — never `N/A`, which a
+// reader cannot tell apart from a registry that answered "none".
+export const formatAsn = (data) => {
+    const lines = [];
+    // Field names mirror what ARIN's port-43 autnum output uses, so an AS block
+    // reads the same as the IP and domain blocks beside it. The number is taken
+    // from the range when there is one; the handle is printed as the registry
+    // spells it (`AS15169`), which is why the two lines are not one.
+    const number = data.startAutnum ?? Number(String(data.handle || '').replace(/^AS/i, ''));
+    if (Number.isFinite(number) && number > 0) lines.push(`ASNumber: ${number}`);
+    if (data.handle) lines.push(`ASHandle: ${data.handle}`);
+    if (data.startAutnum != null && data.endAutnum != null && data.endAutnum !== data.startAutnum) {
+        lines.push(`ASRange: ${data.startAutnum} - ${data.endAutnum}`);
+    }
+
+    if (data.name)    lines.push(`ASName: ${data.name}`);
+    if (data.type)    lines.push(`Type: ${data.type}`);
+    if (data.country) lines.push(`Country: ${data.country}`);
+
+    const ev = {};
+    for (const e of data.events || []) ev[e.eventAction] = e.eventDate;
+    if (ev.registration)    lines.push(`Created: ${ev.registration}`);
+    if (ev['last changed']) lines.push(`Updated: ${ev['last changed']}`);
+
+    if (data.status?.length) {
+        lines.push('Status:');
+        for (const s of data.status) lines.push(`  ${s}`);
+    }
+
+    lines.push(...formatEntitySections(
+        data.entities,
+        ['registrant', 'administrative', 'technical', 'abuse', 'noc', 'peering coordinator'],
+    ));
+
+    for (const remark of data.remarks || []) {
+        lines.push('');
+        lines.push(`${remark.title || 'Remarks'}:`);
+        for (const d of remark.description || []) lines.push(`  ${d}`);
+    }
+
+    if (data.port43) lines.push('', `Ref: ${data.port43}`);
+    return lines.join('\n');
+};
+
+export const rdapAsnRecord = async (asn, { timeoutMs = 5000 } = {}) => {
+    const bootstrap = await loadBootstrap('asn.json');
+    const base = findAsnEndpoint(bootstrap.services, asn);
+    if (!base) throw new Error(`No RDAP endpoint for AS${asn}`);
+
+    const res = await fetchUpstream(`${trimSlash(base)}/autnum/${Number(asn)}`, { timeoutMs });
+    // A 404 is the registry answering "no such allocation", which is data the page
+    // can show, not an outage. RIPE is the exception worth naming: it answers 404
+    // too, but returns 400 for a number it does not hold at all — a bad path or a
+    // bad argument — and both belong in the same "nothing to report" bucket from a
+    // reader's point of view. Anything else stays a failure.
+    if (res.status === 404 || res.status === 400) throw new RdapNotFound(`AS${asn} not found`);
+    if (!res.ok) {
+        logger.error({ asn, status: res.status }, 'RDAP ASN record query failed');
+        throw new Error(`RDAP ASN query failed: ${res.status}`);
+    }
+    const data = await res.json();
+    const host = new URL(base).hostname;
+    return { [host]: { ...data, __raw: formatAsn(data) } };
 };
 
 // -- Format RDAP JSON into a WHOIS-like text block ------------------------

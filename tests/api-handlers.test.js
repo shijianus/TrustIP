@@ -265,6 +265,83 @@ describe('get-whois handler', () => {
             assert.deepEqual(res.body, { error: 'Not a public IP address' });
         });
     }
+
+    // The AS branch lives past validation, so the registry is stubbed rather than
+    // asked: IANA's asn.json first (which server answers), then that server.
+    const stubAsnRdap = (autnumResponder) => {
+        const called = [];
+        globalThis.fetch = async (url, options) => {
+            called.push(String(url));
+            if (String(url).includes('data.iana.org/rdap/asn.json')) {
+                return {
+                    ok: true,
+                    json: async () => ({ services: [[['1-4294967294'], ['https://rdap.arin.net/registry/']]] }),
+                };
+            }
+            return autnumResponder(String(url), options);
+        };
+        return called;
+    };
+
+    it('answers an AS number with the registry record, keyed by who answered', async () => {
+        stubAsnRdap(async () => ({
+            ok: true,
+            json: async () => ({
+                objectClassName: 'autnum',
+                handle: 'AS15169',
+                name: 'GOOGLE',
+                startAutnum: 15169,
+                endAutnum: 15169,
+                status: ['active'],
+                events: [{ eventAction: 'registration', eventDate: '2000-03-30T00:00:00-05:00' }],
+                entities: [],
+            }),
+        }));
+        const res = createResponse();
+        await getWhoisHandler(createRequest({ query: { q: 'AS15169' } }), res);
+        assert.equal(res.statusCode, 200);
+        const [host, record] = Object.entries(res.body)[0];
+        assert.equal(host, 'rdap.arin.net');
+        assert.match(record.__raw, /^ASNumber: 15169/m);
+        assert.match(record.__raw, /ASName: GOOGLE/);
+        // The handle already spells the prefix; printing `ASHandle: AS15169` twice
+        // as `ASAS15169` is the way this goes wrong.
+        assert.doesNotMatch(record.__raw, /ASAS\d/);
+    });
+
+    it('reads a bare number as an AS, not as an invalid query', async () => {
+        const called = stubAsnRdap(async () => ({
+            ok: true,
+            json: async () => ({ handle: 'AS9268', name: 'X', entities: [] }),
+        }));
+        const res = createResponse();
+        await getWhoisHandler(createRequest({ query: { q: '9268' } }), res);
+        assert.equal(res.statusCode, 200);
+        assert.ok(called.some((u) => u.includes('/autnum/9268')), 'asked the registry for the number');
+    });
+
+    // An unallocated number is an answer, not an outage: the page shows "no
+    // record". Before this branch existed, the registry's 404 became a 500 and the
+    // SPA rendered it as "the lookup broke".
+    for (const status of [404, 400]) {
+        it(`maps a registry ${status} for an AS to no record, not to a server error`, async () => {
+            stubAsnRdap(async () => ({
+                ok: false,
+                status,
+                json: async () => ({ errorCode: status, title: 'Not Found' }),
+            }));
+            const res = createResponse();
+            await getWhoisHandler(createRequest({ query: { q: 'AS4294967200' } }), res);
+            assert.equal(res.statusCode, 404);
+        });
+    }
+
+    it('rejects an out-of-range number as not an AS at all', async () => {
+        const res = createResponse();
+        await getWhoisHandler(createRequest({ query: { q: '4294967295' } }), res);
+        assert.equal(res.statusCode, 400);
+        assert.deepEqual(res.body, { error: 'Invalid IP or address' });
+    });
 });
 
 // -- github-stars handler -------------------------------------------------

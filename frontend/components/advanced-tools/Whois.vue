@@ -32,7 +32,10 @@
             </div>
 
             <!-- domain type: multiple provider Accordion -->
-            <Accordion v-if="type === 'domain'" type="single" collapsible default-value="0" class="space-y-2">
+            <!-- domain and AS type: the registry that answered is the accordion
+                 header, because an AS record names its RIR just as a fallen-through
+                 domain does -->
+            <Accordion v-if="type === 'domain' || type === 'asn'" type="single" collapsible default-value="0" class="space-y-2">
                 <AccordionItem v-for="(provider, index) in providers" :key="provider" :value="String(index)"
                     class="rounded-lg border bg-card px-4 data-[state=open]:border-primary/30">
                     <AccordionTrigger class="hover:no-underline cursor-pointer my-1">
@@ -48,7 +51,7 @@
                     <AccordionContent>
                         <pre
                             class="mt-2 p-4 rounded-md bg-muted font-mono text-xs leading-relaxed overflow-x-auto whitespace-pre-wrap wrap-break-word">
-                    {{ filterDomainWhoisRawData(whoisResults[providers[index]].__raw) }}</pre>
+                    {{ filterRaw(whoisResults[providers[index]].__raw) }}</pre>
                     </AccordionContent>
                 </AccordionItem>
             </Accordion>
@@ -68,7 +71,7 @@ import { ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { trackEvent } from '@/utils/analytics';
 import { emitAppEvent } from '@/utils/app-events.js';
-import { isValidIP, isValidDomain, isUsablePublicIP } from '@/utils/valid-ip.js';
+import { isValidIP, isValidDomain, isUsablePublicIP, parseAsnQuery } from '@/utils/valid-ip.js';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -108,10 +111,19 @@ const validInput = (input) => {
         }
         type.value = 'ip';
         return input;
-    } else {
-        errorMsg.value = t('whois.invalidURL');
-        return false;
     }
+    // An autonomous system number. Tried last because a bare number is valid as
+    // neither an IP nor a domain, so the three forms cannot be confused for one
+    // another — but an input that *is* an IP should never reach here as an AS.
+    const asn = parseAsnQuery(input);
+    if (asn !== null) {
+        type.value = 'asn';
+        // Canonical `AS<number>`: it is what the registry prints, and it keeps one
+        // query spelling whatever the visitor typed.
+        return `AS${asn}`;
+    }
+    errorMsg.value = t('whois.invalidURL');
+    return false;
 };
 
 const onSubmit = () => {
@@ -139,7 +151,7 @@ const getWhoisResults = async (query) => {
         }
         const data = await response.json();
         getProviders(data);
-        if (type.value === 'domain' && providers.value.length >= 1) {
+        if ((type.value === 'domain' || type.value === 'asn') && providers.value.length >= 1) {
             whoisResults.value = data;
             // Achievement rule (CuriousCat, ipcheck.ing lookups only) lives in
             // data/achievement-rules.js.
@@ -160,7 +172,9 @@ const getWhoisResults = async (query) => {
 };
 
 const getProviders = (data) => {
-    if (type.value === 'domain') {
+    // An AS record arrives keyed by the registry that answered it, exactly like a
+    // domain that fell through to RDAP, so the accordion is driven the same way.
+    if (type.value === 'domain' || type.value === 'asn') {
         for (const [key] of Object.entries(data)) {
             if (key.match(/^[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}$/i)) {
                 if (data[key].__raw) providers.value.push(key);
@@ -180,6 +194,17 @@ const filterIPWhoisRawData = (text) => {
     text = text.replace(/^\n*/, '');
     text = text.replace(/\n$/, '');
     return text;
+};
+
+// One filter per shape, because the three sources are not the same text. Port-43
+// domain output is indented by referral level (strip it) and ends in a legal
+// "For more information" block (cut it); an RDAP entity block is indented on
+// purpose, and for an AS record that indentation is the only thing separating
+// registrant from abuse contact.
+const filterRaw = (text) => {
+    if (type.value === 'ip') return filterIPWhoisRawData(text);
+    if (type.value === 'asn') return String(text).replace(/\n+$/, '');
+    return filterDomainWhoisRawData(text);
 };
 
 </script>

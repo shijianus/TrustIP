@@ -1074,10 +1074,10 @@
   "whois": {
     "Title": "Pesquisa Whois",
     "Note": "A pesquisa Whois é um serviço usado para recuperar informações de registro de domínios. Ao inserir um nome de domínio ou IP, você pode recuperar informações como detalhes de registro do domínio, registrador, data de registro, data de expiração e mais. As informações Whois para IPs e nomes de domínio podem ter campos diferentes. Além disso, alguns domínios de topo (TLDs) menos comuns podem não ter informações disponíveis para consultas Whois.",
-    "Note2": "Digite um nome de domínio ou IP para iniciar a consulta:",
+    "Note2": "Digite um nome de domínio, um endereço IP ou um número AS para iniciar a consulta:",
     "Note3": "As informações Whois contêm vários tipos de campos. A seguir está o texto bruto",
-    "Placeholder": "Nome de domínio ou IP",
-    "invalidURL": "Nome de domínio ou IP inválido",
+    "Placeholder": "Domínio, IP ou AS15169",
+    "invalidURL": "Nome de domínio, endereço IP ou número AS inválido",
     "reservedIP": "IPs privados ou reservados não têm registro público, então não há nada para consultar.",
     "noData": "Nenhum dado Whois ou RDAP foi publicado para esta consulta. Alguns domínios de topo não oferecem serviço público de consulta.",
     "fetchError": "Não foi possível obter os resultados da consulta, ou os resultados estão vazios",

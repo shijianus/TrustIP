@@ -1,4 +1,5 @@
-// `whois?q=<domain|ip>` — the registry record for one name or one address.
+// `whois?q=<domain|ip|AS15169>` — the registry record for one name, one address,
+// or one autonomous system number.
 //
 // Input validation is the Express handler's own, not the shared guard: this route
 // takes a single `q` that is either an IP or a domain, and api/get-whois.js keeps
@@ -9,8 +10,8 @@
 // and falls back to RDAP. There is no TCP here, so RDAP is the only source — see
 // shared/rdap.js for the shapes, which are unchanged.
 
-import { isValidIP, isUsablePublicIP } from './valid-ip.js';
-import { rdapDomain, rdapIp, RdapNotFound } from './rdap.js';
+import { isValidIP, isUsablePublicIP, parseAsnQuery } from './valid-ip.js';
+import { rdapDomain, rdapIp, rdapAsnRecord, RdapNotFound } from './rdap.js';
 import { json } from './respond.js';
 
 const isValidDomain = (domain) => /^([a-z0-9]+(-[a-z0-9]+)*\.)+[a-z]{2,}$/i.test(domain);
@@ -20,7 +21,10 @@ export default async (params) => {
     if (!query || typeof query !== 'string') {
         return json({ error: 'No address provided' }, { status: 400 });
     }
-    if (!isValidIP(query) && !isValidDomain(query)) {
+    // A bare number is valid as neither an IP nor a domain, so the three forms
+    // cannot collide; `AS15169` is the one input only this route can answer.
+    const asn = parseAsnQuery(query);
+    if (!isValidIP(query) && !isValidDomain(query) && asn === null) {
         return json({ error: 'Invalid IP or address' }, { status: 400 });
     }
     // Only publicly routable space has a registry record; visitors paste their LAN
@@ -32,7 +36,10 @@ export default async (params) => {
     const cacheSeconds = 24 * 60 * 60;
 
     try {
-        return json(isValidIP(query) ? await rdapIp(query) : await rdapDomain(query), { cacheSeconds });
+        const record = isValidIP(query) ? await rdapIp(query)
+            : asn !== null ? await rdapAsnRecord(asn)
+                : await rdapDomain(query);
+        return json(record, { cacheSeconds });
     } catch (error) {
         // The upstream answering "there is no such record" is data the UI can show
         // as *no data*, not an outage — Whois.vue renders `noData` for any 4xx and a

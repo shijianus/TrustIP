@@ -1,6 +1,6 @@
 import whoiser from 'whoiser';
-import { isValidIP, isUsablePublicIP } from '../common/valid-ip.js';
-import { rdapDomain, rdapIp } from '../common/rdap.js';
+import { isValidIP, isUsablePublicIP, parseAsnQuery } from '../common/valid-ip.js';
+import { rdapDomain, rdapIp, rdapAsnRecord, RdapNotFound } from '../common/rdap.js';
 import logger from '../common/logger.js';
 
 function isValidDomain(domain) {
@@ -20,13 +20,24 @@ function domainHasWhoisText(result) {
     );
 }
 
+// "There is no such record" reaches this handler two ways: a registry that
+// answered 404 (turned into `RdapNotFound`), and a name whose TLD or address has no
+// RDAP server at all. Both are the same answer to a reader — nothing to show — and
+// neither is a server failure. Before this, an unregistered domain on a newer gTLD
+// came back 500, which the page renders as "the lookup broke".
+const isNoRecord = (error) => error instanceof RdapNotFound
+    || String(error?.message || '').startsWith('No RDAP endpoint for ');
+
 export default async (req, res) => {
     const query = req.query.q;
     // typeof check also rejects the array form (?q=a&q=b) express produces.
     if (!query || typeof query !== 'string') {
         return res.status(400).json({ error: 'No address provided' });
     }
-    if (!isValidIP(query) && !isValidDomain(query)) {
+    // A number is valid as neither an IP nor a domain, so the three forms cannot
+    // collide and the order the branches run in does not have to be defended.
+    const asn = parseAsnQuery(query);
+    if (!isValidIP(query) && !isValidDomain(query) && asn === null) {
         return res.status(400).json({ error: 'Invalid IP or address' });
     }
     // Only publicly routable addresses have a registry record — asking RDAP
@@ -55,6 +66,20 @@ export default async (req, res) => {
         }
     }
 
+    // AS path: the registry object for an autonomous system number. Port-43 WHOIS
+    // has no such query — the `whois.cymru.com` DNS trick is a different service and
+    // `whoiser` does not speak it — so IANA's asn.json bootstrap is the only channel
+    // here, on this server and on the edge function alike.
+    if (asn !== null) {
+        try {
+            return res.json(await rdapAsnRecord(asn));
+        } catch (e) {
+            if (isNoRecord(e)) return res.status(404).json({ error: e.message });
+            logger.error({ err: e, query }, 'Failed to get AS record');
+            return res.status(500).json({ error: e.message });
+        }
+    }
+
     // Domain path: whoiser first (rich port-43 data for legacy gTLDs),
     // fall back to RDAP only when whoiser returned nothing useful.
     let domaininfo = null;
@@ -78,8 +103,8 @@ export default async (req, res) => {
         const rdap = await rdapDomain(query);
         return res.json(rdap);
     } catch (e) {
-        if (e.message.startsWith('No RDAP endpoint for ')) {
-            logger.warn({ query }, 'whois: TLD has no RDAP endpoint');
+        if (isNoRecord(e)) {
+            logger.warn({ query }, 'whois: no registry record for this name');
             return res.status(404).json({ error: e.message });
         }
         logger.error({ err: e, query }, 'Failed to get RDAP info');

@@ -198,3 +198,57 @@ export const formatDomain = (data) => {
     }
     return lines.join('\n');
 };
+
+// The whole registry object for an autonomous system number — what
+// `whois?q=AS15169` answers with, keyed like a domain lookup so the page has one
+// shape to render. Field names mirror ARIN's port-43 autnum output, so an AS block
+// reads like the IP and domain blocks beside it.
+//
+// The five RIRs agree on `objectClassName`, `handle` (spelled `AS15169`, not the
+// bare number), `name`, `startAutnum`/`endAutnum`, `status`, `events` and
+// `entities`. They do not agree on `country` — APNIC and LACNIC write it, ARIN does
+// not — so every line below is conditional. A field the registry did not write is a
+// line that does not appear, never `N/A`, which a reader cannot tell apart from an
+// answer of "none".
+export const formatAsn = (data) => {
+    const lines = [];
+    const number = data.startAutnum ?? Number(String(data.handle || '').replace(/^AS/i, ''));
+    if (Number.isFinite(number) && number > 0) lines.push(`ASNumber: ${number}`);
+    if (data.handle) lines.push(`ASHandle: ${data.handle}`);
+    if (data.startAutnum != null && data.endAutnum != null && data.endAutnum !== data.startAutnum) {
+        lines.push(`ASRange: ${data.startAutnum} - ${data.endAutnum}`);
+    }
+
+    if (data.name)    lines.push(`ASName: ${data.name}`);
+    if (data.type)    lines.push(`Type: ${data.type}`);
+    if (data.country) lines.push(`Country: ${data.country}`);
+
+    const ev = {};
+    for (const e of data.events || []) ev[e.eventAction] = e.eventDate;
+    if (ev.registration)    lines.push(`Created: ${ev.registration}`);
+    if (ev['last changed']) lines.push(`Updated: ${ev['last changed']}`);
+
+    if (data.status?.length) {
+        lines.push('Status:');
+        for (const s of data.status) lines.push(`  ${s}`);
+    }
+
+    lines.push(...formatEntitySections(
+        data.entities,
+        ['registrant', 'administrative', 'technical', 'abuse', 'noc', 'peering coordinator'],
+    ));
+
+    for (const remark of data.remarks || []) {
+        lines.push('');
+        lines.push(`${remark.title || 'Remarks'}:`);
+        for (const d of remark.description || []) lines.push(`  ${d}`);
+    }
+
+    if (data.port43) lines.push('', `Ref: ${data.port43}`);
+    return lines.join('\n');
+};
+
+export const rdapAsnRecord = async (asn) => {
+    const { host, data } = await lookup('autnum', asn);
+    return { [host]: { ...data, __raw: formatAsn(data) } };
+};
