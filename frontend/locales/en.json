@@ -2019,6 +2019,7 @@
       "title": "Blocklists",
       "listed": "Listed",
       "clean": "Not listed",
+      "rangePolicy": "Range policy",
       "through": "Answers read through {resolver}",
       "needs": "a truthful recursor, and a zone that publishes this address family — public recursors often refuse or invent answers, and no zone here carries IPv6"
     },

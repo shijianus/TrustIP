@@ -1,17 +1,19 @@
 // common/dnsbl.js — what a blocklist pass reports for a given set of DNS
 // answers, with the resolver faked at its boundary.
 //
-// The behaviour worth pinning is not "did it parse an A record" but the three
+// The behaviour worth pinning is not "did it parse an A record" but the four
 // ways an answer can be misread as a verdict: a diagnostic code (the zone
-// refusing *our query*), an answer outside 127.0.0.0/8 (a sinkhole), and a
-// resolver that invents answers for every name. The canary is what separates an
-// accusation from a lie, so the tests below drive it directly.
+// refusing *our query*), an answer outside 127.0.0.0/8 (a sinkhole), a resolver
+// that invents answers for every name, and a code that describes the address's
+// range rather than its conduct. The canary is what separates an accusation from
+// a lie, so the tests below drive it directly.
 
 import assert from 'node:assert/strict';
 import { after, afterEach, describe, it } from 'node:test';
 import { Resolver } from 'node:dns/promises';
 
-import { checkBlocklists, tallyOf, classifyError, isBlocklistedRange } from '../common/dnsbl.js';
+import { checkBlocklists, tallyOf, classifyError, isBlocklistedRange, readCode } from '../common/dnsbl.js';
+import { DNSBL_ZONES } from '../common/dnsbl-zones.js';
 import { reverseName } from '../common/ip-math.js';
 import dnsblHandler from '../api/dnsbl.js';
 
@@ -65,7 +67,7 @@ describe('checkBlocklists', () => {
         assert.ok(pass.results.every((r) => r.status === 'clean' && r.listed === false));
         assert.deepEqual(
             { ...pass.tally },
-            { zones: ZONE_NAMES.length, answered: ZONE_NAMES.length, listed: 0, botnet: 0 },
+            { zones: ZONE_NAMES.length, answered: ZONE_NAMES.length, listed: 0, botnet: 0, policy: 0 },
         );
     });
 
@@ -197,6 +199,100 @@ describe('checkBlocklists', () => {
     });
 });
 
+// A policy code is a zone's rule about an address *range* — a dynamic block
+// that should not speak SMTP directly, say — not something the zone saw this
+// address do. So it accuses nobody. The half that is easy to get wrong is the
+// other direction: it also clears nobody, and a pass made only of policy answers
+// leaves `answered` at zero, which the score reads as unmeasured rather than as a
+// clean sheet.
+describe('a range-policy answer', () => {
+    // No shipped zone declares one (common/dnsbl-zones.js explains why), so the
+    // path is driven by appending a zone to the very array a pass iterates, and
+    // removing it again before anything else gets to ask a question.
+    const POLICY_ZONE = {
+        id: 'spec-range-policy',
+        label: 'Spec Range Policy BL',
+        zone: 'policy.spec.test',
+        category: 'Reputation',
+        listings: { '127.0.0.2': 'listed' },
+        policy: { '127.0.0.11': 'range-policy' },
+    };
+
+    const withPolicyZone = async (run) => {
+        DNSBL_ZONES.push(POLICY_ZONE);
+        try {
+            return await run();
+        } finally {
+            DNSBL_ZONES.pop();
+        }
+    };
+
+    it('reads the declared code as its own status, code and all', async () => {
+        // A fresh address per pass: `checkBlocklists` caches by address, so an IP
+        // another block has already asked about would answer from that cache.
+        process.env.DNSBL_RESOLVERS = '10.53.0.40';
+        const target = reverseName('198.51.100.150');
+        const seen = install((name) => {
+            if (isCanary(name)) return [];
+            if (name.startsWith(target) && name.endsWith(POLICY_ZONE.zone)) return ['127.0.0.11'];
+            throw dnsError('ENOTFOUND');
+        });
+
+        const pass = await withPolicyZone(() => checkBlocklists('198.51.100.150'));
+        const hit = pass.results.find((r) => r.zone === POLICY_ZONE.zone);
+        assert.equal(hit.status, 'policy');
+        assert.equal(hit.listed, false);
+        assert.deepEqual(hit.codes, [{ address: '127.0.0.11', kind: 'policy', meaning: 'range-policy' }]);
+        assert.equal(pass.tally.policy, 1);
+        // The zones that returned NXDOMAIN did answer about this address, so
+        // they stay in `answered`; the policy zone joins neither bucket.
+        assert.equal(pass.tally.answered, ZONE_NAMES.length);
+        assert.equal(pass.tally.listed, 0);
+        // A policy answer is canary-checked like an accusation: a recursor that
+        // invents the policy code for every name would otherwise hide a genuinely
+        // listed address behind "that is only the range's policy".
+        const canaries = seen.filter((q) => isCanary(q.name));
+        assert.equal(canaries.length, 1, 'the policy answer was not canary-checked');
+        assert.ok(canaries[0].name.endsWith(POLICY_ZONE.zone), 'canary asked in the wrong zone');
+    });
+
+    it('lets a real listing stand when a policy code arrives beside it', async () => {
+        process.env.DNSBL_RESOLVERS = '10.53.0.41';
+        const target = reverseName('198.51.100.151');
+        install((name) => {
+            if (isCanary(name)) return [];
+            if (name.startsWith(target) && name.endsWith(POLICY_ZONE.zone)) return ['127.0.0.2', '127.0.0.11'];
+            throw dnsError('ENOTFOUND');
+        });
+
+        const pass = await withPolicyZone(() => checkBlocklists('198.51.100.151'));
+        const hit = pass.results.find((r) => r.zone === POLICY_ZONE.zone);
+        assert.equal(hit.status, 'listed');
+        assert.equal(hit.listed, true);
+        assert.equal(pass.tally.listed, 1);
+        assert.equal(pass.tally.policy, 0, 'a mixed answer is an accusation, not a policy row');
+    });
+
+    it('classifies each code once, in the order the zone speaks about it', () => {
+        assert.deepEqual(readCode(POLICY_ZONE, '127.0.0.11'), { address: '127.0.0.11', kind: 'policy', meaning: 'range-policy' });
+        assert.deepEqual(readCode(POLICY_ZONE, '127.0.0.2'), { address: '127.0.0.2', kind: 'accusation', meaning: 'listed' });
+        assert.equal(readCode(POLICY_ZONE, '127.0.0.99').kind, 'accusation', 'undocumented');
+        assert.equal(readCode(POLICY_ZONE, '127.0.0.99').meaning, 'undocumented');
+        assert.equal(readCode(POLICY_ZONE, '127.255.255.254').kind, 'diagnostic');
+        // A zone that declares no policy list cannot invent one: the same code is
+        // an unnamed listing there, which is the shipped behaviour unchanged.
+        assert.equal(readCode({ listings: {} }, '127.0.0.11').kind, 'accusation');
+    });
+
+    it('counts a policy-only pass as nothing answered', () => {
+        const tally = tallyOf([
+            { status: 'policy', listed: false, category: 'Spam' },
+            { status: 'policy', listed: false, category: 'Botnet' },
+        ]);
+        assert.deepEqual(tally, { zones: 2, answered: 0, listed: 0, botnet: 0, policy: 2 });
+    });
+});
+
 describe('reverseName', () => {
     it('reverses v4 octets under in-addr.arpa', () => {
         assert.equal(reverseName('198.51.100.7'), '7.100.51.198.in-addr.arpa');
@@ -317,7 +413,7 @@ describe('answer classification', () => {
             { status: 'intercepting', listed: false, category: 'Botnet' },
             { status: 'bogus-answer', listed: false, category: 'Botnet' },
         ]);
-        assert.deepEqual(tally, { zones: 5, answered: 2, listed: 1, botnet: 0 });
+        assert.deepEqual(tally, { zones: 5, answered: 2, listed: 1, botnet: 0, policy: 0 });
     });
 });
 

@@ -64,6 +64,10 @@ const headLabel = computed(() => {
 const ROW = {
     listed: { tone: 'bad', key: 'dossier.blocklists.listed' },
     clean: { tone: 'ok', key: 'dossier.blocklists.clean' },
+    // The zone spoke about the address's range, not the address. Information,
+    // and deliberately not a clearance: `answered` leaves it out, so the head
+    // chip cannot read a policy-only pass as a clean sheet.
+    policy: { tone: 'info', key: 'dossier.blocklists.rangePolicy' },
 };
 
 const rows = computed(() => (props.blocklists?.results || []).map((r) => {
@@ -74,8 +78,10 @@ const rows = computed(() => (props.blocklists?.results || []).map((r) => {
         tone: read.tone,
         verdict: t(read.key),
         // The raw 127.0.0.x is the zone's own words about which of its lists
-        // fired; an answer we could not read has no code to show.
-        code: r.listed ? r.codes?.[0]?.address || null : null,
+        // fired; an answer we could not read has no code to show. A policy
+        // answer carries its code for the same reason an accusation does — so
+        // the row can be checked against the zone years later.
+        code: r.listed || r.status === 'policy' ? r.codes?.[0]?.address || null : null,
     };
 }));
 </script>

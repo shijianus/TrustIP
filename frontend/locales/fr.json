@@ -2019,6 +2019,7 @@
       "title": "Listes de blocage",
       "listed": "Listée",
       "clean": "Non listée",
+      "rangePolicy": "Politique de plage",
       "through": "Réponses lues via {resolver}",
       "needs": "un résolveur récursif honnête, et une zone qui publie cette famille d'adresses — les résolveurs publics refusent ou fabriquent des réponses, et aucune zone ici ne couvre l'IPv6"
     },

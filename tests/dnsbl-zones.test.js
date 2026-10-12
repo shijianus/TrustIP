@@ -64,6 +64,22 @@ describe('DNSBL_ZONES data integrity', () => {
         }
     });
 
+    // A policy code accuses the range, so the same code accusing the address
+    // would make `common/dnsbl.js`'s fourth state mean two things at once — and
+    // an operator adding a multi-list zone is exactly how that happens.
+    it('declares policy codes as range answers that no listing also claims', () => {
+        for (const z of DNSBL_ZONES) {
+            if (z.policy === undefined) continue;
+            assert.ok(Object.keys(z.policy).length, `${z.id}: an empty policy map says nothing about the zone`);
+            for (const [code, meaning] of Object.entries(z.policy)) {
+                assert.match(code, /^127\./, `${z.id}: policy code "${code}" is outside 127.0.0.0/8`);
+                assert.ok(!DIAGNOSTICS[code], `${z.id}: "${code}" is both a policy code and a diagnostic`);
+                assert.ok(!(z.listings || {})[code], `${z.id}: "${code}" is declared as both a listing and a policy`);
+                assert.ok(typeof meaning === 'string' && meaning, `${z.id}: policy code ${code} has no meaning`);
+            }
+        }
+    });
+
     it('declares IPv6 support only as a plain yes', () => {
         for (const z of DNSBL_ZONES) {
             if (z.v6 === undefined) continue;
