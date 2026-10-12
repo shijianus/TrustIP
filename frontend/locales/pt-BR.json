@@ -1699,6 +1699,8 @@
     "fetchFailed": "A avaliação de confiança está indisponível no momento.",
     "retry": "Tentar de novo",
     "notMeasured": "Não medido aqui: {gaps}. Um sinal que não pudemos consultar aparece como não medido, nunca como limpo.",
+    "notServedNote": "Esta implantação não oferece a pontuação de confiança. A checagem de blocklists usa DNS bruto e os sinais de registro leem arquivos de banco de dados — nada disso existe neste ambiente.",
+    "notServedNeeds": "um servidor que responda a /api/trustscore; a build auto-hospedada executa a função sem chaves, usando os registros públicos",
     "band": {
       "1": "Alto risco",
       "2": "Arriscado",
@@ -1882,6 +1884,8 @@
     "hint": "Digite um endereço acima, ou abra a página em branco para consultar o seu.",
     "retry": "Tentar de novo",
     "failed": "Não foi possível montar o dossiê. Os registros podem estar lentos ou inacessíveis.",
+    "notServedNote": "O dossiê é montado pelo motor de confiança, que esta implantação não oferece. As ferramentas individuais ainda respondem por este endereço.",
+    "notServedCta": "Consultar este endereço",
     "usage": {
       "title": "Uso e tipo",
       "class": "Classe de rede",

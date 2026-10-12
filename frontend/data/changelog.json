@@ -2322,6 +2322,17 @@
           "ru": "WebRTC теперь перечисляет все выданные браузером адреса — адрес интерфейса, отражённый и ретранслированный, а не только публичный; сводная страница показывает и отвечающий DNS-резолвер",
           "pt-BR": "O WebRTC agora lista todo endereço que o navegador entrega — interface local, refletido, retransmitido — e não apenas o público; o resumo da inicial também mostra qual resolvedor DNS está te respondendo"
         }
+      },
+      {
+        "type": "add",
+        "change": {
+          "en": "On the hosted build the trust score and the IP dossier now say plainly that this deployment does not run them, instead of showing a failed lookup — a capability that is absent is information, not an outage",
+          "zh": "托管版现在会直接说明信任评分与 IP 档案不由本部署提供，而不再显示查询失败——能力缺席是信息，不是故障",
+          "zh-TW": "託管版現在會直接說明信任評分與 IP 檔案不由本部署提供，而不再顯示查詢失敗——能力缺席是資訊，不是故障",
+          "fr": "Sur le déploiement hébergé, l'indice de confiance et le dossier IP indiquent désormais explicitement que cette installation ne les assure pas, au lieu d'afficher un échec de recherche : une capacité absente est une information, pas une panne",
+          "ru": "В hosted-сборке индекс доверия и IP-досье теперь прямо сообщают, что это развёртывание их не предоставляет, а не показывают сбой запроса: отсутствие возможности — это информация, а не авария",
+          "pt-BR": "Na versão hospedada, a pontuação de confiança e o dossiê de IP agora dizem explicitamente que esta implantação não os oferece, em vez de exibir uma falha de consulta: capacidade ausente é informação, não indisponibilidade"
+        }
       }
     ]
   }

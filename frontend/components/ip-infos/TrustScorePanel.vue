@@ -36,7 +36,21 @@
 
         <!-- ── Evidence ──────────────────────────────────────────────── -->
         <div class="px-4 py-3">
-            <div v-if="state === 'loading'" class="space-y-2">
+            <!-- Not served by this deployment. Stated in the panel's own voice,
+                 with what would make it real: a red error box here would claim a
+                 measurement was attempted and failed, which is a different fact
+                 about the address than the one that is true. -->
+            <div v-if="!served" class="space-y-2">
+                <p class="text-sm leading-relaxed text-muted-foreground">{{ t('trustip.notServedNote') }}</p>
+                <div class="rounded-md border border-dashed bg-muted/30 px-3 py-2">
+                    <p class="text-xs leading-relaxed">
+                        <span class="me-1.5 font-semibold text-foreground-secondary">{{ t('dossier.slot.needs') }}</span>
+                        <span class="text-muted-foreground">{{ t('trustip.notServedNeeds') }}</span>
+                    </p>
+                </div>
+            </div>
+
+            <div v-else-if="state === 'loading'" class="space-y-2">
                 <div v-for="n in 5" :key="n" class="jn-skeleton h-4 w-full"></div>
             </div>
 
@@ -112,6 +126,7 @@ import {
 } from '@lucide/vue';
 import { fetchWithTimeout } from '@/utils/fetch-with-timeout.js';
 import { formatIsoDate } from '@/utils/time-utils.js';
+import { useMainStore } from '@/store.js';
 import { useStatusTone } from '@/composables/use-status-tone.js';
 import Button from '@/components/ui/button/Button.vue';
 import SectionTitle from '@/components/widgets/SectionTitle.vue';
@@ -128,6 +143,15 @@ const props = defineProps({
 
 const { t, te, locale } = useI18n();
 const { chipClass } = useStatusTone();
+const store = useMainStore();
+
+// Whether this deployment answers `/api/trustscore` at all. It is a property of
+// the server, not of the address: the hosted edge function keeps a shorter route
+// table than Express, and a panel that calls a route which is not there gets a 404
+// and reports it as a runtime failure — which tells the visitor the assessment
+// could not be made, when the truth is that it is not made here. Absent configs
+// means the boot request has not landed yet, so that reads as served.
+const served = computed(() => store.configs?.trust !== false);
 
 const ICONS = {
     registryClass: Building2,
@@ -210,7 +234,7 @@ const formatEvidence = (id, value) => {
 };
 
 async function run() {
-    if (!props.ip) return;
+    if (!props.ip || !served.value) return;
     state.value = 'loading';
     try {
         // The address is the only input. Geo and ASN facts are re-read
@@ -228,5 +252,7 @@ async function run() {
     }
 }
 
-watch(() => props.ip, run, { immediate: true });
+// Configs land after the cards start, so `served` can flip once the boot request
+// returns; watching it keeps the panel from holding a stale error state.
+watch(() => [props.ip, served.value], run, { immediate: true });
 </script>

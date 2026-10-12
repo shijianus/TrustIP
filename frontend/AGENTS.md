@@ -70,6 +70,15 @@ and never shipped to the browser (why: api/AGENTS.md):
   The same build renames the `pt-BR` chunk to `pt_BR`: a locale tag plus a content
   hash spells a credential-shaped token, and the publishing platform rejects the
   artifact for it. The locale code itself is unchanged everywhere else.
+- **`/api/configs` is how the two route tables reconcile, and a panel reads it
+  before it calls.** Express mounts 33 routes and the edge function serves 11, so
+  a component that just calls `/api/...` gets a 404 on the hosted build and renders
+  it as a failed lookup — which tells the visitor the measurement was attempted and
+  did not work. `trust` and `dossier` exist for exactly that reason: the panel
+  declares the capability un-served instead. Adding an edge route means flipping its
+  flag in `functions/shared/configs.js`; adding a *consumer* means honouring the
+  flag. `tests/site-configs.test.js` pins that both halves expose the same key set
+  and nothing on the edge is `true` for a route that is not in `handler.ts`.
 - **A module a test imports uses relative specifiers with extensions** (`../store.js`, `../utils/getips/index.js`), not `@/`. The runner is plain `node --test`: it has no Vite alias resolution, so one `@/` in a chain makes the whole file unimportable and the module quietly goes untested — which is how `use-ip-cards.js` lost its settle-check coverage. `@/` stays the right choice for anything only the app loads (`*.vue` files, `data/`, `router/`).
 
 ### Events, commands, the report

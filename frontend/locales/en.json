@@ -1699,6 +1699,8 @@
     "fetchFailed": "The trust assessment is unavailable right now.",
     "retry": "Try again",
     "notMeasured": "Not measured here: {gaps}. A signal we could not look up is always shown as unmeasured, never as clear.",
+    "notServedNote": "This deployment does not serve the trust score. The blocklist pass speaks raw DNS and the registry signals read database files, neither of which this runtime carries.",
+    "notServedNeeds": "a server that answers /api/trustscore; the self-hosted build runs it key-free against the public registries",
     "band": {
       "1": "High risk",
       "2": "Risky",
@@ -1882,6 +1884,8 @@
     "hint": "Enter an address above, or open this page without one to see your own.",
     "retry": "Try again",
     "failed": "The dossier could not be assembled. The registry sources may be slow or unreachable.",
+    "notServedNote": "The dossier is assembled by the trust engine, which this deployment does not serve. The individual tools still answer for this address.",
+    "notServedCta": "Look this address up",
     "usage": {
       "title": "Usage and type",
       "class": "Network class",

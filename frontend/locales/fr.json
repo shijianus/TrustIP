@@ -1699,6 +1699,8 @@
     "fetchFailed": "L'évaluation de confiance est indisponible pour le moment.",
     "retry": "Réessayer",
     "notMeasured": "Non mesuré ici : {gaps}. Un signal que nous n'avons pas pu consulter reste marqué « non mesuré », jamais « sain ».",
+    "notServedNote": "Ce déploiement ne fournit pas l'indice de confiance. Le test des listes de blocage parle DNS brut et les signaux de registre lisent des fichiers de base de données, deux choses que cet environnement n'a pas.",
+    "notServedNeeds": "un serveur qui répond sur /api/trustscore ; la version auto-hébergée l'exécute sans clé, à partir des registres publics",
     "band": {
       "1": "Très risqué",
       "2": "Risqué",
@@ -1882,6 +1884,8 @@
     "hint": "Saisissez une adresse ci-dessus, ou ouvrez la page sans rien pour consulter la vôtre.",
     "retry": "Réessayer",
     "failed": "Le dossier n'a pas pu être constitué. Les registres sont peut-être lents ou injoignables.",
+    "notServedNote": "Le dossier est établi par le moteur de confiance, que ce déploiement ne fournit pas. Les outils pris individuellement répondent toujours pour cette adresse.",
+    "notServedCta": "Consulter cette adresse",
     "usage": {
       "title": "Usage et type",
       "class": "Catégorie de réseau",

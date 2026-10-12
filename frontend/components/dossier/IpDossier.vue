@@ -23,6 +23,11 @@
                 {{ t('dossier.hint') }}
             </div>
 
+            <CapabilitySlot
+                v-else-if="!served"
+                state="delegated" :title="t('dossier.title')"
+                :note="t('dossier.notServedNote')" to="/ipinfo" :cta="t('dossier.notServedCta')" />
+
             <div v-else-if="error" class="rounded-lg border border-destructive-soft bg-destructive-soft px-4 py-3 text-sm text-destructive-soft-fg">
                 {{ error }}
                 <Button variant="ghost" size="sm" class="ms-2" @click="load(target)">{{ t('dossier.retry') }}</Button>
@@ -442,6 +447,11 @@ const { t, locale } = useI18n();
 const target = ref(route.params.ip || route.query.q || '');
 
 const store = useMainStore();
+// Whether this deployment answers `/api/dossier`. A property of the server, not
+// of the address: the hosted edge function serves fewer routes than Express, and a
+// page that calls a route which is not there reports a failure to assemble the
+// dossier when the truth is that no dossier is assembled here.
+const served = computed(() => store.configs?.dossier !== false);
 // The card is rendered by this server, so it needs the language as a query
 // parameter rather than the app's runtime locale — and the address has to be in
 // the URL, because `/ip` without one is the visitor's own, which the server
@@ -641,7 +651,7 @@ const crossChecks = computed(() => {
 });
 
 async function load(ip) {
-    if (!ip) return;
+    if (!ip || !served.value) return;
     error.value = '';
     try {
         const res = await fetchWithTimeout(`/api/dossier?ip=${encodeURIComponent(ip)}`, { timeoutMs: 30000 });
@@ -669,4 +679,11 @@ watch(() => [route.params.ip, route.query.q], ([param, query]) => {
 });
 
 onMounted(() => { if (target.value) load(target.value); });
+
+// `/api/configs` lands after mount, so `served` can flip once the boot request
+// returns. Without this a visitor who opens the page before configs arrive keeps
+// the declared gap even though the server does answer the route.
+watch(served, (isServed) => {
+    if (isServed && target.value && !dossier.value) load(target.value);
+});
 </script>
