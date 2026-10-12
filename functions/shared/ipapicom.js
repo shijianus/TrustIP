@@ -6,9 +6,12 @@
 import { makeGeoHandler, passThroughTimeZone } from './geo-handler.js';
 
 const buildUrl = (params) => {
-    const lang = params.get('lang') || 'en';
+    // Same allow-list as common/lang-param.js: a raw `lang=en%26callback%3Dx`
+    // used to append its own query parameters to the upstream URL.
+    const raw = params.get('lang');
+    const lang = raw && /^[A-Za-z]{2,3}(-[A-Za-z0-9]{1,8}){0,3}$/.test(raw) ? raw : 'en';
     return {
-        url: `http://ip-api.com/json/${params.get('ip')}?fields=66842623&lang=${lang}`,
+        url: `http://ip-api.com/json/${params.get('ip')}?fields=66842623&lang=${encodeURIComponent(lang)}`,
     };
 };
 

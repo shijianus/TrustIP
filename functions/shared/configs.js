@@ -38,7 +38,9 @@ export default (headers) => {
         // An unparseable Referer is simply not the upstream project's site.
     }
 
-    return json({
+    // The answer depends on the Referer and is publicly cached for an hour, so
+    // shared caches must key on it.
+    const response = json({
         map: false,
         ipInfo: false,
         ipChecking: false,
@@ -59,4 +61,6 @@ export default (headers) => {
         trust: false,
         dossier: false,
     }, { cacheSeconds: 60 * 60 });
+    response.headers.set('Vary', 'Referer');
+    return response;
 };

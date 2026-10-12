@@ -51,7 +51,7 @@ export function makeGeoHandler({ name, buildUrl, normalize, requiredEnv }) {
             res.json(normalize(json));
         } catch (e) {
             logger.error({ err: e, ip: ipAddress, ...logContext }, `${name} handler failed`);
-            res.status(500).json({ error: e.message });
+            res.status(500).json({ error: 'Upstream request failed' });
         }
     };
 }

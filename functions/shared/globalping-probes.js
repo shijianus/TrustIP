@@ -24,6 +24,6 @@ export default async () => {
         return json(buildProbeInventory(await response.json()), { cacheSeconds: ONE_WEEK_CACHE });
     } catch (error) {
         console.error('[globalping-probes] handler failed', { error: error?.message });
-        return json({ error: error?.message || String(error) }, { status: 500, cacheSeconds: ONE_WEEK_CACHE });
+        return json({ error: 'Upstream request failed' }, { status: 500, cacheSeconds: ONE_WEEK_CACHE });
     }
 };

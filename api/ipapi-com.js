@@ -3,13 +3,16 @@
 // canonical geo shape via the shared makeGeoHandler factory.
 
 import { makeGeoHandler } from '../common/geo-handler.js';
+import { normalizeLang } from '../common/lang-param.js';
 
 function buildUrl(req) {
     const ipAddress = req.query.ip;
 
     // Build request URL for ip-api.com
-    const lang = req.query.lang || 'en';
-    const url = `http://ip-api.com/json/${ipAddress}?fields=66842623&lang=${lang}`;
+    // normalizeLang: a raw `lang=en%26callback%3Dx` used to append its own
+    // query parameters to the upstream URL.
+    const lang = normalizeLang(req.query.lang);
+    const url = `http://ip-api.com/json/${ipAddress}?fields=66842623&lang=${encodeURIComponent(lang)}`;
     return { url, logContext: { lang } };
 }
 

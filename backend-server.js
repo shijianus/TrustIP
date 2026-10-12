@@ -56,6 +56,8 @@ import { startCaidaAutoUpdate, bootstrapCaidaIfMissing } from './common/caida-up
 import { bootstrapServiceStatus, startServiceStatusPolling } from './common/service-status-store.js';
 import { initUpstreamUserAgent } from './common/upstream-ua.js';
 import { apiNotFound, jsonErrorHandler } from './common/error-handler.js';
+import { resolveClientIp } from './common/upstream-headers.js';
+import { securityHeaders } from './common/security-headers.js';
 
 dotenv.config({ quiet: true });
 initUpstreamUserAgent();
@@ -63,6 +65,7 @@ initUpstreamUserAgent();
 const app = express();
 // Don't advertise the framework on every response.
 app.disable('x-powered-by');
+app.use(securityHeaders);
 const backEndPort = parseInt(process.env.BACKEND_PORT || 11966, 10);
 // Local rate-limit ledger file — opt-in: empty means no file is written.
 // The logger.warn in the limiter handler always fires regardless (and flows
@@ -96,12 +99,10 @@ if (process.env.LOG_HTTP === 'true') {
     logger.info('📝 HTTP request logging enabled (LOG_HTTP=true)');
 }
 
-function getClientIp(req) {
-    const cfIp = req.headers['cf-connecting-ip'];
-    const forwardedIps = req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0] : null;
-    const cfIpV6 = req.headers['cf-connecting-ipv6'];
-    return cfIp || forwardedIps || cfIpV6 || req.ip;
-}
+// The leftmost X-Forwarded-For entry is whatever the client typed, so it no
+// longer names the address in the blacklist ledger; req.ip already applies the
+// `trust proxy` hop count to that header. See common/upstream-headers.js.
+const getClientIp = (req) => resolveClientIp(req) || req.socket?.remoteAddress || 'unknown';
 
 // Host-local time with an explicit UTC offset ("2026-07-14 10:23:45 +0800"),
 // matching the pretty-log timestamp style — ledger entries stay unambiguous
@@ -292,7 +293,7 @@ app.get('/api/globalping-probes', cacheable(SEVEN_DAYS_CACHE), globalpingProbesH
 // All Cloudflare Radar data rides one route; `?view=` picks the dataset and
 // the TTL comes from that view's registry entry (common/cf-radar.js) — 30d
 // for the slow-moving ASN/traffic profiles, 1h for the outage feed.
-app.get('/api/cfradar', cacheable((req) => RADAR_VIEWS[req.query.view]?.ttl), cfRadarHandler);
+app.get('/api/cfradar', cacheable((req) => (Object.hasOwn(RADAR_VIEWS, String(req.query.view)) ? RADAR_VIEWS[req.query.view].ttl : undefined)), cfRadarHandler);
 // Cache for 30 days — registry / historical data that changes on a monthly
 // (or slower) cadence: IEEE OUI assignments, ASN metadata, ASN interconnection,
 // and append-only BGP routing history.
@@ -359,7 +360,14 @@ app.get('/api/ip-card', requirePublicIP(), ipCardLimiter, cacheable(24 * 60 * 60
 app.get('/api/map', cacheable(ONE_YEAR_CACHE), mapHandler);
 // Non-cacheable routes — auth-context, debug tools, or per-request lookups.
 app.get('/api/ipchecking', requirePublicIP(), withTimeZone(), ipCheckingHandler);
-app.get('/api/dnsresolver', requireValidDomain('hostname'), requireValidRecordType(), dnsResolver);
+// One lookup fans out to 24 resolvers (18 UDP + 6 DoH), so it gets its own
+// per-IP budget like the other fan-out routes; the global limiter is opt-in.
+const dnsResolverLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 30,
+    message: 'Too Many Requests',
+});
+app.get('/api/dnsresolver', requireValidDomain('hostname'), requireValidRecordType(), dnsResolverLimiter, dnsResolver);
 app.get('/api/dnsleaktest/session/:token', dnsLeakGetResult);
 app.get('/api/invisibility', invisibilitytestHandler);
 app.get('/api/getuserinfo', getUserinfo);

@@ -1,5 +1,7 @@
 import { fetchUpstream } from '../common/fetch-with-timeout.js';
 import logger from '../common/logger.js';
+import { upstreamHeaders } from '../common/upstream-headers.js';
+import { normalizeLang } from '../common/lang-param.js';
 
 export default async (req, res) => {
     // Presence, validity and public routability guaranteed by the
@@ -16,14 +18,17 @@ export default async (req, res) => {
     }
 
     // Build request
-    const lang = req.query.lang || 'en';
-    const url = new URL(`${apiEndpoint}/ipinfo?key=${key}&ip=${ipAddress}&lang=${lang}`);
+    // Every value goes through searchParams: `lang` used to be pasted in raw,
+    // so `lang=en%26ip%3D10.0.0.1` smuggled a second ip= (or key=) upstream.
+    const lang = normalizeLang(req.query.lang);
+    const url = new URL(`${apiEndpoint}/ipinfo`);
+    url.searchParams.set('key', key);
+    url.searchParams.set('ip', ipAddress);
+    url.searchParams.set('lang', lang);
 
     try {
         const apiResponse = await fetchUpstream(url, {
-            headers: {
-                ...req.headers,
-            }
+            headers: upstreamHeaders(req),
         });
 
         if (!apiResponse.ok) {
@@ -34,6 +39,6 @@ export default async (req, res) => {
         res.json(data);
     } catch (error) {
         logger.error({ err: error, ip: ipAddress, lang }, 'ipcheck-ing handler failed');
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'Upstream request failed' });
     }
 }

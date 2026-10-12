@@ -80,6 +80,6 @@ export default async (req, res) => {
         });
     } catch (error) {
         logger.error({ err: error, domain }, 'ooni-blocking handler failed');
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'Upstream request failed' });
     }
 };

@@ -61,6 +61,6 @@ export default async (req, res) => {
             return res.status(504).json({ error: 'Upstream timeout' });
         }
         logger.error({ err: error, prefix }, 'asn-history handler failed');
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'Upstream request failed' });
     }
 };

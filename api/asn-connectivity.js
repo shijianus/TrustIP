@@ -151,6 +151,6 @@ export default async (req, res) => {
         res.json({ origin: asn, ...graph });
     } catch (error) {
         logger.error({ err: error, asn }, 'asn-connectivity handler failed');
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'Upstream request failed' });
     }
 };

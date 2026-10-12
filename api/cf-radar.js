@@ -25,7 +25,9 @@ export default async (req, res) => {
     if (!viewName) {
         return res.status(400).json({ error: 'No view provided' });
     }
-    const view = RADAR_VIEWS[viewName];
+    // Own keys only: `?view=constructor` / `__proto__` used to resolve to
+    // Object.prototype members and throw a TypeError (500 + error log).
+    const view = typeof viewName === 'string' && Object.hasOwn(RADAR_VIEWS, viewName) ? RADAR_VIEWS[viewName] : null;
     if (!view) {
         return res.status(400).json({ error: 'Invalid view' });
     }
