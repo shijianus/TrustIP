@@ -48,6 +48,21 @@ function isValidDomain(domain) {
     return /^_?[a-z0-9-]+(\._?[a-z0-9-]+)*\.[a-z]{2,}$/i.test(domain);
 }
 
+// An autonomous system number as a visitor writes it: `AS15169`, `as15169`,
+// `AS 15169`, or bare digits. The bare form is accepted because a number is valid
+// as neither an IP nor a domain, so there is nothing to disambiguate against — and
+// a Whois page that refuses `15169` turns away the one input only it can answer.
+// The bounds are the real allocation space: AS0 and AS4294967295 are reserved, so
+// anything outside 1–4294967294 is read as "this is not an ASN", not as a lookup
+// that failed — no registry object exists to be found.
+function parseAsnQuery(text) {
+    if (typeof text !== 'string') return null;
+    const match = /^\s*(?:as)?\s*(\d{1,10})\s*$/i.exec(text);
+    if (!match) return null;
+    const asn = Number(match[1]);
+    return asn >= 1 && asn <= 4294967294 ? asn : null;
+}
+
 // IPv4 blocks outside publicly routable space: the RFC 1918 private ranges
 // plus loopback, link-local, CGNAT, documentation, benchmarking, multicast
 // and the reserved tail.
@@ -119,4 +134,4 @@ const isUsablePublicIP = (ip) => {
     return !(isIPv6(ip) ? isReservedV6(ip) : isReservedV4(ip));
 };
 
-export { isValidIP, isIPv6, isValidDomain, isUsablePublicIP };
+export { isValidIP, isIPv6, isValidDomain, isUsablePublicIP, parseAsnQuery };

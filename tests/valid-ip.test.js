@@ -6,8 +6,12 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { isValidIP as isValidCommonIP, isValidDomain as isValidCommonDomain, isIPv6 as isCommonIPv6, isUsablePublicIP as isCommonUsablePublicIP } from '../common/valid-ip.js';
-import { isValidIP as isValidFrontendIP, isValidDomain as isValidFrontendDomain, isIPv6 as isFrontendIPv6, isUsablePublicIP as isFrontendUsablePublicIP } from '../frontend/utils/valid-ip.js';
+import { isValidIP as isValidCommonIP, isValidDomain as isValidCommonDomain, isIPv6 as isCommonIPv6, isUsablePublicIP as isCommonUsablePublicIP, parseAsnQuery as parseCommonAsn } from '../common/valid-ip.js';
+import { isValidIP as isValidFrontendIP, isValidDomain as isValidFrontendDomain, isIPv6 as isFrontendIPv6, isUsablePublicIP as isFrontendUsablePublicIP, parseAsnQuery as parseFrontendAsn } from '../frontend/utils/valid-ip.js';
+// A third copy: the Qoder Sites edge function is dependency-free and cannot reach
+// common/. If the two halves disagree about what counts as an AS input, the same
+// query answers on the self-hosted build and 400s on the hosted one.
+import { parseAsnQuery as parseEdgeAsn } from '../functions/shared/valid-ip.js';
 
 const validAddresses = [
   '1.1.1.1',
@@ -194,4 +198,50 @@ describe('isUsablePublicIP', () => {
       assert.equal(isFrontendUsablePublicIP(junk), false);
     });
   }
+});
+
+describe('parseAsnQuery', () => {
+  const accepted = [
+    ['AS15169', 15169],
+    ['as15169', 15169],
+    ['As15169', 15169],
+    // The bare number is the form people copy out of a BGP table. It is valid as
+    // neither an IP nor a domain, so accepting it costs nothing in ambiguity.
+    ['15169', 15169],
+    [' AS 9268 ', 9268],
+    ['AS000001', 1],
+    ['4294967294', 4294967294],
+  ];
+
+  const rejected = [
+    // AS0 and the 32-bit reserved tail have no registry object to find.
+    ['0', null], ['AS0', null], ['4294967295', null], ['99999999999', null],
+    // Not an AS, and each of these belongs to a different branch of the WHOIS input.
+    ['8.8.8.8', null], ['example.com', null], ['1.2.3.4', null], ['AS', null],
+    ['1e9', null], ['abc', null], ['-5', null], ['12 34', null], ['', null],
+    [null, null], [undefined, null], [42, null], [{}, null],
+  ];
+
+  for (const [input, expected] of [...accepted, ...rejected]) {
+    it(`${JSON.stringify(input)} -> ${JSON.stringify(expected)}`, () => {
+      assert.equal(parseCommonAsn(input), expected);
+      assert.equal(parseFrontendAsn(input), expected);
+      assert.equal(parseEdgeAsn(input), expected);
+    });
+  }
+
+  // `as?` is "a" plus an optional "s", not an optional "as". Writing the prefix
+  // that way makes every bare number fail to parse while `AS15169` still works —
+  // which is exactly the silent half-break this pins.
+  it('does not require the prefix to be spelled at all', () => {
+    assert.equal(parseCommonAsn('15169'), 15169);
+    assert.equal(parseCommonAsn('AS15169'), parseCommonAsn('15169'));
+  });
+
+  it('an IP and an AS number never both claim the same input', () => {
+    for (const ip of validAddresses.slice(0, 6)) {
+      assert.equal(isValidCommonIP(ip), true);
+      assert.equal(parseCommonAsn(ip), null, `${ip} parsed as an AS too`);
+    }
+  });
 });
