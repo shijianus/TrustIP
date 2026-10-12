@@ -49,6 +49,6 @@ export default async (params) => {
             return json({ error: 'Upstream timeout' }, { status: 504, cacheSeconds: THIRTY_DAYS_CACHE });
         }
         console.error('[asn-history] handler failed', { prefix, error: error?.message });
-        return json({ error: error?.message || String(error) }, { status: 500, cacheSeconds: THIRTY_DAYS_CACHE });
+        return json({ error: 'Upstream request failed' }, { status: 500, cacheSeconds: THIRTY_DAYS_CACHE });
     }
 };

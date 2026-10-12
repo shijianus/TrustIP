@@ -26,6 +26,6 @@ export default async (req, res) => {
         res.json({ ...dossier, generatedAt: new Date().toISOString() });
     } catch (e) {
         logger.error({ err: e, ip: ipAddress }, 'dossier handler failed');
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Upstream request failed' });
     }
 };

@@ -48,6 +48,6 @@ export default async (params) => {
         }, { cacheSeconds: SIX_HOURS_CACHE });
     } catch (e) {
         console.error('[internetdb] handler failed', { ip: ipAddress, error: e?.message });
-        return json({ error: e?.message || String(e) }, { status: 500, cacheSeconds: SIX_HOURS_CACHE });
+        return json({ error: 'Upstream request failed' }, { status: 500, cacheSeconds: SIX_HOURS_CACHE });
     }
 };

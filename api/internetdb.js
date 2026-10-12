@@ -58,6 +58,6 @@ export default async (req, res) => {
         });
     } catch (e) {
         logger.error({ err: e, ip: ipAddress }, 'internetdb handler failed');
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Upstream request failed' });
     }
 };

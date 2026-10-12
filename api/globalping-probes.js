@@ -23,6 +23,6 @@ export default async (req, res) => {
         res.json(buildProbeInventory(await response.json()));
     } catch (error) {
         logger.error({ err: error }, 'globalping-probes handler failed');
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'Upstream request failed' });
     }
 };

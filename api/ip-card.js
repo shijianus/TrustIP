@@ -61,6 +61,6 @@ export default async (req, res) => {
         return res.status(200).send(png);
     } catch (e) {
         logger.error({ err: e, ip: ipAddress }, 'ip-card handler failed');
-        return res.status(500).json({ error: e.message });
+        return res.status(500).json({ error: 'Upstream request failed' });
     }
 };

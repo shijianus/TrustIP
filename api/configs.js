@@ -53,5 +53,8 @@ export default (req, res) => {
     for (const key in envConfigs) {
         result[key] = !!envConfigs[key];
     }
+    // `originalSite` depends on the Referer and the route is publicly cached
+    // for an hour, so shared caches must key on it.
+    res.setHeader('Vary', 'Referer');
     res.status(200).json(result);
 };

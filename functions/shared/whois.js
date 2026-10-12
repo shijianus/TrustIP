@@ -48,6 +48,6 @@ export default async (params) => {
             return json({ error: error.message }, { status: 404, cacheSeconds });
         }
         console.error('[whois] lookup failed', { query, error: error?.message });
-        return json({ error: error?.message || String(error) }, { status: 500, cacheSeconds });
+        return json({ error: 'Upstream request failed' }, { status: 500, cacheSeconds });
     }
 };

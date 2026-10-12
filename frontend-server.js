@@ -5,10 +5,13 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import logger from './common/logger.js';
+import { securityHeaders } from './common/security-headers.js';
 
 dotenv.config({ quiet: true });
 
 const frontendApp = express();
+frontendApp.disable('x-powered-by');
+frontendApp.use(securityHeaders);
 const backEndPort = parseInt(process.env.BACKEND_PORT || 11966, 10);
 const frontEndPort = parseInt(process.env.FRONTEND_PORT || 18966, 10);
 

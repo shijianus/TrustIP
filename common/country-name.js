@@ -3,9 +3,19 @@
 // resolves in any supported locale with zero maintenance and zero bundle weight.
 
 const displayNamesCache = new Map();
+// `lang` can come straight from a query string, so the cache is capped: past
+// this many distinct tags, new ones are built per call instead of retained.
+const DISPLAY_NAMES_CACHE_MAX = 64;
 
 const getDisplayNames = (lang) => {
     if (!displayNamesCache.has(lang)) {
+        if (displayNamesCache.size >= DISPLAY_NAMES_CACHE_MAX) {
+            try {
+                return new Intl.DisplayNames([lang], { type: 'region', fallback: 'none' });
+            } catch {
+                return null;
+            }
+        }
         let displayNames = null;
         try {
             // fallback: 'none' → unknown-but-well-formed codes yield undefined

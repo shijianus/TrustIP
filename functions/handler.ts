@@ -85,8 +85,19 @@ export const routeNameOf = (pathname: string): string => {
     return tail(1);
 };
 
-const parseBody = async (request: Request): Promise<{ body?: unknown; error?: string }> => {
+// Same ceiling as express.json({ limit: '500kb' }) in backend-server.js; the
+// edge used to read a body of any size into memory before parsing it.
+const MAX_BODY_BYTES = 500 * 1024;
+
+const parseBody = async (request: Request): Promise<{ body?: unknown; error?: string; status?: number }> => {
+    const declared = Number(request.headers.get('content-length'));
+    if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) {
+        return { error: 'Request body too large', status: 413 };
+    }
     const text = await request.text();
+    if (new TextEncoder().encode(text).length > MAX_BODY_BYTES) {
+        return { error: 'Request body too large', status: 413 };
+    }
     if (!text) return { body: {} };
     try {
         return { body: JSON.parse(text) };
@@ -128,7 +139,7 @@ const handler = async (request: Request): Promise<Response> => {
     let body: unknown = undefined;
     if (route.method === 'POST') {
         const parsed = await parseBody(request);
-        if (parsed.error) return json({ error: parsed.error }, { status: 400 });
+        if (parsed.error) return json({ error: parsed.error }, { status: parsed.status || 400 });
         body = parsed.body;
     }
 

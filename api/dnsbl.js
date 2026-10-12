@@ -28,6 +28,6 @@ export default async (req, res) => {
         res.json({ generatedAt: new Date().toISOString(), schema: DNSBL_SCHEMA, ...pass });
     } catch (e) {
         logger.error({ err: e, ip: ipAddress }, 'dnsbl handler failed');
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: 'Upstream request failed' });
     }
 };

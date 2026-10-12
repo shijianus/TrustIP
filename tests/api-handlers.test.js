@@ -62,6 +62,8 @@ function createResponse() {
         status(code) { this.statusCode = code; return this; },
         json(payload) { this.body = payload; return this; },
         send(payload) { this.body = payload; return this; },
+        headers: {},
+        setHeader(name, value) { this.headers[name] = value; return this; },
     };
 }
 
@@ -121,6 +123,12 @@ describe('configs handler', () => {
         configsHandler(createRequest(), res);
         assert.equal(res.body.trust, true);
         assert.equal(res.body.dossier, true);
+    });
+
+    it('varies on Referer, since originalSite depends on it and the route is cached', () => {
+        const res = createResponse();
+        configsHandler(createRequest(), res);
+        assert.equal(res.headers.Vary, 'Referer');
     });
 
     it('honors the pre-rename env spellings as fallbacks', () => {
@@ -243,7 +251,7 @@ describe('google-map handler', () => {
         const res = createStreamResponse();
         await googleMapHandler(createRequest(mapQuery), res);
         assert.equal(res.statusCode, 500);
-        assert.deepEqual(res.body, { error: 'connect timeout' });
+        assert.deepEqual(res.body, { error: 'Upstream request failed' });
     });
 });
 

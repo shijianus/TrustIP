@@ -193,7 +193,7 @@ const dnsResolver = async (req, res) => {
         res.json({ hostname, results });
     } catch (error) {
         logger.error({ err: error }, 'DNS resolver handler failed');
-        res.status(500).send({ error: error.message });
+        res.status(500).send({ error: 'Upstream request failed' });
     }
 };
 

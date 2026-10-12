@@ -1,5 +1,6 @@
 import { fetchUpstream } from '../common/fetch-with-timeout.js';
 import logger from '../common/logger.js';
+import { upstreamHeaders } from '../common/upstream-headers.js';
 
 // If length is not 28 and is not a combination of letters and numbers, return false
 function isValidUserID(userID) {
@@ -32,9 +33,7 @@ export default async (req, res) => {
 
     try {
         const apiResponse = await fetchUpstream(url, {
-            headers: {
-                ...req.headers,
-            }
+            headers: upstreamHeaders(req),
         });
 
         // Upstream 404 = "result not computed yet" — a normal answer while
@@ -74,14 +73,16 @@ export default async (req, res) => {
             } catch {
                 errorDetail = apiResponse.statusText;
             }
-            throw new Error(`API responded with status: ${apiResponse.status} - ${errorDetail}`);
+            // The upstream's own error text goes to the log only.
+            logger.error({ status: apiResponse.status, detail: errorDetail }, 'invisibility-test upstream error');
+            return res.status(500).json({ error: `API responded with status: ${apiResponse.status}` });
         }
 
         const data = await apiResponse.json();
         res.json(data);
     } catch (error) {
         logger.error({ err: error }, 'invisibility-test upstream request failed');
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: 'Upstream request failed' });
     }
 
 };

@@ -32,12 +32,12 @@ jobs:
     steps:
       # step 1: checkout target repo
       - name: Checkout target repo
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       # step 2: sync upstream changes
       - name: Sync upstream changes
         id: sync
-        uses: aormsby/Fork-Sync-With-Upstream-action@v3.4
+        uses: aormsby/Fork-Sync-With-Upstream-action@9e2e4fd0829a2fe8ca4b13693faac9230c414d51 # v3.4
         with:
           upstream_sync_repo: jason5ng32/MyIP
           upstream_sync_branch: main
