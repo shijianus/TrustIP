@@ -2,9 +2,9 @@
 //
 // One request that answers the whole IP page: the trust assessment, the
 // geolocation opinions and how far apart they are, the ASN and its BGP
-// neighbourhood, the RIR allocation record, reverse DNS, RPKI, and a
-// `slots` map saying which sections have real data behind them and which are
-// declared gaps.
+// neighbourhood, the RIR allocation record with the addresses that share its
+// block, reverse DNS, RPKI, and a `slots` map saying which sections have real
+// data behind them and which are declared gaps.
 //
 // Assembled by common/ip-dossier.js; this file only shapes the response and
 // answers failures. Presence, syntax and public routability of `?ip` are

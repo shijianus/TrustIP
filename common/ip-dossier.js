@@ -14,9 +14,11 @@
 //     address has no such property.
 //
 // `common/trust-signals.js` gathers the registry evidence and
-// `common/trust-score.js` scores it; this module adds the two things neither
-// does — a multi-source geolocation comparison, and the BGP neighbourhood
-// computed from the CAIDA relationship snapshot already in memory.
+// `common/trust-score.js` scores it; this module adds the three things neither
+// does — a multi-source geolocation comparison, the BGP neighbourhood computed
+// from the CAIDA relationship snapshot already in memory, and the addresses the
+// registered block puts around this one, which is arithmetic on a record the
+// evidence already carries.
 
 import { fetchUpstream } from './fetch-with-timeout.js';
 import { gatherTrustEvidence } from './trust-signals.js';
