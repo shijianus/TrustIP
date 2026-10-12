@@ -6,9 +6,10 @@
 
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
+import fs from 'node:fs';
 
 import {
-    buildGeo, haversineKm, geoFromEvidence, technicalSlot, SLOTS,
+    buildGeo, buildNeighbours, haversineKm, geoFromEvidence, technicalSlot, SLOTS,
 } from '../common/ip-dossier.js';
 
 const source = (id, over = {}) => ({
@@ -142,6 +143,73 @@ describe('SLOTS', () => {
         assert.equal(SLOTS.topology.status, 'ready');
         assert.equal(SLOTS.topology.partial, true, 'topology has no path proportions and must say so');
         assert.ok(SLOTS.technical.partial.includes('openPorts'));
+        // The block names this address's neighbours; whether any of them is in
+        // use is a second question, and the slot has to keep them apart.
+        assert.equal(SLOTS.neighbours.status, 'partial');
+        assert.ok(SLOTS.neighbours.missing.includes('sameBlockActivity'));
+    });
+
+    // A gap row is named by a machine key on the server and translated on the
+    // page, so a key without copy renders as its own path — a reader sees
+    // `dossier.neighbours.gap.…` where the pack comparison sees nothing wrong.
+    it('names every gap row with a key the reference pack carries', () => {
+        const en = JSON.parse(fs.readFileSync(new URL('../frontend/locales/en.json', import.meta.url), 'utf8'));
+        const gaps = en.dossier?.neighbours?.gap || {};
+        for (const key of SLOTS.neighbours.missing) {
+            assert.ok(gaps[key], `neighbours: no copy for gap "${key}"`);
+        }
+    });
+});
+
+// The neighbour list is arithmetic on the registered block, so what is worth
+// pinning is where the arithmetic must stop: at the two ends of the block, and
+// at the point where a block stops being a range at all.
+describe('buildNeighbours', () => {
+    const roles = (ip, cidr) => (buildNeighbours(ip, cidr)?.entries || []).map((e) => e.role);
+    const ips = (ip, cidr) => (buildNeighbours(ip, cidr)?.entries || []).map((e) => e.ip);
+
+    it('names the two neighbours and both edges of the block', () => {
+        assert.deepEqual(roles('203.0.113.50', '203.0.113.0/24'), ['previous', 'next', 'blockFirst', 'blockLast']);
+        assert.deepEqual(
+            ips('203.0.113.50', '203.0.113.0/24'),
+            ['203.0.113.49', '203.0.113.51', '203.0.113.0', '203.0.113.255'],
+        );
+    });
+
+    // Stepping off either end would name an address somebody else holds, so the
+    // walk stops at the edge — and the edge it stopped at is shown once, as an
+    // edge, not a second time as a neighbour.
+    it('never steps outside the block and never repeats an address', () => {
+        assert.deepEqual(ips('203.0.113.0', '203.0.113.0/24'), ['203.0.113.1', '203.0.113.255']);
+        assert.deepEqual(ips('203.0.113.1', '203.0.113.0/24'), ['203.0.113.2', '203.0.113.0', '203.0.113.255']);
+        assert.deepEqual(ips('203.0.113.255', '203.0.113.0/24'), ['203.0.113.254', '203.0.113.0']);
+        assert.deepEqual(roles('203.0.113.1', '203.0.113.0/24'), ['next', 'blockFirst', 'blockLast']);
+    });
+
+    it('keeps a block of one address an answer rather than a missing block', () => {
+        const one = buildNeighbours('203.0.113.50', '203.0.113.50/32');
+        assert.deepEqual(one.entries, []);
+        assert.equal(one.cidr, '203.0.113.50/32');
+    });
+
+    it('says nothing when the registry named no block', () => {
+        assert.equal(buildNeighbours('203.0.113.50', null), null);
+        assert.equal(buildNeighbours('203.0.113.50', 'not-a-prefix'), null);
+    });
+
+    // A block that cannot contain the address is a bug upstream of here;
+    // inventing neighbours from a range this address is not inside is worse.
+    it('refuses a block of the other family', () => {
+        assert.equal(buildNeighbours('203.0.113.50', '2001:db8::/32'), null);
+    });
+
+    it('writes IPv6 neighbours in the form the page already uses', () => {
+        assert.deepEqual(ips('2001:db8:1234::5', '2001:db8:1200::/28'), [
+            '2001:db8:1234::4',
+            '2001:db8:1234::6',
+            '2001:db0::',
+            '2001:dbf:ffff:ffff:ffff:ffff:ffff:ffff',
+        ]);
     });
 });
 

@@ -2130,7 +2130,18 @@
       "less": "Afficher moins"
     },
     "neighbours": {
-      "empty": "Aucune adresse voisine observée ici."
+      "noBlock": "Le registre n'a désigné aucun bloc pour cette adresse ; ses voisines sont inconnues.",
+      "single": "Cette adresse occupe seule le bloc enregistré — rien ne la borde.",
+      "needs": "une observation disant lesquelles de ces adresses répondent — le registre nomme le bloc, seul le trafic dit qui l'occupe",
+      "role": {
+        "previous": "Précédente",
+        "next": "Suivante",
+        "blockFirst": "Début de bloc",
+        "blockLast": "Fin de bloc"
+      },
+      "gap": {
+        "sameBlockActivity": "lesquelles sont utilisées"
+      }
     }
   },
   "home": {

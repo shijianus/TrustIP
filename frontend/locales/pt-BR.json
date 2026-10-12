@@ -2130,7 +2130,18 @@
       "less": "Mostrar menos"
     },
     "neighbours": {
-      "empty": "Nenhum endereço vizinho foi observado aqui."
+      "noBlock": "O registro não indicou nenhum bloco para este endereço; os vizinhos são desconhecidos.",
+      "single": "Este endereço ocupa sozinho o bloco registrado — não há nada ao lado dele.",
+      "needs": "a observação de quais desses endereços respondem de fato — o registro indica o bloco, e só o tráfego diz quem o usa",
+      "role": {
+        "previous": "Anterior",
+        "next": "Próximo",
+        "blockFirst": "Início do bloco",
+        "blockLast": "Fim do bloco"
+      },
+      "gap": {
+        "sameBlockActivity": "quais deles estão em uso"
+      }
     }
   },
   "home": {

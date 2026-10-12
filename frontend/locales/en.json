@@ -2130,7 +2130,18 @@
       "less": "Show fewer"
     },
     "neighbours": {
-      "empty": "No neighbouring addresses have been observed here."
+      "noBlock": "The registry named no block for this address, so its neighbours are unknown.",
+      "single": "This address holds its registered block on its own — there is nothing beside it.",
+      "needs": "observation of which of these addresses answer at all — the registry names the block, and only traffic says who is using it",
+      "role": {
+        "previous": "Previous",
+        "next": "Next",
+        "blockFirst": "Block first",
+        "blockLast": "Block last"
+      },
+      "gap": {
+        "sameBlockActivity": "which of these are in use"
+      }
     }
   },
   "home": {
