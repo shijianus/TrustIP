@@ -13,7 +13,13 @@ export const createMacChecker = (lookup) => async (req, res) => {
     if (!mac) {
         return res.status(400).json({ error: 'No MAC address provided' });
     }
-    const hex = normalizeMacQuery(String(mac));
+    if (typeof mac !== 'string') {
+        // ?mac=a&mac=b arrives as an array (or ?mac[x]=… as an object); answer
+        // 400 rather than coercing it — the hardening fix, kept on upstream's
+        // local-registry lookup.
+        return res.status(400).json({ error: 'Invalid MAC address' });
+    }
+    const hex = normalizeMacQuery(mac);
     if (!hex) {
         return res.status(400).json({ error: 'Invalid MAC address' });
     }
