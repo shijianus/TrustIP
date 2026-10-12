@@ -103,10 +103,20 @@ describe('configs handler', () => {
         const res = createResponse();
         configsHandler(createRequest(), res);
         assert.equal(res.statusCode, 200);
-        for (const key of ['map', 'ipInfo', 'ipChecking', 'ip2location', 'originalSite', 'cloudFlare', 'ipapiis', 'reportSharing']) {
+        for (const key of ['map', 'ipInfo', 'ipChecking', 'ip2location', 'originalSite', 'cloudFlare', 'ipapiis', 'reportSharing', 'trust', 'dossier']) {
             assert.equal(typeof res.body[key], 'boolean');
         }
         assert.equal(res.body.originalSite, false);
+    });
+
+    // The two route tables differ, so the two `configs` halves differ too — but
+    // only in values. A key the SPA can read on one deployment and not the other
+    // is how a panel ends up fetching a route that is not there.
+    it('serves the trust score and the dossier, which Express always mounts', () => {
+        const res = createResponse();
+        configsHandler(createRequest(), res);
+        assert.equal(res.body.trust, true);
+        assert.equal(res.body.dossier, true);
     });
 
     it('honors the pre-rename env spellings as fallbacks', () => {

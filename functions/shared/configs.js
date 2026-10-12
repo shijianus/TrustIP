@@ -14,6 +14,10 @@
 //       that does not exist here.
 //   ipCard — renders a PNG through satori, which needs font bytes this runtime
 //       cannot read. Off.
+//   trust · dossier — not a credential but a route table: handler.ts serves
+//       neither, and six of the ten trust signals ride HTTPS while the other four
+//       speak raw DNS or read local files. Off, so the panels state the gap in
+//       their own voice instead of showing a 404 as a runtime failure.
 //
 // The two key-free geo sources (`ipsb`, `ipapicom`) carry no `configKey` in
 // frontend/data/ip-databases.js, so `applyConfigAvailability` keeps them enabled
@@ -45,5 +49,14 @@ export default (headers) => {
         reportSharing: false,
         maxmind: false,
         ipCard: false,
+        // Not a credential — a route table. `trustscore` and `dossier` are not in
+        // handler.ts, and cannot be ported as-is: the blocklist pass speaks raw DNS
+        // over UDP, and CAIDA's AS maps and MaxMind's databases are files this
+        // runtime has no filesystem for. Six of the ten signals are HTTPS-only and
+        // would port, so the honest end state here is a *reduced* score, not a
+        // permanent no — but until that work lands the panels have to say they are
+        // not served rather than call a route that answers 404 and show a failure.
+        trust: false,
+        dossier: false,
     }, { cacheSeconds: 60 * 60 });
 };

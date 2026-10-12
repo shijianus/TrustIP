@@ -40,6 +40,14 @@ export default (req, res) => {
         // without one answers 503. The UI hides the share button on this flag rather
         // than offering a link that downloads an error page.
         ipCard: isCardConfigured(),
+        // Whether this deployment answers the route at all. The Express app mounts
+        // the trust score and the dossier on every boot, so both are true here; the
+        // flag exists because the Qoder Sites edge function keeps a different route
+        // table and serves neither. A panel that calls a route which does not exist
+        // gets a 404 and renders a runtime error — the edge half of this repo's own
+        // rule is that a capability this build does not have is *stated*, not failed.
+        trust: true,
+        dossier: true,
     };
     let result = {};
     for (const key in envConfigs) {
