@@ -139,6 +139,46 @@ describe('SLOTS', () => {
         }
     });
 
+    // A gap has to name the *class of source* that would close it, not the
+    // capability it lacks: "not supported here" is a mystery handed to the next
+    // contributor, while "a VPN exit directory" is a thing one can go and find.
+    const GAP_SOURCE = {
+        threat: /abuse-intelligence feed|IPAPIIS_API_KEY|ABUSEIPDB_API_KEY/,
+        deepRisk: /anonymiser-list feed|TRUST_PROVIDERS/,
+        vpnTrace: /VPN exit/,
+        heat: /observation store/,
+        relatedDomains: /reverse DNS/,
+        locationHistory: /observation history/,
+        neighbours: /observation/,
+        companyHistory: /registration-history/,
+        coLocated: /datacenter/,
+    };
+
+    it('names the class of source behind every declared gap', () => {
+        for (const [name, slot] of Object.entries(SLOTS)) {
+            if (!slot.needs) continue;
+            assert.ok(GAP_SOURCE[name], `${name}: a gap was declared with no source pinned to it`);
+            assert.match(slot.needs, GAP_SOURCE[name], `${name}: needs must name the source, not the absence`);
+        }
+    });
+
+    // The page renders the pack's sentence and the response carries its own, so
+    // the same gap is written down twice in two places. That pair drifted once —
+    // `vpnTrace` asked the reader for routing visibility while the response
+    // talked about a VPN exit directory — and nothing but this check notices.
+    it('describes one gap the same way in the pack and in the response', () => {
+        const en = JSON.parse(fs.readFileSync(new URL('../frontend/locales/en.json', import.meta.url), 'utf8'));
+        const dig = (path) => path.split('.').reduce((o, key) => o?.[key], en);
+        const pairs = [
+            ['vpnTrace', 'dossier.slot.vpntraceNeeds', /vpn exit/i],
+            ['companyHistory', 'dossier.slot.companyHistoryNeeds', /registration-history|rdap/i],
+        ];
+        for (const [slot, path, subject] of pairs) {
+            assert.match(SLOTS[slot].needs, subject, `${slot}: the response stopped naming its source`);
+            assert.match(dig(path) || '', subject, `${slot}: pack and response no longer describe one gap`);
+        }
+    });
+
     it('keeps the sections that carry real data honest about being partial', () => {
         assert.equal(SLOTS.topology.status, 'ready');
         assert.equal(SLOTS.topology.partial, true, 'topology has no path proportions and must say so');

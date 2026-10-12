@@ -277,7 +277,7 @@ const SLOTS = {
     technical: { status: 'ready', partial: ['openPorts'] },
     threat: { status: 'partial', missing: ['abuseLevel', 'honeypot'], needs: 'an abuse-intelligence feed — `IPAPIIS_API_KEY` with `TRUST_IPAPIIS_FEED=true`, or `ABUSEIPDB_API_KEY` with `TRUST_PROVIDERS=abuseipdb` — plus the honeypot observations, which need traffic we cannot see' },
     deepRisk: { status: 'placeholder', needs: 'an anonymiser-list feed: `TRUST_PROVIDERS` (proxycheck.io, AbuseIPDB, IP2Location, ipinfo, the scan archive) or the `api.ipapi.is` abuse feed; the free registries do not carry membership in those lists' },
-    vpnTrace: { status: 'placeholder', needs: 'a routing-visibility dataset we do not currently query' },
+    vpnTrace: { status: 'placeholder', needs: 'a VPN exit directory — which service an address is the exit of, and the pool it exits into; the registries name the holder of the block, never the tunnel that terminates on it' },
     // The numbers are not ours to produce: measuring from this server would
     // report this datacenter's uplink as if it were the world's. The block
     // carries the probe plan and the visitor's browser runs it, so the slot is
