@@ -328,15 +328,17 @@ const technicalSlot = (scan) => !scan ? SLOTS.technical
             : { status: 'placeholder', needs: 'internetdb.shodan.io did not answer within our timeout' };
 
 // Why a blocklist pass had nothing to say, keyed on the reason `common/dnsbl.js`
-// reported. Three of these are genuinely different situations and one message
-// for all of them would read a network that blocks DNS as a network that
-// clears the address — and an IPv6 address as one that was asked and found clean.
+// reported. Each is a genuinely different situation, and one message for all of
+// them would read a network that blocks DNS as a network that clears the address
+// — an IPv6 address as one that was asked and found clean, and a range's posting
+// rules as nobody answering at all.
 const BLOCKLIST_GAP_REASONS = {
     'no-ipv6-zone': 'no blocklist zone in this build\'s list publishes IPv6 content, so an IPv6 address is never asked about at all',
     'no-trustworthy-resolver': 'a recursor that answers blocklist queries truthfully; every configured one fabricated its canary answer',
     'no-zones': 'a blocklist zone to ask — this build\'s list answers no question about this address',
     unparseable: 'an address that parses into a reverse-DNS query name',
     'no-answer': 'a recursor that answers blocklist queries truthfully; none of the zones replied',
+    'policy-only': 'at least one zone answering about the address itself — the pass did hear back, but every answer was the policy that covers this range, and a range\'s rules accuse no address',
 };
 
 /**
@@ -443,7 +445,17 @@ export const buildDossier = async (ip, { lang = 'en' } = {}) => {
                     status: 'ready',
                     note: `${evidence.blocklists.answered} of ${evidence.blocklists.zones} zones answered through ${evidence.blocklists.resolver || 'an unattributed recursor'}`,
                 }
-                : { status: 'placeholder', needs: BLOCKLIST_GAP_REASONS[evidence.blocklistsReason] || BLOCKLIST_GAP_REASONS['no-answer'] },
+                : {
+                    // The reason travels as a machine key as well as a sentence.
+                    // The page reads its own words out of the locale packs, and
+                    // one of these gaps is misdescribed by the generic line:
+                    // "nobody replied" is not what a pass that heard only range
+                    // policy looks like, and the panel has to be able to tell
+                    // without parsing English.
+                    status: 'placeholder',
+                    gapKey: evidence.blocklistsReason,
+                    needs: BLOCKLIST_GAP_REASONS[evidence.blocklistsReason] || BLOCKLIST_GAP_REASONS['no-answer'],
+                },
             // The two panels the optional keyed feed fills. Off, they stay the
             // declared gaps they have always been; on, they report what it said,
             // and the honeypot half — which needs traffic we cannot observe —
@@ -458,4 +470,7 @@ export const buildDossier = async (ip, { lang = 'en' } = {}) => {
     };
 };
 
-export { SLOTS, buildGeo, buildNeighbours, buildTopology, haversineKm, geoFromEvidence, technicalSlot };
+export {
+    SLOTS, BLOCKLIST_GAP_REASONS, buildGeo, buildNeighbours, buildTopology,
+    haversineKm, geoFromEvidence, technicalSlot,
+};

@@ -229,7 +229,9 @@ const queryAllZones = async (server, name, zones) => Promise.all(zones.map(async
  * @returns {Promise<object>} `{ ip, supported, resolver, results, tally, reason? }`
  *   `supported` is false when no zone here answers questions about this address
  *   family; `resolver` names which recursor the answers came through, because a
- *   stored listing is only as good as the path that reported it.
+ *   stored listing is only as good as the path that reported it; `reason` is set
+ *   whenever `tally.answered` is 0, and says which of the ways that happens this
+ *   pass is — `policy-only` among them.
  */
 const runPass = async (ip) => {
     const name = reverseName(ip);
@@ -252,13 +254,23 @@ const runPass = async (ip) => {
             logger.warn({ ip, server }, 'dnsbl: resolver fabricated an answer, trying the next one');
             continue;
         }
+        const tally = tallyOf(results);
+        // An empty `answered` has two different causes, and the pass is the only
+        // place that can still tell them apart: nobody answered about this
+        // address, versus everybody answered about its *range*. Calling the
+        // second one "none of the zones replied" would be the module's own words
+        // lying about its own reading, three layers downstream.
+        const reason = tally.answered === 0 && results.some((r) => r.status === 'policy')
+            ? 'policy-only'
+            : undefined;
         return {
             ip,
             supported: true,
             resolver: server,
             results,
-            tally: tallyOf(results),
+            tally,
             ms: Date.now() - started,
+            ...(reason ? { reason } : {}),
         };
     }
 

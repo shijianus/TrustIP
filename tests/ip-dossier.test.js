@@ -10,6 +10,7 @@ import fs from 'node:fs';
 
 import {
     buildGeo, buildNeighbours, haversineKm, geoFromEvidence, technicalSlot, SLOTS,
+    BLOCKLIST_GAP_REASONS,
 } from '../common/ip-dossier.js';
 
 const source = (id, over = {}) => ({
@@ -280,5 +281,27 @@ describe('technicalSlot', () => {
         const slot = technicalSlot({ status: 'failed' });
         assert.equal(slot.status, 'placeholder');
         assert.match(slot.needs, /did not answer/);
+    });
+});
+
+// Which sentence a blocklist pass with nothing to score earns. The pass names
+// its own reason — `common/dnsbl.js` owns that reading — and the dossier only
+// turns the name into a gap line, so this table is where a wrong reading shows up.
+describe('BLOCKLIST_GAP_REASONS', () => {
+    it('has a reason for every gap the pass can report', () => {
+        const reported = ['no-ipv6-zone', 'no-trustworthy-resolver', 'no-zones', 'unparseable', 'no-answer', 'policy-only'];
+        for (const reason of reported) {
+            assert.ok(BLOCKLIST_GAP_REASONS[reason], `no reason text for "${reason}"`);
+        }
+    });
+
+    // The bug this pins: a policy-only pass falling through to `no-answer`, which
+    // tells the reader nobody replied when every zone replied in fact — about the
+    // block. Neither may it imply the whole list answered about the address.
+    it('describes a policy-only pass as an answer about the range, not about nobody', () => {
+        const text = BLOCKLIST_GAP_REASONS['policy-only'];
+        assert.doesNotMatch(text, /none of the zones replied/i, 'policy-only borrowed the silent pass\'s words');
+        assert.match(text, /polic/, 'policy-only stopped naming what it did hear');
+        assert.match(text, /address itself/i, 'policy-only stopped saying what is still missing');
     });
 });

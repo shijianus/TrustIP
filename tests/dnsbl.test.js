@@ -291,6 +291,67 @@ describe('a range-policy answer', () => {
         ]);
         assert.deepEqual(tally, { zones: 2, answered: 0, listed: 0, botnet: 0, policy: 2 });
     });
+
+    // Why the pass had nothing to score is the pass's own fact to report: a
+    // consumer three layers down cannot tell "nobody answered" from "everybody
+    // answered about the range" once `answered` has collapsed both to zero.
+    it('reports policy-only as its own reason, and stays silent otherwise', async () => {
+        // Which zone answered is all the handlers need to key on: a pass queries
+        // every zone for the same address, so the zone name is the discriminator
+        // and pinning the address into the matcher only invites reuse mistakes.
+        const policyZoneAnswer = (name) => name.endsWith(POLICY_ZONE.zone) && !isCanary(name);
+
+        // Policy beside failures: still a pass that heard only about the block.
+        process.env.DNSBL_RESOLVERS = '10.53.0.42';
+        install((name) => {
+            if (isCanary(name)) return [];
+            if (policyZoneAnswer(name)) return ['127.0.0.11'];
+            throw dnsError('ETIMEOUT');
+        });
+        const mixed = await withPolicyZone(() => checkBlocklists('198.51.100.152'));
+        assert.equal(mixed.tally.answered, 0);
+        assert.equal(mixed.tally.policy, 1);
+        assert.equal(mixed.reason, 'policy-only');
+        assert.ok(mixed.results.some((r) => r.status === 'timeout'), 'the failures were hidden instead of counted');
+
+        // Policy plus real answers: the zones spoke about the address, so the
+        // reason belongs to nothing — the pass is scoreable.
+        process.env.DNSBL_RESOLVERS = '10.53.0.43';
+        install((name) => {
+            if (isCanary(name)) return [];
+            if (policyZoneAnswer(name)) return ['127.0.0.11'];
+            throw dnsError('ENOTFOUND');
+        });
+        const withClean = await withPolicyZone(() => checkBlocklists('198.51.100.153'));
+        assert.equal(withClean.tally.answered, ZONE_NAMES.length);
+        assert.equal(withClean.tally.policy, 1);
+        assert.equal('reason' in withClean, false, 'a scoreable pass grew a gap reason');
+
+        // Policy plus an accusation: the listing stands and is reported.
+        process.env.DNSBL_RESOLVERS = '10.53.0.44';
+        install((name) => {
+            if (isCanary(name)) return [];
+            if (policyZoneAnswer(name)) return ['127.0.0.11'];
+            if (name.endsWith('bl.spamcop.net')) return ['127.0.0.2'];
+            throw dnsError('ENOTFOUND');
+        });
+        const withListed = await withPolicyZone(() => checkBlocklists('198.51.100.154'));
+        assert.equal(withListed.tally.listed, 1);
+        assert.equal(withListed.tally.policy, 1);
+        assert.equal('reason' in withListed, false);
+
+        // Nothing answered at all: no policy happened here, so the pass names no
+        // reason and the dossier falls back to `no-answer` — the gap the panel's
+        // generic line actually describes.
+        process.env.DNSBL_RESOLVERS = '10.53.0.45';
+        install(() => {
+            throw dnsError('ETIMEOUT');
+        });
+        const silent = await withPolicyZone(() => checkBlocklists('198.51.100.155'));
+        assert.equal(silent.tally.answered, 0);
+        assert.equal(silent.tally.policy, 0);
+        assert.equal('reason' in silent, false, 'a silent pass claimed to have heard range policy');
+    });
 });
 
 describe('reverseName', () => {

@@ -2021,7 +2021,8 @@
       "clean": "Fora da lista",
       "rangePolicy": "Política de faixa",
       "through": "Respostas obtidas por {resolver}",
-      "needs": "um resolutor recursivo honesto, e uma zona que publique esta família de endereços — resolutores públicos costumam recusar ou inventar respostas, e nenhuma zona aqui cobre IPv6"
+      "needs": "um resolutor recursivo honesto, e uma zona que publique esta família de endereços — resolutores públicos costumam recusar ou inventar respostas, e nenhuma zona aqui cobre IPv6",
+      "rangePolicyNeeds": "uma resposta sobre o próprio endereço, de ao menos uma zona — a consulta obteve respostas, mas todas tratavam da política que cobre a faixa em que o endereço está, e as regras de uma faixa não são veredito sobre um endereço"
     },
     "colocated": {
       "title": "Mesmo datacenter",

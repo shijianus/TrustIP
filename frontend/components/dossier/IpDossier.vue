@@ -299,7 +299,7 @@
 
                 <!-- 11 — DNSBL -->
                 <div class="mb-4">
-                    <BlocklistPanel :blocklists="dossier.blocklists" />
+                    <BlocklistPanel :blocklists="dossier.blocklists" :gap-key="dossier.slots?.blocklists?.gapKey || ''" />
                 </div>
 
                 <!-- 12 — ASN history | company history -->

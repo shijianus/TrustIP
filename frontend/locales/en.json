@@ -2021,7 +2021,8 @@
       "clean": "Not listed",
       "rangePolicy": "Range policy",
       "through": "Answers read through {resolver}",
-      "needs": "a truthful recursor, and a zone that publishes this address family — public recursors often refuse or invent answers, and no zone here carries IPv6"
+      "needs": "a truthful recursor, and a zone that publishes this address family — public recursors often refuse or invent answers, and no zone here carries IPv6",
+      "rangePolicyNeeds": "an answer about the address itself, from at least one zone — this pass did hear back, but every reply was about the policy covering the range the address sits in, and a range's posting rules are no verdict on one address"
     },
     "colocated": {
       "title": "Same facility",
