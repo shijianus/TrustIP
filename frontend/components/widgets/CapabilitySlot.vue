@@ -36,6 +36,8 @@
         </div>
 
         <div v-else class="space-y-2">
+            <!-- Rows a caller handed us are never dropped to make a badge fit. -->
+            <slot v-if="hasRows" />
             <p class="text-sm leading-relaxed text-muted-foreground">{{ note }}</p>
             <div v-if="needs" class="rounded-md border border-dashed bg-muted/30 px-3 py-2">
                 <p class="text-xs leading-relaxed">
@@ -56,17 +58,22 @@
 // grey box would throw away the only information that makes the gap
 // actionable — which is the difference between a placeholder you can finish
 // and one you cannot.
+//
+// A state outside those three is read as `placeholder` by `capabilityBadge`, and
+// any rows the caller passed still render: an unrecognised state is this build's
+// mistake, not a reason to hide the reader's data or to print a locale key.
 
-import { computed } from 'vue';
+import { computed, useSlots } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { RouterLink } from 'vue-router';
 import { ArrowUpRight } from '@lucide/vue';
+import { capabilityBadge } from '@/composables/use-status-tone.js';
 import SectionTitle from '@/components/widgets/SectionTitle.vue';
 import VerdictChip from '@/components/widgets/VerdictChip.vue';
 
 const props = defineProps({
     title: { type: String, required: true },
-    // placeholder | delegated | partial
+    // placeholder | delegated | partial — anything else reads as placeholder
     state: { type: String, default: 'placeholder' },
     note: { type: String, default: '' },
     // What would have to be added to make this section real.
@@ -79,14 +86,15 @@ const props = defineProps({
 });
 
 const { t } = useI18n();
+const slots = useSlots();
 
-const badgeTone = computed(() => ({
-    delegated: 'info',
-    partial: 'warn',
-    placeholder: 'muted',
-}[props.state] || 'muted'));
+const badge = computed(() => capabilityBadge(props.state));
+const badgeTone = computed(() => badge.value.tone);
+const badgeLabel = computed(() => t(badge.value.labelKey));
 
-const badgeLabel = computed(() => t(`dossier.slot.badge.${props.state}`));
+// Only the gap branch needs the test: `partial` renders the slot already, and a
+// caller that passed nothing must stay exactly as terse as it was.
+const hasRows = computed(() => (slots.default?.().length ?? 0) > 0);
 
 const missingList = computed(() => props.missing.join(', '));
 

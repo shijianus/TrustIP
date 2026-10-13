@@ -118,7 +118,16 @@ interactivity). FAB colors stay semantic, max two accents at once: `action` =
 trigger, `default` = stateless panel, `success` = protective state active,
 `secondary` = dock. Every business state → color mapping goes through
 `composables/use-status-tone.js` (`wait` / `ok-fast` / `ok-slow` / `fail`),
-normally via `ipFieldTone()` — no hand-rolled switches.
+normally via `ipFieldTone()` — no hand-rolled switches. The file carries two
+further state maps that are *not* those four levels, because neither is a
+measurement's speed: `trustBandOf()` for the five-band 0–100 score, and
+`capabilityBadge()` for a declared gap, whose tones are `VerdictChip`'s names
+(`info` / `warn` / `muted`) and whose label is a locale *key*. An unknown slot
+state reads as `placeholder` — the conservative claim — so a section promoted to
+a state nobody translated says "not measured" rather than printing
+`dossier.slot.badge.ready`, and never borrows a badge that claims data exists.
+A gap card also keeps any rows its caller passed, whatever the state turned out
+to be: the build's misreading is not a reason to hide the reader's data.
 
 ### Canonical patterns
 
