@@ -7,49 +7,157 @@ name: Upstream Sync
 # nothing under the upstream's name (compare docker-image.yml, which does, and
 # is therefore parked).
 #
-# Two things were changed from the upstream copy of this file, both to make it
-# actually run here:
-#   - target_sync_branch is `dev`, not `main`. Repository rule: dev in, dev
-#     out — main only moves through a dev → main PR, so an automated merge must
-#     not land on main with contents:write.
-#   - the old `if: github.event.repository.fork` guard is gone. This repo was
-#     created by pushing a clone, not by GitHub's Fork button, so that flag is
-#     false forever and the schedule would silently never sync.
+# Why this is plain git and not a fork-sync action. Two reasons, both learned
+# from the schedule failing every day:
+#   - This repo was created by pushing a clone, not by GitHub's Fork button, so
+#     `repository.fork` is false forever and there is no parent relation for a
+#     fork-sync action to read.
+#   - Upstream and this fork disagree on branding, docs, the six locale packs,
+#     `pnpm-lock.yaml`, and the shared whois / cache-control / AGENTS.md files —
+#     a merge of upstream `main` into `dev` conflicted in 27 files. Resolving
+#     that is a judgement call about which side this fork keeps, so no action
+#     can do it and a red X could not have told us anything we could act on.
+#
+# Repository rule: dev in, dev out — main only moves through a dev → main PR,
+# which is why the target is `dev` and why nothing here ever pushes to `main`.
+#
+# Three outcomes, each reported as itself:
+#   - already synced, or a clean merge → land it on dev and the run is green.
+#   - a conflicted merge → the conflicts are filed as one open issue that names
+#     the files and the upstream commit, and the run is green. The gap is
+#     declared, not passed off as a success: someone reading Actions sees the
+#     issue, and only the issue.
+#   - anything else (fetch, push, auth) → red, because that is this workflow
+#     breaking rather than the fork having work to do.
 
 permissions:
-  contents: write
+  contents: write # push a clean merge to dev; a conflicted merge pushes nothing
+  issues: write # the one issue that says which files are blocked
 
 on:
   schedule:
     - cron: "0 0 * * *" # every day at 00:00 UTC
   workflow_dispatch:
 
+# A night run and a manual re-run that both reach dev would have the second
+# push rejected for moving out from under it — a red X that says nothing about
+# upstream. Queue them instead.
+concurrency:
+  group: upstream-sync
+  cancel-in-progress: false
+
 jobs:
   sync_latest_from_upstream:
-    name: Sync latest commits from upstream repo
+    name: Merge upstream main into dev
     runs-on: ubuntu-latest
 
     steps:
-      # step 1: checkout target repo
       - name: Checkout target repo
         uses: actions/checkout@v6
-
-      # step 2: sync upstream changes
-      - name: Sync upstream changes
-        id: sync
-        uses: aormsby/Fork-Sync-With-Upstream-action@v3.4
         with:
-          upstream_sync_repo: jason5ng32/MyIP
-          upstream_sync_branch: main
-          target_sync_branch: dev
-          target_repo_token: ${{ secrets.GITHUB_TOKEN }} # auto-generated, no need to set
+          # A shallow clone has no merge base with upstream, and `merge-base
+          # --is-ancestor` is how "already synced" is recognised.
+          fetch-depth: 0
 
-          # set test_mode to true to run tests instead of the real action!
-          test_mode: false
+      - name: Merge upstream into dev, or file the conflicts
+        env:
+          UPSTREAM_URL: https://github.com/jason5ng32/MyIP.git
+          UPSTREAM_BRANCH: main
+          TARGET_BRANCH: dev
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
 
-      # error check
+          git config user.name  "github-actions[bot]"
+          git config user.email "41449241+github-actions[bot]@users.noreply.github.com"
+
+          # Fetched by URL, not by adding a remote named `upstream`: that name is
+          # free today, and whoever claims it in the repo would break the schedule.
+          git fetch --no-tags "$UPSTREAM_URL" "$UPSTREAM_BRANCH"
+          upstream_tip=$(git rev-parse FETCH_HEAD)
+
+          git fetch origin "$TARGET_BRANCH"
+          target_tip=$(git rev-parse FETCH_HEAD)
+
+          short=$(git rev-parse --short "$upstream_tip")
+          echo "upstream $upstream_tip · dev $target_tip"
+
+          if git merge-base --is-ancestor "$upstream_tip" "$target_tip"; then
+            echo "dev already carries upstream $short — nothing to sync." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          # Merge on a scratch branch built from dev's tip, so a success is a
+          # fast-forward for dev and a conflict leaves dev untouched.
+          git checkout -B sync-tmp "$target_tip"
+
+          if git merge --no-ff --no-commit "$upstream_tip"; then
+            # Named for the branch it lands on, not the scratch one: the runner
+            # history is the only place this merge is described.
+            git commit --no-edit -m "Merge upstream $UPSTREAM_BRANCH ($short) into $TARGET_BRANCH"
+            git push origin "HEAD:$TARGET_BRANCH"
+            echo "Merged upstream $short into $TARGET_BRANCH." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          conflicts=$(git diff --name-only --diff-filter=U)
+          count=$(printf '%s\n' "$conflicts" | grep -c . || true)
+          # A merge that never started (refusing unrelated histories) has nothing
+          # to abort, and dying on that would hide which merge broke.
+          git merge --abort || true
+
+          # A merge that failed with nothing to resolve is this workflow broken,
+          # not the fork having work to do — it must not be filed as a conflict.
+          if [ "$count" -eq 0 ]; then
+            echo "::error::git merge $short into $TARGET_BRANCH failed with no conflicted files to report."
+            exit 1
+          fi
+
+          git checkout -q --detach "$target_tip"
+
+          {
+            echo "<!-- upstream-sync-blocked -->"
+            echo
+            echo "The scheduled merge of \`jason5ng32/MyIP\` \`$UPSTREAM_BRANCH\` (\`$short\`) into \`$TARGET_BRANCH\` conflicts in **$count** file(s), so it was not landed and nothing was pushed."
+            echo
+            echo '```'
+            printf '%s\n' "$conflicts"
+            echo '```'
+            echo
+            echo "Resolve by hand — this fork keeps its own branding, docs, locale packs and shared modules, which is a call the schedule cannot make:"
+            echo
+            echo '```'
+            echo "git fetch $UPSTREAM_URL $UPSTREAM_BRANCH"
+            echo "git checkout -b sync/$short $TARGET_BRANCH"
+            echo "git merge $upstream_tip   # resolve, commit, then push and open a PR into $TARGET_BRANCH"
+            echo '```'
+          } > /tmp/conflicts.md
+
+          title="Upstream sync is blocked by merge conflicts"
+
+          # Matched on the exact title through the issues list, not the search
+          # index: a search that has not caught up with last night's write would
+          # file a second issue for the same conflict every night. GitHub answers
+          # this endpoint with pull requests too, so `.pull_request` is excluded.
+          existing=$(gh api --paginate \
+            "repos/$GITHUB_REPOSITORY/issues?state=open&per_page=100" \
+            --jq ".[] | select(.title == \"$title\" and .pull_request == null) | .number" \
+            | head -1 || true)
+          if [ -n "$existing" ]; then
+            # One issue, kept current: a new comment per day would bury the list.
+            gh issue edit "$existing" --title "$title" --body-file /tmp/conflicts.md
+            echo "::warning file=.github/workflows/sync.yml::Upstream $short still cannot merge into $TARGET_BRANCH ($count conflicting files); issue #$existing updated."
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body-file /tmp/conflicts.md
+            echo "::warning file=.github/workflows/sync.yml::Upstream $short cannot merge into $TARGET_BRANCH ($count conflicting files); filed as a new issue."
+          fi
+
+          echo "Conflicted merge filed, dev left untouched." | tee -a "$GITHUB_STEP_SUMMARY"
+
+      # Genuine automation failure: fetch, merge bookkeeping, push or auth. A
+      # conflicted merge never reaches this step — it is the issue above.
       - name: Sync check
         if: failure()
         run: |
-          echo "::error::The scheduled upstream sync failed. Most often GitHub has suspended the schedule after a change to a workflow file, or the merge conflicted with our own edits (branding, workflows, docs). Re-run this workflow manually from the Actions tab; resolve conflicts by hand if it fails again."
+          echo "::error::The upstream sync did not run (not a merge conflict — those are filed as an issue). Check the fetch of jason5ng32/MyIP, this workflow's contents/issues permissions, and whether dev has moved out from under the merge base. Re-run manually from the Actions tab."
           exit 1
