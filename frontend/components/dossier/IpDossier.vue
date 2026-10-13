@@ -623,7 +623,7 @@ const neighbourGaps = computed(() => (neighbourSlot.value.missing || []).map((ke
 const neighbours = computed(() => (dossier.value?.neighbours?.entries || []).map((entry) => ({
     main: entry.ip,
     sub: t(NEIGHBOUR_ROLES[entry.role]),
-    href: `/ip/${encodeURIComponent(entry.ip)}`,
+    to: `/ip/${encodeURIComponent(entry.ip)}`,
 })));
 // Two different reasons for an empty grid, and one sentence cannot carry both:
 // a registry that named no block leaves the neighbours unknown, while a block
