@@ -9,14 +9,23 @@ import { describe, it } from 'node:test';
 import { localProfile } from '../frontend/utils/persona/local-profile.js';
 import { EXTRA_LANGUAGES, FONTS_BY_SCRIPT } from '../frontend/data/persona-tables.js';
 
+// `Intl.Locale#getTimeZones` is the region-info half of ICU, and a runtime
+// built without that data answers empty for every country — the module under
+// test is doing nothing wrong, the machine has nothing to give it. The zone
+// assertions declare that gap instead of failing; everything this runtime can
+// still answer (the language derivation, the code casing) runs either way.
+const hasZoneData = typeof Intl.Locale.prototype.getTimeZones === 'function';
+const noZoneData = 'needs Intl.Locale#getTimeZones (full-icu region-info data)';
+
 describe('localProfile', () => {
-    it('derives the primary language, its script and the country timezones', () => {
+    it('derives the primary language, its script and the country timezones', (t) => {
         const jp = localProfile('JP');
         assert.equal(jp.country, 'JP');
-        assert.deepEqual(jp.timeZones, ['Asia/Tokyo']);
         assert.equal(jp.languages[0].language, 'ja');
         assert.equal(jp.languages[0].tag, 'ja-JP');
         assert.equal(jp.languages[0].script, 'Jpan');
+        if (!hasZoneData) return t.skip(noZoneData);
+        assert.deepEqual(jp.timeZones, ['Asia/Tokyo']);
     });
 
     it('offers every language of a multilingual country, primary first', () => {
@@ -31,9 +40,10 @@ describe('localProfile', () => {
         assert.equal(new Set(tags).size, tags.length, 'no language is offered twice');
     });
 
-    it('uppercases the code and sorts the zones for a stable picker', () => {
+    it('uppercases the code and sorts the zones for a stable picker', (t) => {
         const us = localProfile('us');
         assert.equal(us.country, 'US');
+        if (!hasZoneData) return t.skip(noZoneData);
         assert.ok(us.timeZones.length > 1);
         assert.deepEqual(us.timeZones, [...us.timeZones].sort());
     });
@@ -44,7 +54,11 @@ describe('localProfile', () => {
         }
     });
 
-    it('reports an uninhabited territory as having nothing to pick', () => {
+    it('reports an uninhabited territory as having nothing to pick', {
+        // Without zone data every country reads empty, so this assertion would
+        // pass by saying nothing — it only means something where the data is.
+        skip: hasZoneData ? false : noZoneData,
+    }, () => {
         // Bouvet Island: a real ISO code with no IANA zone. The tool reads the
         // empty list as "no local profile" rather than as an error.
         assert.deepEqual(localProfile('BV').timeZones, []);
