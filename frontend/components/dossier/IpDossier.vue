@@ -674,8 +674,16 @@ async function load(ip) {
     try {
         const res = await fetchWithTimeout(`/api/dossier?ip=${encodeURIComponent(ip)}`, { timeoutMs: 30000 });
         if (!res.ok) throw new Error(`dossier ${res.status}`);
-        dossier.value = await res.json();
+        const payload = await res.json();
+        // A navigation that happened while this request was in flight already
+        // moved the page to another address. Writing this payload would put one
+        // address's evidence under another address's URL — and a neighbour link
+        // makes that switch one click, with the previous lookup still running.
+        if (target.value !== ip) return;
+        dossier.value = payload;
     } catch (err) {
+        // The superseded request's failure is not this page's failure to report.
+        if (target.value !== ip) return;
         console.warn('dossier unavailable', err);
         error.value = t('dossier.failed');
     }
