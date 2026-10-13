@@ -70,10 +70,11 @@ Ce que ce dérivé change :
 ### 🔦 Consultation et infrastructure
 
 * 📟 **Résolveur DNS** : résout un domaine via plusieurs résolveurs à la fois, groupés par pays — le moyen le plus simple de repérer un détournement (hijacking) ou une contamination.
-* 📓 **Recherche Whois** : effectue des recherches Whois sur les noms de domaine et les adresses IP.
+* 📓 **Recherche Whois** : Effectue des recherches Whois pour les noms de domaine, les adresses IP et les numéros d'AS.
 * 🗄️ **Consultation MAC** : identifie le fabricant et les détails derrière une adresse physique.
 * 🧮 **Calculateur IP** : calcul de sous-réseaux, conversions de notation et détails d'interface IPv6 pour toute IP, préfixe, plage ou liste, entièrement en local.
-* 🛰️ **Informations ASN et topologie amont** : affiche les détails d'un AS, l'historique des annonces d'un préfixe IP et les chemins amont reliant un AS au backbone Tier 1.
+* 🛰️ **Infos ASN et topologie amont** : Directement depuis chaque carte IP — les détails de l'AS, l'historique des annonces du préfixe de l'IP et les chemins amont de son ASN vers la dorsale Tier 1.
+* 🛂 **Profil ASN** : Le portrait complet de n'importe quel AS — enregistrement avec la fiche Whois brute, rang mondial et taille, trafic et qualité de connexion, pays où son espace IPv4 est utilisé, chaque préfixe annoncé avec son statut RPKI, ses fournisseurs amont, pairs et clients, ainsi que les points d'échange Internet et centres de données où il est présent.
 * 📶 **État des services** : disponibilité en direct de services connus — Claude, OpenAI, GitHub, Cloudflare et d'autres — depuis leurs pages d'état officielles, avec les incidents récents.
 
 ### ✨ Plateforme

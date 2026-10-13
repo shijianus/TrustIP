@@ -50,8 +50,7 @@
                     </AccordionTrigger>
                     <AccordionContent>
                         <pre
-                            class="mt-2 p-4 rounded-md bg-muted font-mono text-xs leading-relaxed overflow-x-auto whitespace-pre-wrap wrap-break-word">
-                    {{ filterRaw(whoisResults[providers[index]].__raw) }}</pre>
+                            class="mt-2 p-4 rounded-md bg-muted font-mono text-xs leading-relaxed overflow-x-auto whitespace-pre-wrap wrap-break-word">{{ filterRaw(whoisResults[providers[index]].__raw) }}</pre>
                     </AccordionContent>
                 </AccordionItem>
             </Accordion>
@@ -59,8 +58,7 @@
             <!-- ip type: single block raw output -->
             <div v-else>
                 <pre
-                    class="p-4 rounded-md bg-muted font-mono text-xs leading-relaxed overflow-x-auto whitespace-pre-wrap wrap-break-word">
-            {{ filterIPWhoisRawData(whoisResults.__raw) }}</pre>
+                    class="p-4 rounded-md bg-muted font-mono text-xs leading-relaxed overflow-x-auto whitespace-pre-wrap wrap-break-word">{{ filterIPWhoisRawData(whoisResults.__raw) }}</pre>
             </div>
         </div>
     </div>

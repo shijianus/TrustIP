@@ -14,7 +14,7 @@ Roughly one handler file per route — each file's header comment states its rou
 and purpose, so read those for specifics:
 
 - **Geo sources** — `ipinfo-io` · `ipapi-com` · `ipapi-is` · `ip2location-io` · `ip-sb` · `ipcheck-ing` · `maxmind`
-- **Tool backends** — `get-whois` · `dns-resolver` · `mac-checker` · `cf-radar` · `asn-history` · `asn-connectivity` · `ooni-blocking` · `globalping-probes` · `service-status` · `google-map` · `github-stars` · `invisibility-test` · `dns-leak-test` · `persona` · `trust-score` · `ip-dossier` · `dnsbl` · `internetdb` · `split`
+- **Tool backends** — `get-whois` · `dns-resolver` · `mac-checker` · `cf-radar` · `asn-history` · `asn-connectivity` · `asn-profile` · `ooni-blocking` · `globalping-probes` · `service-status` · `google-map` · `github-stars` · `invisibility-test` · `dns-leak-test` · `persona` · `trust-score` · `ip-dossier` · `dnsbl` · `internetdb` · `split`
 - **User proxies** — `get-user-info` · `update-user-achievement`
 - **Platform** — `configs` · `sentry-tunnel` · `share-report`
 
@@ -70,6 +70,41 @@ upstream.
 - **`requireSplitSignals` (`common/guards.js`) is the shape rule**: unknown keys dropped, every list and string capped, anything over a cap discarded rather than truncated — a clipped zone name resolves to no country and would read as a measurement. It reads a slice's `available` as `=== true`, so a producer that returns a *count* there (`exits.length || leaked.length`) ships a signal the scorer treats as never measured — which is how `net` silently stopped voting once. `tests/split-signals.test.js` pins the boolean.
 - **The signals cross to this origin, which is a trade, not a free win.** Nothing stores or logs them, so a deployment that adds request-body capture must keep `/api/split` out of it.
 
+### ASN data
+
+- **`/api/asn-profile`** (`common/asn-profile.js`) runs each ASN source's core
+  under a deadline above the upstream timeouts it wraps (`INNER_TIMEOUTS`); a
+  failed or late one is just absent. Always 200 `{ asn, status, incomplete,
+  …sections }` (`ok` / `empty` / `error` / `disabled`; an upstream fault is
+  `error`, never `empty`; `incomplete` = `ok` but partial); 502 if all fail.
+- **Relationship counts follow the graph:** `asn-connectivity` neighbour
+  lists come from local CAIDA (`common/as-relationships.js`), dropping the
+  providers the graph walk distrusts. The Radar `asn` view (ASN Info) carries
+  no prefix or relationship counts — the ASN Profile has both.
+- **`/api/whois` `?q=`:** IPs (RDAP, whoiser fallback), domains (whoiser, RDAP
+  fallback), AS numbers (`AS<n>` or bare digits — this fork's `rdapAsnRecord`,
+  keyed by registry host like a domain answer); all carry a `__raw` block. The
+  route's `normalizeAsnQuery` guard canonicalizes `as<n>` to `AS<n>` first. The
+  ASN Profile reads the same registry object through the upstream's parsed
+  `rdapAutnum` instead; both live in `common/rdap.js` over one bootstrap matcher.
+- **Offline datasets** (MaxMind, CAIDA, PeeringDB, IEEE MAC registries) are rows in
+  `common/datasets.js`, run by one engine,
+  `common/dataset-updater.js` (lock, atomic state, publish, boot download,
+  daily schedule). A row holds only its own logic — find the newest remote
+  version, fetch / distill it, validate, reload; a new dataset is a new row,
+  never a new updater. Fetched at boot when its reader has nothing usable
+  (missing, or a file it refuses) or a publish was cut short; refreshed daily at
+  `DATASET_UPDATE_CRON` (default 04:30 local) unless `DATASET_AUTO_UPDATE=false`
+  (a row's pre-engine flag, e.g. `CAIDA_AUTO_UPDATE`, still applies when that
+  is unset), with a catch-up run at boot for a check a downtime skipped. Files
+  changed on disk by anyone else (another process, a hand-placed `.mmdb`) are
+  reloaded by the engine's watcher. MaxMind only with its credentials (City + ASN publish together);
+  PeeringDB only with a Cloudflare key; its 116 MB dump is
+  stream-distilled (never parsed whole) to a ~6 MB per-ASN index without
+  contact data (`common/peeringdb-distill.js`). The IEEE row (MAC Lookup)
+  needs no key: five registry CSVs published as downloaded, answered by the
+  longest covering assignment (`common/oui-db.js`).
+
 ## Conventions
 
 - **Handler shape.** Single default export `async (req, res) => …`: read `req.query` / `req.body`, call upstream, write one response.
@@ -93,7 +128,8 @@ handler:
 - `requirePublicIP()` — per-route for `?ip=`: reserved space (RFC 1918, loopback, CGNAT, link-local, documentation …) is rejected here, so no geo source is ever asked about an address it can't answer for. `isUsablePublicIP` in `common/valid-ip.js` is the single definition, shared with the front-end IP forms.
 - `requireValidDomain()` — `?domain=`, lowercased in place for one canonical edge-cache key. Leading underscores are allowed on any label but the TLD, so RFC 8552 service names (`_dmarc.…`, `_domainkey.…`) stay reachable for DMARC / DKIM lookups.
 - `requireValidPrefix()` — `?prefix=` (CIDR); the frontend quantizes to the BGP DFZ floor (/24 v4, /48 v6) for maximal CF edge-cache reuse.
-- `requireValidASN()` — `?asn=`, strips `AS`, rewrites to numeric.
+- `requireValidASN()` — `?asn=` in AS1…AS4294967295, rewritten as bare digits.
+- `normalizeAsnQuery()` — `/api/whois` `?q=`: `AS<n>` (prefix required) is canonicalized to `AS<n>` (400 on AS0 / past 32 bits); anything else, a bare number included, passes through to the handler. Both use `common/asn-input.js`.
 - `requireValidCountry()` — `?country=` (alpha-2), uppercased in place. Syntactic only — an unassigned code just yields an empty upstream series.
 - `requireValidProviderId()` / `requireValidReportId()` — whitelist `?id=` against service-status slugs, and the `/api/report/:id` param (22-char base64url).
 - `requireValidRecordType()` — whitelists `?type=` against `DNS_RECORD_TYPES` (`common/dns-record-types.js`) and uppercases it. That list is the single source the DnsResolver picker and the `resolveDns` switch also read; without the guard the DoH branch forwards any string verbatim to four third-party endpoints.
@@ -109,6 +145,18 @@ derived from the response's own coordinates so the zone can never contradict the
 city beside it, and only the zone name ships — the frontend renders the UTC
 offset, because these routes sit behind a 24h edge cache and a cached offset goes
 an hour wrong at every DST switch.
+
+### Offline data gates boot, not the listener
+
+The backend listens before any missing offline dataset or the service-status
+snapshot is fetched; snapshots already on disk load first, so only a first
+boot waits on downloads. During that window `requireOfflineData([...probes])`
+(`common/offline-data.js`) answers 503 on a route whose data is still missing
+— never edge-cached — and is a no-op after boot, when a missing dataset means
+a failed download served degraded. A route reading local data declares its
+probes (`isMaxMindReady`, `isAsRelLoaded`, …) in `backend-server.js`. Answers
+assembled from parts don't gate: an ASN Profile section whose data is still
+loading (`isStillLoading`) answers `error`, leaving the others to answer.
 
 ### Private-API header pass-through (intentional exception)
 
@@ -129,11 +177,17 @@ place when a test covers it.
 ## Edge caching
 
 `/api/*` defaults to `Cache-Control: no-store`; slowly-changing public routes opt
-in via `cacheable(maxAge)` in `backend-server.js` —
+in via `cacheable(maxAge)` (`common/cache-control.js`) in `backend-server.js` —
 `app.get('/api/whois', cacheable(24 * 60 * 60), …)`, written as multiplied
 expressions, never raw seconds. `maxAge` also accepts a `(req) => seconds`
 resolver (`/api/cfradar` reads its TTL from the view registry); a falsy
-resolution keeps no-store, so unknown views never cache. Only status < 400 gets
+resolution keeps no-store, so unknown views never cache. `{ cacheIf }` vetoes the
+full TTL for a 2xx body and `{ degradedMaxAge }` gives a vetoed one a shorter TTL
+instead of no-store: `/api/asn-profile` caches a complete answer for 7 days and a
+degraded one for 1 day (none inside the boot window); cfradar caches no partial
+view answer (`isCompleteRadarAnswer`). The header is stamped on both `res.json` and
+`res.send` (a PNG from `/api/ip-card`), and stashed on `res.locals.cacheControl`
+for stream handlers. Only status < 400 gets
 `public, max-age=N`, so CF never caches error pages, and handlers never touch
 `Cache-Control` themselves. **Auth'd / per-user endpoints must not be wrapped** —
 their caching belongs to the upstream that owns the auth context.

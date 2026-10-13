@@ -27,6 +27,7 @@ import { trackEvent } from '../utils/analytics.js';
 import { isUsablePublicIP } from '../utils/valid-ip.js';
 import { toApiTag } from '../utils/locale-registry.js';
 import { transformDataFromIPapi } from '../utils/transform-ip-data.js';
+import { useAsnInfo } from './use-asn-info.js';
 import { getIPFromIPIP, getIPFromCloudflare_V4, getIPFromCloudflare_V6, getIPFromIPChecking64, getIPFromIPChecking4, getIPFromIPChecking6 } from '../utils/getips/index.js';
 import { emitAppEvent, waitForAppEvent } from '../utils/app-events.js';
 import { useAppCommand } from '../composables/use-app-command.js';
@@ -132,8 +133,8 @@ export function useIpCards() {
   const primaryIpCard = computed(() =>
     ipDataCards.find((card) => card.ip && isUsablePublicIP(card.ip)) || null);
 
-  // Default ASN information
-  const asnInfos = ref({
+  // ASN information (Radar summary) session cache, with a default entry.
+  const { asnInfos } = useAsnInfo({
     "AS888888": {
       "asnName": "Google", "asnOrgName": "GOGL-ARIN", "estimatedUsers": "888888", "IPv4_Pct": "95.35", "IPv6_Pct": "4.65", "HTTP_Pct": "3.16", "HTTPS_Pct": "96.84", "Desktop_Pct": "58.88", "Mobile_Pct": "41.12", "Bot_Pct": "98.46", "Human_Pct": "1.54"
     }

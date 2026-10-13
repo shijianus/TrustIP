@@ -71,7 +71,7 @@ and never shipped to the browser (why: api/AGENTS.md):
   hash spells a credential-shaped token, and the publishing platform rejects the
   artifact for it. The locale code itself is unchanged everywhere else.
 - **`/api/configs` is how the two route tables reconcile, and a panel reads it
-  before it calls.** Express mounts 33 routes and the edge function serves 11, so
+  before it calls.** Express mounts 34 routes and the edge function serves 11, so
   a component that just calls `/api/...` gets a 404 on the hosted build and renders
   it as a failed lookup — which tells the visitor the measurement was attempted and
   did not work. `trust` and `dossier` exist for exactly that reason: the panel
@@ -87,6 +87,24 @@ and never shipped to the browser (why: api/AGENTS.md):
 - **The shareable report rides the same bus.** Tests emit `<domain>:finished`; `composables/use-report-collector.js` normalizes via `utils/report-builders.js` into sections whitelisted by `common/report-schema.js`. New reportable test = event + builder + schema entry in the same change; changing result semantics means updating builder whitelist + schema enum too — builders fail soft and fixtures are frozen, so drift shows up as quietly missing fields, not errors. A report link is readable by anyone, so the **builder**, not the renderer, drops anything the visitor supplied (Persona: id / axis / verdict only, never the per-check `detail`; Invisibility: key + flag only).
 - **Commands are the imperative twin of events** (`utils/app-commands.js`): an event says "this happened" (any subscribers); a command says "do this" — exactly one owner, and `dispatchAppCommand` resolves with the owner's result. Owners register via `composables/use-app-command.js` (scope-bound, setup-time); the payload is one plain JSON object whose shape the owner defines at its registration site. Handlers reject gated / invalid runs with `appCommandError(code, message)`; reserved codes `auth` / `quota` / `input`, plus `unavailable` / `timeout` from the bus. Cross-component triggers go through the bus, never template refs (refs stay for UI chrome).
 - **Overlays take no keyboard shortcuts.** One document-level dispatcher (`utils/shortcut.js`) over the map `composables/use-shortcuts.js` registers — home-page actions only, cleared on Home unmount. The rule keys off form, not purpose: the `ui/` roots (`Dialog` / `Sheet` / `Drawer`) call `composables/use-overlay-shortcuts.js`, so anything built on them inherits it, and overlays nest. Esc and native scrolling keys stay with reka-ui / vaul / the browser.
+
+### Advanced Tools gates decide listing only
+
+`data/tools.js` gates (`requiresOriginalSite`, `requiresConfig: '<configs key>'`,
+e.g. `asn` → `cloudFlare`) are read only via `isToolAvailable()`, by the card
+grid and the nav; deep links (`?tool=`, `/tools/:slug`) are never gated.
+
+### ASN Profile
+
+- One `/api/asn-profile` request, one loading state, then the whole page; a
+  section (reputation included — no `configs.originalSite` check) renders only
+  when its `status` is `ok`. `ASNConnectivity.vue` gets `:expandable="false"
+  :bordered="false"`; its defaults keep IPCard / QueryIP unchanged.
+- `peeringdb` is operator self-reporting: vocabularies → locale keys
+  (`PEERING_ENUMS`), names / cities as written. `ASN_PROFILE_TIMEOUT_MS` stays
+  above the largest backend section deadline (tested).
+- ASN Info's footer links `/tools/asn?q=AS<n>` (hidden when gated off); in
+  QueryIP it emits `open-tool` via IpDetailPanel so the dialog closes first.
 
 ### Error monitoring (Sentry) is env-gated and invisible to app code
 

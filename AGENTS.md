@@ -14,7 +14,8 @@ a project capability unavailable.
 
 **TrustMy.IP** (engineering name **TrustIP**, published by **EpoCanvas**): an
 open-source IP toolbox — IP lookup, connectivity, WebRTC / DNS-leak detection,
-speed test, MTR, Whois, security checklist, browser fingerprint, anonymity
+speed test, MTR, Whois, ASN profile, MAC
+lookup, security checklist, browser fingerprint, anonymity
 checks, persona check, IP calculator. Vue 3 SPA + Express 5 API, one repo.
 
 MIT derivative of **MyIP / IPCheck.ing** by Jason Ng: the license requires the

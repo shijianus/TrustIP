@@ -1,3 +1,7 @@
+// /api/whois — registry record for an IP, a domain or an ASN. IPs and ASNs
+// go to RIR RDAP, domains to port-43 WHOIS with an RDAP fallback; every
+// path answers with a WHOIS-like `__raw` text block for the Whois tool.
+
 import whoiser from 'whoiser';
 import { isValidIP, isUsablePublicIP, parseAsnQuery } from '../common/valid-ip.js';
 import { rdapDomain, rdapIp, rdapAsnRecord, RdapNotFound } from '../common/rdap.js';
