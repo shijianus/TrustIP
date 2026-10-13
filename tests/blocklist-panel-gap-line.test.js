@@ -11,13 +11,15 @@ import { describe, it } from 'node:test';
 import { computed } from 'vue';
 import { parse } from 'vue/compiler-sfc';
 
+import { FULL_LOCALE_CODES } from '../common/locale-registry.js';
+
 const script = parse(readFileSync(
     new URL('../frontend/components/dossier/BlocklistPanel.vue', import.meta.url),
     'utf8',
 )).descriptor.scriptSetup.content.replace(/^import[\s\S]*?;$/gm, '');
 
-const en = JSON.parse(readFileSync(new URL('../frontend/locales/en.json', import.meta.url), 'utf8'));
-const dig = (path) => path.split('.').reduce((node, key) => node?.[key], en);
+const pack = (code) => JSON.parse(readFileSync(new URL(`../frontend/locales/${code}.json`, import.meta.url), 'utf8'));
+const digIn = (data, path) => path.split('.').reduce((node, key) => node?.[key], data);
 
 const mount = (blocklists, gapKey = '') => {
     const props = { blocklists, gapKey };
@@ -52,13 +54,36 @@ describe('BlocklistPanel gap line', () => {
         }
     });
 
-    it('ships copy for both lines it can render', () => {
-        for (const key of ['dossier.blocklists.needs', 'dossier.blocklists.rangePolicyNeeds']) {
-            assert.ok(dig(key), `${key} has no copy in en`);
+    // Both lines have to exist as *words* in every full locale — a key present
+    // with an empty value renders an empty gap note, which reads as silence.
+    it('ships copy for both lines it can render, in every full locale', () => {
+        const keys = ['dossier.blocklists.needs', 'dossier.blocklists.rangePolicyNeeds'];
+        for (const code of FULL_LOCALE_CODES) {
+            const data = pack(code);
+            for (const key of keys) {
+                const value = digIn(data, key);
+                assert.ok(typeof value === 'string' && value.trim(),
+                    `${code}: ${key} is ${JSON.stringify(value)} — a gap note with no words`);
+            }
+            assert.notEqual(
+                digIn(data, 'dossier.blocklists.rangePolicyNeeds'),
+                digIn(data, 'dossier.blocklists.needs'),
+                `${code}: the policy-only line is a copy of the generic one, so the branch is decoration`,
+            );
         }
-        assert.match(dig('dossier.blocklists.rangePolicyNeeds'), /range/i);
-        // …and the two must not be the same sentence, or the branch is decoration.
-        assert.notEqual(dig('dossier.blocklists.rangePolicyNeeds'), dig('dossier.blocklists.needs'));
+    });
+
+    // What this sentence must not imply, in either direction: that nobody
+    // answered (the opposite gap, with a different fix), or that every zone
+    // answered — a policy-only pass may also contain timeouts, and a line about
+    // unanimous replies would describe a pass that never happened.
+    it('describes a policy-only pass as neither silent nor unanimous', () => {
+        for (const code of FULL_LOCALE_CODES) {
+            const text = digIn(pack(code), 'dossier.blocklists.rangePolicyNeeds');
+            assert.doesNotMatch(text, /none of the zones|no zone (replied|answered)/i,
+                `${code}: claims nobody replied, which is the other gap`);
+            assert.doesNotMatch(text, /\b(every|all) zones\b/, `${code}: claims every zone answered`);
+        }
     });
 });
 

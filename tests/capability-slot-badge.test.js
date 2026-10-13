@@ -13,6 +13,7 @@ import { computed } from 'vue';
 import { parse } from 'vue/compiler-sfc';
 
 import { capabilityBadge } from '../frontend/composables/use-status-tone.js';
+import { FULL_LOCALE_CODES } from '../common/locale-registry.js';
 
 const slotSource = readFileSync(
     new URL('../frontend/components/widgets/CapabilitySlot.vue', import.meta.url),
@@ -21,7 +22,9 @@ const slotSource = readFileSync(
 const script = parse(slotSource).descriptor.scriptSetup.content.replace(/^import[\s\S]*?;$/gm, '');
 
 const en = JSON.parse(readFileSync(new URL('../frontend/locales/en.json', import.meta.url), 'utf8'));
-const dig = (path) => path.split('.').reduce((node, key) => node?.[key], en);
+const pack = (code) => JSON.parse(readFileSync(new URL(`../frontend/locales/${code}.json`, import.meta.url), 'utf8'));
+const digIn = (data, path) => path.split('.').reduce((node, key) => node?.[key], data);
+const dig = (path) => digIn(en, path);
 
 // `state` is the only prop these assertions read; `rows` says whether the caller
 // handed the section real rows to render.
@@ -68,6 +71,24 @@ describe('CapabilitySlot badge', () => {
             assert.equal(slot.badgeLabel.value, key, `${state}: wrong badge key`);
             assert.equal(slot.badgeTone.value, tone, `${state}: wrong badge tone`);
             assert.ok(dig(key), `${key} has no copy in en — it would render as its own path`);
+        }
+    });
+
+    // A key resolving in `en` is not yet a word on the screen: the badge renders
+    // from whichever locale the visitor is reading, and a pack that carries the
+    // key with an empty value shows nothing at all.
+    it('has real words behind every badge key, in every full locale', () => {
+        const keys = ['delegated', 'partial', 'placeholder']
+            .map((state) => capabilityBadge(state).labelKey);
+        keys.push(capabilityBadge('ready').labelKey);
+        assert.equal(keys[keys.length - 1], keys[2], 'the fallback should be the placeholder badge');
+        for (const code of FULL_LOCALE_CODES) {
+            const data = pack(code);
+            for (const key of new Set(keys)) {
+                const value = digIn(data, key);
+                assert.ok(typeof value === 'string' && value.trim(),
+                    `${code}: ${key} is ${JSON.stringify(value)} — a badge with no words`);
+            }
         }
     });
 
