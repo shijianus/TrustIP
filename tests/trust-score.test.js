@@ -399,6 +399,15 @@ describe('assessTrust', () => {
             }
         });
 
+        // A pass of pure range policy has the same `answered: 0` as one nobody
+        // answered, and the score has to read it the same way: the block's posting
+        // rules neither accuse this address nor clear it.
+        it('reads a pass made only of range policy as unmeasured', () => {
+            const r = withBl({ zones: 4, answered: 0, listed: 0, botnet: 0, policy: 4 });
+            assert.equal(signal(r, 'blocklists').state, 'unknown');
+            assert.equal(signal(r, 'blocklists').effect, 0);
+        });
+
         // One zone saying "not listed" is a sample of one; two is the smallest
         // basis worth awarding anything for.
         it('withholds the clean bonus from a single answering zone', () => {

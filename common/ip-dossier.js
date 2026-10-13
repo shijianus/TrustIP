@@ -14,9 +14,11 @@
 //     address has no such property.
 //
 // `common/trust-signals.js` gathers the registry evidence and
-// `common/trust-score.js` scores it; this module adds the two things neither
-// does — a multi-source geolocation comparison, and the BGP neighbourhood
-// computed from the CAIDA relationship snapshot already in memory.
+// `common/trust-score.js` scores it; this module adds the three things neither
+// does — a multi-source geolocation comparison, the BGP neighbourhood computed
+// from the CAIDA relationship snapshot already in memory, and the addresses the
+// registered block puts around this one, which is arithmetic on a record the
+// evidence already carries.
 
 import { fetchUpstream } from './fetch-with-timeout.js';
 import { gatherTrustEvidence } from './trust-signals.js';
@@ -27,6 +29,7 @@ import { isMaxMindReady, lookupMaxMind } from './maxmind-service.js';
 import { buildAsnHistoryBlock } from './asn-announcement-history.js';
 import { buildLatencyMatrix } from './latency-matrix.js';
 import { toBgpPrefix } from './bgp-prefix.js';
+import { parseIp, formatIp, cidrToRange } from './ip-math.js';
 import { isIPv6 } from './valid-ip.js';
 import { normalizeLang } from './lang-param.js';
 import logger from './logger.js';
@@ -221,6 +224,52 @@ const buildTopology = (asn) => {
     };
 };
 
+/**
+ * The addresses a reader can step to from this one, inside the block the
+ * registry already placed it in.
+ *
+ * This is arithmetic on data the dossier carries anyway — the address, and
+ * `network.cidr` — so it costs no query and contacts nothing. Which addresses
+ * sit *next to* this one is a property of the block; which of them are in use is
+ * a property of the network, and that second question is the one no registry
+ * answers. The entries are therefore links, and the gap below names the
+ * observation the links cannot substitute for.
+ *
+ * @param {string} ip    the address the dossier is about
+ * @param {string|null} cidr  its registered block, as `network.cidr`
+ * @returns {object|null} `{ cidr, entries: [{ role, ip }] }`, or null when the
+ *   registry named no block for this family — no block is not a block of one.
+ */
+const buildNeighbours = (ip, cidr) => {
+    const parsed = parseIp(ip);
+    const range = cidrToRange(cidr);
+    if (!parsed || !range || range.family !== parsed.family) return null;
+
+    const { value } = parsed;
+    const format = (v) => formatIp({ family: range.family, value: v });
+    // Stepping off either end of the registered block would name an address
+    // somebody else holds, so the walk stops at the edges.
+    const adjacent = (v) => (v > range.start && v < range.end ? format(v) : null);
+
+    const wanted = [
+        ['previous', adjacent(value - 1n)],
+        ['next', adjacent(value + 1n)],
+        // The edges are shown only when this address is not one of them — a
+        // block edge the reader is already standing on is not a neighbour.
+        ['blockFirst', value !== range.start ? format(range.start) : null],
+        ['blockLast', value !== range.end ? format(range.end) : null],
+    ];
+
+    const seen = new Set([format(value)]);
+    const entries = [];
+    for (const [role, addr] of wanted) {
+        if (!addr || seen.has(addr)) continue;
+        seen.add(addr);
+        entries.push({ role, ip: addr });
+    }
+    return { cidr, entries };
+};
+
 // Every section the page lays out, with the state of its backing data.
 // `needs` names the specific thing that would turn the slot from a declared
 // gap into a real section, so filling one in is a decision and not a search.
@@ -231,7 +280,7 @@ const SLOTS = {
     technical: { status: 'ready', partial: ['openPorts'] },
     threat: { status: 'partial', missing: ['abuseLevel', 'honeypot'], needs: 'an abuse-intelligence feed — `IPAPIIS_API_KEY` with `TRUST_IPAPIIS_FEED=true`, or `ABUSEIPDB_API_KEY` with `TRUST_PROVIDERS=abuseipdb` — plus the honeypot observations, which need traffic we cannot see' },
     deepRisk: { status: 'placeholder', needs: 'an anonymiser-list feed: `TRUST_PROVIDERS` (proxycheck.io, AbuseIPDB, IP2Location, ipinfo, the scan archive) or the `api.ipapi.is` abuse feed; the free registries do not carry membership in those lists' },
-    vpnTrace: { status: 'placeholder', needs: 'a routing-visibility dataset we do not currently query' },
+    vpnTrace: { status: 'placeholder', needs: 'a VPN exit directory — which service an address is the exit of, and the pool it exits into; the registries name the holder of the block, never the tunnel that terminates on it' },
     // The numbers are not ours to produce: measuring from this server would
     // report this datacenter's uplink as if it were the world's. The block
     // carries the probe plan and the visitor's browser runs it, so the slot is
@@ -242,7 +291,14 @@ const SLOTS = {
     geo: { status: 'ready' },
     relatedDomains: { status: 'placeholder', needs: 'reverse DNS sweeping across the containing prefix, which is active scanning of third-party address space' },
     locationHistory: { status: 'placeholder', needs: 'a per-address observation history; the IP history we keep is the visitor\'s own, not the address\'s' },
-    neighbours: { status: 'placeholder', needs: 'same as relatedDomains' },
+    // The block's own arithmetic already names which addresses sit next to this
+    // one, and those ship as links. The other question — which of them anyone
+    // is *using* — is not in any registry, so the row says which half is real.
+    neighbours: {
+        status: 'partial',
+        missing: ['sameBlockActivity'],
+        needs: 'first-party observation of which addresses in the block answer at all — the registered block names this address\'s neighbours, and nothing here records whether any of them is in use',
+    },
     topology: { status: 'ready', partial: true, note: 'CAIDA relationship graph, without path proportions' },
     // `ready` describes what this build can ask; the pass below overrides it to
     // a declared gap when no configured recursor answered truthfully about this
@@ -273,15 +329,17 @@ const technicalSlot = (scan) => !scan ? SLOTS.technical
             : { status: 'placeholder', needs: 'internetdb.shodan.io did not answer within our timeout' };
 
 // Why a blocklist pass had nothing to say, keyed on the reason `common/dnsbl.js`
-// reported. Three of these are genuinely different situations and one message
-// for all of them would read a network that blocks DNS as a network that
-// clears the address — and an IPv6 address as one that was asked and found clean.
+// reported. Each is a genuinely different situation, and one message for all of
+// them would read a network that blocks DNS as a network that clears the address
+// — an IPv6 address as one that was asked and found clean, and a range's posting
+// rules as nobody answering at all.
 const BLOCKLIST_GAP_REASONS = {
     'no-ipv6-zone': 'no blocklist zone in this build\'s list publishes IPv6 content, so an IPv6 address is never asked about at all',
     'no-trustworthy-resolver': 'a recursor that answers blocklist queries truthfully; every configured one fabricated its canary answer',
     'no-zones': 'a blocklist zone to ask — this build\'s list answers no question about this address',
     unparseable: 'an address that parses into a reverse-DNS query name',
     'no-answer': 'a recursor that answers blocklist queries truthfully; none of the zones replied',
+    'policy-only': 'at least one zone answering about the address itself — the pass did hear back, but every answer was the policy that covers this range, and a range\'s rules accuse no address',
 };
 
 /**
@@ -369,6 +427,7 @@ export const buildDossier = async (ip, { lang = 'en' } = {}) => {
         blocklists: evidence.blocklists || null,
         privacy: evidence.privacy || null,
         topology: buildTopology(resolvedAsn),
+        neighbours: buildNeighbours(ip, evidence.rir?.cidr || null),
         latency: buildLatencyMatrix(ip),
         asnHistory,
         slots: {
@@ -387,7 +446,17 @@ export const buildDossier = async (ip, { lang = 'en' } = {}) => {
                     status: 'ready',
                     note: `${evidence.blocklists.answered} of ${evidence.blocklists.zones} zones answered through ${evidence.blocklists.resolver || 'an unattributed recursor'}`,
                 }
-                : { status: 'placeholder', needs: BLOCKLIST_GAP_REASONS[evidence.blocklistsReason] || BLOCKLIST_GAP_REASONS['no-answer'] },
+                : {
+                    // The reason travels as a machine key as well as a sentence.
+                    // The page reads its own words out of the locale packs, and
+                    // one of these gaps is misdescribed by the generic line:
+                    // "nobody replied" is not what a pass that heard only range
+                    // policy looks like, and the panel has to be able to tell
+                    // without parsing English.
+                    status: 'placeholder',
+                    gapKey: evidence.blocklistsReason,
+                    needs: BLOCKLIST_GAP_REASONS[evidence.blocklistsReason] || BLOCKLIST_GAP_REASONS['no-answer'],
+                },
             // The two panels the optional keyed feed fills. Off, they stay the
             // declared gaps they have always been; on, they report what it said,
             // and the honeypot half — which needs traffic we cannot observe —
@@ -402,4 +471,7 @@ export const buildDossier = async (ip, { lang = 'en' } = {}) => {
     };
 };
 
-export { SLOTS, buildGeo, buildTopology, haversineKm, geoFromEvidence, technicalSlot };
+export {
+    SLOTS, BLOCKLIST_GAP_REASONS, buildGeo, buildNeighbours, buildTopology,
+    haversineKm, geoFromEvidence, technicalSlot,
+};

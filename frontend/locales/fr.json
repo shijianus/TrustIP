@@ -2169,8 +2169,10 @@
       "title": "Listes de blocage",
       "listed": "Listée",
       "clean": "Non listée",
+      "rangePolicy": "Politique de plage",
       "through": "Réponses lues via {resolver}",
-      "needs": "un résolveur récursif honnête, et une zone qui publie cette famille d'adresses — les résolveurs publics refusent ou fabriquent des réponses, et aucune zone ici ne couvre l'IPv6"
+      "needs": "un résolveur récursif honnête, et une zone qui publie cette famille d'adresses — les résolveurs publics refusent ou fabriquent des réponses, et aucune zone ici ne couvre l'IPv6",
+      "rangePolicyNeeds": "une réponse portant sur l'adresse elle-même, venue d'au moins une zone — cette passe a bien reçu des réponses, mais chacune parlait de la politique couvrant la plage où siège l'adresse, et les règles d'une plage ne sont pas un verdict sur une adresse"
     },
     "colocated": {
       "title": "Même salle",
@@ -2279,7 +2281,18 @@
       "less": "Afficher moins"
     },
     "neighbours": {
-      "empty": "Aucune adresse voisine observée ici."
+      "noBlock": "Le registre n'a désigné aucun bloc pour cette adresse ; ses voisines sont inconnues.",
+      "single": "Cette adresse occupe seule le bloc enregistré — rien ne la borde.",
+      "needs": "une observation disant lesquelles de ces adresses répondent — le registre nomme le bloc, seul le trafic dit qui l'occupe",
+      "role": {
+        "previous": "Précédente",
+        "next": "Suivante",
+        "blockFirst": "Début de bloc",
+        "blockLast": "Fin de bloc"
+      },
+      "gap": {
+        "sameBlockActivity": "lesquelles sont utilisées"
+      }
     }
   },
   "home": {

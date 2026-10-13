@@ -12,6 +12,19 @@
 // address at all: they are the zone refusing *our query*, and reading one as
 // "clean" would be a silent pass and reading it as "listed" a false accusation.
 //
+// A zone may also carry a `policy` map: the codes by which it lists an address
+// *range* because of how that range is expected to be used — a dynamic or
+// residential block that should not speak SMTP directly, say. Such a code is
+// the operator's rule about a netblock, not an observation about this address, so
+// `common/dnsbl.js` reports the zone as `policy`: neither an accusation nor a
+// clearance, and never counted as an answer the score may rest on. The reading
+// is the same one that keeps UCEPROTECT out below: a signal that cannot
+// distinguish the address from its neighbours accuses no one.
+//
+// Where a zone's own documentation assigns codes to such a list, they belong in
+// that zone's `policy`, not in `listings` — which matters most for a multi-list
+// zone added by an operator below.
+//
 // Inclusion rules, all four required:
 //   * answers a query relayed by a public resolver (no paid entitlement);
 //   * free to query, no registration or per-zone key in the name;
@@ -24,7 +37,8 @@
 //     it is to query authoritative Spamhaus mirrors from an entitled address,
 //     which is a deployment decision, not a code change. Its diagnostic codes
 //     are still understood (see `DIAGNOSTICS`), because an operator who adds the
-//     zone by configuration must not have those answers read as verdicts.
+//     zone by configuration must not have those answers read as verdicts; the
+//     same holds for the codes its policy list returns for a whole range.
 //   * UCEPROTECT — it lists address ranges on the strength of one member's
 //     behaviour, which condemns every clean address in the block. A signal that
 //     cannot distinguish the abuser from its neighbours is not evidence.

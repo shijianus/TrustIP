@@ -285,15 +285,11 @@
                         </p>
                         <NeedsLine :text="t('dossier.history.needs')" />
                     </div>
-                    <div class="jn-card rounded-[var(--radius)] p-4">
-                        <SectionTitle :title="t('dossier.sec.neighbours')">
-                            <template #aside>
-                                <VerdictChip tone="muted" :label="t('trustip.verdict.notMeasured')" />
-                            </template>
-                        </SectionTitle>
-                        <CellGrid :items="neighbours" :empty="t('dossier.neighbours.empty')" />
-                        <NeedsLine :text="t('dossier.related.needs')" />
-                    </div>
+                    <CapabilitySlot
+                        :state="neighbourSlot.status" :title="t('dossier.sec.neighbours')"
+                        :missing="neighbourGaps" :needs="t('dossier.neighbours.needs')">
+                        <CellGrid :items="neighbours" :empty="neighboursEmpty" />
+                    </CapabilitySlot>
                 </div>
 
                 <!-- 10 — BGP graph -->
@@ -303,7 +299,7 @@
 
                 <!-- 11 — DNSBL -->
                 <div class="mb-4">
-                    <BlocklistPanel :blocklists="dossier.blocklists" />
+                    <BlocklistPanel :blocklists="dossier.blocklists" :gap-key="dossier.slots?.blocklists?.gapKey || ''" />
                 </div>
 
                 <!-- 12 — ASN history | company history -->
@@ -606,13 +602,35 @@ const asnRegisteredDate = computed(() => {
     return m ? formatIsoDate(m[0], locale.value) : raw;
 });
 
-// The four sections that need a source this build does not have. They are
+// The three sections that need a source this build does not have. They are
 // empty arrays rather than absent so the panels render their grid, their
 // headers and their "nothing here" row — the layout the page promises.
 const relatedDomains = computed(() => []);
-const neighbours = computed(() => []);
 const colocated = computed(() => []);
 const locationHistory = computed(() => []);
+
+// The block the registry already placed this address in names the two addresses
+// beside it and its two edges, so these are links, not a measurement: opening
+// one asks that address its own question, and nothing is contacted from here.
+const NEIGHBOUR_ROLES = {
+    previous: 'dossier.neighbours.role.previous',
+    next: 'dossier.neighbours.role.next',
+    blockFirst: 'dossier.neighbours.role.blockFirst',
+    blockLast: 'dossier.neighbours.role.blockLast',
+};
+const neighbourSlot = computed(() => dossier.value?.slots?.neighbours || { status: 'placeholder', missing: [] });
+const neighbourGaps = computed(() => (neighbourSlot.value.missing || []).map((key) => t(`dossier.neighbours.gap.${key}`)));
+const neighbours = computed(() => (dossier.value?.neighbours?.entries || []).map((entry) => ({
+    main: entry.ip,
+    sub: t(NEIGHBOUR_ROLES[entry.role]),
+    to: `/ip/${encodeURIComponent(entry.ip)}`,
+})));
+// Two different reasons for an empty grid, and one sentence cannot carry both:
+// a registry that named no block leaves the neighbours unknown, while a block
+// of one address means there genuinely is nothing beside it.
+const neighboursEmpty = computed(() => t(
+    dossier.value?.neighbours ? 'dossier.neighbours.single' : 'dossier.neighbours.noBlock',
+));
 
 const allocationDate = computed(() => {
     const raw = network.value.regDate;
@@ -656,8 +674,16 @@ async function load(ip) {
     try {
         const res = await fetchWithTimeout(`/api/dossier?ip=${encodeURIComponent(ip)}`, { timeoutMs: 30000 });
         if (!res.ok) throw new Error(`dossier ${res.status}`);
-        dossier.value = await res.json();
+        const payload = await res.json();
+        // A navigation that happened while this request was in flight already
+        // moved the page to another address. Writing this payload would put one
+        // address's evidence under another address's URL — and a neighbour link
+        // makes that switch one click, with the previous lookup still running.
+        if (target.value !== ip) return;
+        dossier.value = payload;
     } catch (err) {
+        // The superseded request's failure is not this page's failure to report.
+        if (target.value !== ip) return;
         console.warn('dossier unavailable', err);
         error.value = t('dossier.failed');
     }

@@ -23,7 +23,7 @@
         <p v-if="rows.length" class="mt-2 text-xs leading-relaxed text-muted-foreground">
             {{ t('dossier.blocklists.through', { resolver: blocklists.resolver || '—' }) }}
         </p>
-        <NeedsLine v-else :text="t('dossier.blocklists.needs')" />
+        <NeedsLine v-else :text="gapLine" />
     </div>
 </template>
 
@@ -43,11 +43,19 @@ import NeedsLine from '@/components/widgets/NeedsLine.vue';
 
 const props = defineProps({
     // The evidence summary from common/dnsbl.js: `{ zones, answered, listed,
-    // botnet, resolver, results: [{ id, label, status, listed, codes }] }`.
+    // botnet, policy, resolver, results: [{ id, label, status, listed, codes }] }`.
     blocklists: { type: Object, default: null },
+    // Why the pass had nothing to score, when it had nothing to score. Only the
+    // gaps whose generic line would misdescribe them need their own sentence, and
+    // a range-policy-only pass is one: its zones answered, about the block.
+    gapKey: { type: String, default: '' },
 });
 
 const { t } = useI18n();
+
+const gapLine = computed(() => t(
+    props.gapKey === 'policy-only' ? 'dossier.blocklists.rangePolicyNeeds' : 'dossier.blocklists.needs',
+));
 
 const listed = computed(() => Number(props.blocklists?.listed) || 0);
 const answered = computed(() => Number(props.blocklists?.answered) || 0);
@@ -64,6 +72,10 @@ const headLabel = computed(() => {
 const ROW = {
     listed: { tone: 'bad', key: 'dossier.blocklists.listed' },
     clean: { tone: 'ok', key: 'dossier.blocklists.clean' },
+    // The zone spoke about the address's range, not the address. Information,
+    // and deliberately not a clearance: `answered` leaves it out, so the head
+    // chip cannot read a policy-only pass as a clean sheet.
+    policy: { tone: 'info', key: 'dossier.blocklists.rangePolicy' },
 };
 
 const rows = computed(() => (props.blocklists?.results || []).map((r) => {
@@ -74,8 +86,10 @@ const rows = computed(() => (props.blocklists?.results || []).map((r) => {
         tone: read.tone,
         verdict: t(read.key),
         // The raw 127.0.0.x is the zone's own words about which of its lists
-        // fired; an answer we could not read has no code to show.
-        code: r.listed ? r.codes?.[0]?.address || null : null,
+        // fired; an answer we could not read has no code to show. A policy
+        // answer carries its code for the same reason an accusation does — so
+        // the row can be checked against the zone years later.
+        code: r.listed || r.status === 'policy' ? r.codes?.[0]?.address || null : null,
     };
 }));
 </script>

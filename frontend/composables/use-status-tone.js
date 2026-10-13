@@ -51,6 +51,23 @@ export const trustBandOf = (score) => {
     return hit ? hit.band : null;
 };
 
+// CapabilitySlot's badge — the one state map whose tones are `VerdictChip`'s
+// names (`info` / `warn` / `muted`) rather than the four levels above, because
+// a declared gap is a verdict about this build, not about a measurement's speed.
+//
+// The label is a locale *key*, never an interpolated path: a state this widget
+// does not know used to produce `dossier.slot.badge.<state>` on the reader's
+// screen. Falling back to the most conservative claim it does know — "not
+// measured" — keeps the honesty too: an unknown state must not borrow a badge
+// that says the section was measured, partly measured, or handed elsewhere.
+const CAPABILITY_BADGES = {
+    delegated: { tone: 'info', labelKey: 'dossier.slot.badge.delegated' },
+    partial: { tone: 'warn', labelKey: 'dossier.slot.badge.partial' },
+    placeholder: { tone: 'muted', labelKey: 'dossier.slot.badge.placeholder' },
+};
+
+export const capabilityBadge = (state) => CAPABILITY_BADGES[state] || CAPABILITY_BADGES.placeholder;
+
 export function useStatusTone() {
     return {
         dotClass:  (tone) => dotColorMap[tone]  || dotColorMap.wait,

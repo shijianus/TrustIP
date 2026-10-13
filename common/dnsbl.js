@@ -16,6 +16,13 @@
 // the pass is thrown away, and the next resolver is tried. The cost is zero in
 // the common case and one extra query in the case that matters.
 //
+// Two other answers describe something other than this address, and are kept
+// out of the tally for that reason: a diagnostic code is the zone refusing our
+// query, and a policy code is the zone's rule about the address's *range* — a
+// dynamic block that should not speak SMTP directly, say. Neither is a verdict
+// about the address, so neither may read as clean, and a pass made only of them
+// is reported as unmeasured rather than as a clear sheet.
+//
 // Nothing here queries a zone name that arrived in a request: `DNSBL_ZONES` is
 // the whole set, and the only caller-supplied string is an already-validated IP.
 // A blocklist endpoint that would accept an arbitrary zone becomes a DNS
@@ -81,6 +88,19 @@ const remember = (key, ttlMs, value) => {
 const CANARY_LABEL = Array.from({ length: 32 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
 
 const isBlocklistedRange = (address) => address.startsWith('127.');
+
+// What one in-range answer says, and about what.
+//
+// `policy` — the zone's own rule about the address's range, declared in the zone
+// entry; `diagnostic` — the zone refusing our query; `accusation` — a code the
+// zone blames on this address, including one we cannot name, since a zone that
+// says yes is not less guilty because we have not read its documentation.
+const readCode = (zone, address) => {
+    if (zone?.policy?.[address]) return { address, kind: 'policy', meaning: zone.policy[address] };
+    if (DIAGNOSTICS[address]) return { address, kind: 'diagnostic', meaning: DIAGNOSTICS[address] };
+    if (zone?.listings?.[address]) return { address, kind: 'accusation', meaning: zone.listings[address] };
+    return { address, kind: 'accusation', meaning: 'undocumented' };
+};
 
 // A DNS answer as a small closed set, so a caller never has to know node's
 // error codes. `clean` is NXDOMAIN or an empty NOERROR; everything else says
@@ -148,10 +168,7 @@ const queryZone = async (server, name, zone) => {
     const inRange = answer.addresses.filter(isBlocklistedRange);
     // A hit the zone does not document is still the zone saying yes: report it
     // with the raw code rather than quietly sorting it into "clean".
-    const codes = inRange.map((address) => ({
-        address,
-        meaning: zone.listings?.[address] || DIAGNOSTICS[address] || 'undocumented',
-    }));
+    const codes = inRange.map((address) => readCode(zone, address));
 
     // Every answer was outside the listing range — a sinkholed or poisoned
     // reply, not a verdict about the address.
@@ -159,13 +176,28 @@ const queryZone = async (server, name, zone) => {
 
     // A diagnostic code is the zone refusing our query, and says nothing about
     // the address. Never let one read either way.
-    if (codes.every((c) => DIAGNOSTICS[c.address])) {
+    if (codes.every((c) => c.kind === 'diagnostic')) {
         return { ...base, status: codes[0].meaning, listed: false, codes };
+    }
+
+    // Every code is the zone's rule about the range this address sits in. That
+    // is a fact about the netblock, so it accuses neither the address nor its
+    // neighbours — and it does not clear it either, which is why the status is
+    // its own and `tallyOf` refuses to count it as an answer.
+    if (codes.every((c) => c.kind === 'policy')) {
+        return { ...base, status: 'policy', listed: false, codes };
     }
 
     return { ...base, status: 'listed', listed: true, codes };
 };
 
+// How much of a pass is allowed to speak.
+//
+// `answered` counts only the zones that gave a verdict about this address, so a
+// pass whose every reply was a range policy or a refusal answers nothing and
+// scores as unmeasured; `policy` is carried separately because the page shows it
+// as information about the block, and a stored row has to be able to tell the
+// two apart later.
 const tallyOf = (results) => {
     const answered = results.filter((r) => r.status === 'listed' || r.status === 'clean');
     const listed = answered.filter((r) => r.listed);
@@ -174,13 +206,16 @@ const tallyOf = (results) => {
         answered: answered.length,
         listed: listed.length,
         botnet: listed.filter((r) => r.category === 'Botnet').length,
+        policy: results.filter((r) => r.status === 'policy').length,
     };
 };
 
 const queryAllZones = async (server, name, zones) => Promise.all(zones.map(async (zone) => {
     const result = await queryZone(server, `${name}.${zone.zone}`, zone);
-    if (!result.listed) return result;
     // About to accuse: prove the resolver is not the source of the accusation.
+    // A policy answer is guarded too — a recursor that invents the range-policy
+    // code for every name would quietly spare a genuinely listed address.
+    if (!result.listed && result.status !== 'policy') return result;
     const canary = await resolverIntercepts(server, zone);
     if (canary === 'intercepting') return { ...result, status: 'intercepting', listed: false };
     if (canary === 'unproven') return { ...result, status: 'unverified', listed: false };
@@ -194,7 +229,9 @@ const queryAllZones = async (server, name, zones) => Promise.all(zones.map(async
  * @returns {Promise<object>} `{ ip, supported, resolver, results, tally, reason? }`
  *   `supported` is false when no zone here answers questions about this address
  *   family; `resolver` names which recursor the answers came through, because a
- *   stored listing is only as good as the path that reported it.
+ *   stored listing is only as good as the path that reported it; `reason` is set
+ *   whenever `tally.answered` is 0, and says which of the ways that happens this
+ *   pass is — `policy-only` among them.
  */
 const runPass = async (ip) => {
     const name = reverseName(ip);
@@ -217,13 +254,23 @@ const runPass = async (ip) => {
             logger.warn({ ip, server }, 'dnsbl: resolver fabricated an answer, trying the next one');
             continue;
         }
+        const tally = tallyOf(results);
+        // An empty `answered` has two different causes, and the pass is the only
+        // place that can still tell them apart: nobody answered about this
+        // address, versus everybody answered about its *range*. Calling the
+        // second one "none of the zones replied" would be the module's own words
+        // lying about its own reading, three layers downstream.
+        const reason = tally.answered === 0 && results.some((r) => r.status === 'policy')
+            ? 'policy-only'
+            : undefined;
         return {
             ip,
             supported: true,
             resolver: server,
             results,
-            tally: tallyOf(results),
+            tally,
             ms: Date.now() - started,
+            ...(reason ? { reason } : {}),
         };
     }
 
@@ -234,7 +281,7 @@ const runPass = async (ip) => {
         supported: true,
         resolver: null,
         results: [],
-        tally: { zones: zones.length, answered: 0, listed: 0, botnet: 0 },
+        tally: { zones: zones.length, answered: 0, listed: 0, botnet: 0, policy: 0 },
         reason: 'no-trustworthy-resolver',
     };
 };
@@ -261,7 +308,7 @@ export const checkBlocklists = async (ip) => {
     return remember(key, ZONE_TTL_MS, await runPass(ip));
 };
 
-// The three pieces of this module's reading of an answer that a caller may want
+// The four pieces of this module's reading of an answer that a caller may want
 // to check for itself; the zone list is read from common/dnsbl-zones.js, which
 // is where its data-integrity spec looks too.
-export { isBlocklistedRange, classifyError, tallyOf };
+export { isBlocklistedRange, classifyError, readCode, tallyOf };

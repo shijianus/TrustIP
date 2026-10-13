@@ -136,7 +136,16 @@ interactivity). FAB colors stay semantic, max two accents at once: `action` =
 trigger, `default` = stateless panel, `success` = protective state active,
 `secondary` = dock. Every business state → color mapping goes through
 `composables/use-status-tone.js` (`wait` / `ok-fast` / `ok-slow` / `fail`),
-normally via `ipFieldTone()` — no hand-rolled switches.
+normally via `ipFieldTone()` — no hand-rolled switches. The file carries two
+further state maps that are *not* those four levels, because neither is a
+measurement's speed: `trustBandOf()` for the five-band 0–100 score, and
+`capabilityBadge()` for a declared gap, whose tones are `VerdictChip`'s names
+(`info` / `warn` / `muted`) and whose label is a locale *key*. An unknown slot
+state reads as `placeholder` — the conservative claim — so a section promoted to
+a state nobody translated says "not measured" rather than printing
+`dossier.slot.badge.ready`, and never borrows a badge that claims data exists.
+A gap card also keeps any rows its caller passed, whatever the state turned out
+to be: the build's misreading is not a reason to hide the reader's data.
 
 ### Canonical patterns
 
@@ -155,7 +164,9 @@ spec.
 - **Fixed option sets** — a known closed list is a `Select`, not a toggle row, once it outgrows a comfortable line (DnsResolver record types, MtrTest targets).
 - **Qualifier + input + run** — `ButtonGroup` around the `Select` + `Input` so they read as one bordered control, a nested one around the run Button for the gap (DnsResolver). The trigger needs `w-auto shrink-0` — our `SelectTrigger` predates `data-slot` — and the row stays unwrapped at every width.
 - **Tables vs lists** — real per-column header semantics → `<table>`; otherwise a bordered rounded `<ul>` with `divide-y`.
-- **Key/value panels** — `widgets/KeyRow.vue` in a dashed `divide-y` `<dl>`, never a hand-rolled label/value row: `wide` for values that truncate, plain for values that wrap, and no `shrink-0` on either half. Headings from `widgets/SectionTitle`, verdicts from `widgets/VerdictChip`, and a capability this build does not measure is a `widgets/CapabilitySlot` naming what it needs — an absent row is a bug, a declared gap is information.
+- **A link to a route in this app is `RouterLink` / `router.push`, never `<a href>`** — a bare anchor tears down the running page and its measurements to reach a path the router already knows, and only works on a host that rewrites deep URLs. `widgets/CellGrid.vue` takes `to` for an in-app target and `href` for a URL outside this app, route first when a cell carries both, and plain text when it carries neither — which is most of these rows.
+- **An async answer re-claims the page before it writes.** `IpDossier.load()` compares the address it asked about against `target` after the `await`, and drops both the payload and the failure when the page has moved on. Once in-app links exist, a switch is one click while the previous `/api/dossier` is still running for tens of seconds — so arrival order is not request order, and writing whatever lands last shows one address's evidence under another address's URL. This is the same discipline as a stale lazy chart render: superseded work is discarded, never displayed.
+- **Key/value panels** — `widgets/KeyRow.vue` in a dashed `divide-y` `<dl>`, never a hand-rolled label/value row: `wide` for values that truncate, plain for values that wrap, and no `shrink-0` on either half. Headings from `widgets/SectionTitle`, verdicts from `widgets/VerdictChip`, and a capability this build does not measure is a `widgets/CapabilitySlot` naming what it needs — an absent row is a bug, a declared gap is information. `state="partial"` is the third case and takes the caller's rows through the default slot: the section keeps its place in the layout, the measured half reads as measured, and only the missing row labels are listed — so a section that is half real never has to pretend to be wholly absent.
 - **Dialog header** — `<DialogHeader :icon :title />`. **Drawer vs Sheet** — vaul bottom Drawer for the Advanced Tools panel and full-bleed expansions of an inline visual; side panels use `Sheet`.
 - **Motion** — the hover lift is `transition-transform duration-300 ease-out hover:-translate-y-1.5`; loading is `<Spinner />`, never pulse-dots.
 

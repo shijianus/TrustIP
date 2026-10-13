@@ -2410,6 +2410,17 @@
           "ru": "Незарегистрированный домен и номер AS, которого нет ни у одного регистратора, теперь отвечают «нет записи», а не сбоем поиска: страница больше не заявляет о поломке сервиса, когда ответ состоял в том, что данных нет",
           "pt-BR": "Um domínio não registrado e um número AS que nenhum registro detém agora informam \"nenhum registro\" em vez de falha na consulta — a página não diz mais que o serviço quebrou quando a resposta era que não há nada ali"
         }
+      },
+      {
+        "type": "add",
+        "change": {
+          "en": "The IP page's neighbour section now lists the addresses the registered block places beside this one — the two either side, plus the block's first and last — instead of standing empty; whether any of them is in use needs an observation this build does not have, and the card still says so",
+          "zh": "IP 页面的邻居区现在会列出注册地址块中紧邻该地址的地址——前后各一个，加上地址块的首地址和末地址——而不再只是一片空白；这些地址中有没有人在使用仍需本构建不具备的观测，卡片依旧如此说明",
+          "zh-TW": "IP 頁面的鄰居區現在會列出註冊位址塊中緊鄰該位址的位址——前後各一個，加上位址塊的首位址和末位址——而不再只是一片空白；這些位址中有沒有人在使用仍需本建置不具備的觀測，卡片依舊如此說明",
+          "fr": "La section voisinage de la page IP liste désormais les adresses que le bloc enregistré place à côté de celle-ci — les deux voisines directes, plus le début et la fin du bloc — au lieu de rester vide : savoir si l'une d'elles est utilisée demande une observation que cette version ne possède pas, et la carte le dit toujours",
+          "ru": "Раздел соседей на странице IP теперь перечисляет адреса, которые зарегистрированный блок ставит рядом с этим — по одному соседу с каждой стороны, плюс первый и последний адреса блока — а не остаётся пустым; используется ли кто-то из них, требует наблюдений, которых в этой сборке нет, и карточка по-прежнему об этом говорит",
+          "pt-BR": "A seção de vizinhos da página de IP agora lista os endereços que o bloco registrado coloca ao lado deste — um de cada lado, além do primeiro e do último do bloco — em vez de ficar vazia: se algum deles está em uso exige uma observação que esta versão não tem, e o cartão continua dizendo isso"
+        }
       }
     ]
   }

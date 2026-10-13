@@ -6,9 +6,11 @@
 
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
+import fs from 'node:fs';
 
 import {
-    buildGeo, haversineKm, geoFromEvidence, technicalSlot, SLOTS,
+    buildGeo, buildNeighbours, haversineKm, geoFromEvidence, technicalSlot, SLOTS,
+    BLOCKLIST_GAP_REASONS,
 } from '../common/ip-dossier.js';
 
 const source = (id, over = {}) => ({
@@ -138,10 +140,117 @@ describe('SLOTS', () => {
         }
     });
 
+    // A gap has to name the *class of source* that would close it, not the
+    // capability it lacks: "not supported here" is a mystery handed to the next
+    // contributor, while "a VPN exit directory" is a thing one can go and find.
+    const GAP_SOURCE = {
+        threat: /abuse-intelligence feed|IPAPIIS_API_KEY|ABUSEIPDB_API_KEY/,
+        deepRisk: /anonymiser-list feed|TRUST_PROVIDERS/,
+        vpnTrace: /VPN exit/,
+        heat: /observation store/,
+        relatedDomains: /reverse DNS/,
+        locationHistory: /observation history/,
+        neighbours: /observation/,
+        companyHistory: /registration-history/,
+        coLocated: /datacenter/,
+    };
+
+    it('names the class of source behind every declared gap', () => {
+        for (const [name, slot] of Object.entries(SLOTS)) {
+            if (!slot.needs) continue;
+            assert.ok(GAP_SOURCE[name], `${name}: a gap was declared with no source pinned to it`);
+            assert.match(slot.needs, GAP_SOURCE[name], `${name}: needs must name the source, not the absence`);
+        }
+    });
+
+    // The page renders the pack's sentence and the response carries its own, so
+    // the same gap is written down twice in two places. That pair drifted once —
+    // `vpnTrace` asked the reader for routing visibility while the response
+    // talked about a VPN exit directory — and nothing but this check notices.
+    it('describes one gap the same way in the pack and in the response', () => {
+        const en = JSON.parse(fs.readFileSync(new URL('../frontend/locales/en.json', import.meta.url), 'utf8'));
+        const dig = (path) => path.split('.').reduce((o, key) => o?.[key], en);
+        const pairs = [
+            ['vpnTrace', 'dossier.slot.vpntraceNeeds', /vpn exit/i],
+            ['companyHistory', 'dossier.slot.companyHistoryNeeds', /registration-history|rdap/i],
+        ];
+        for (const [slot, path, subject] of pairs) {
+            assert.match(SLOTS[slot].needs, subject, `${slot}: the response stopped naming its source`);
+            assert.match(dig(path) || '', subject, `${slot}: pack and response no longer describe one gap`);
+        }
+    });
+
     it('keeps the sections that carry real data honest about being partial', () => {
         assert.equal(SLOTS.topology.status, 'ready');
         assert.equal(SLOTS.topology.partial, true, 'topology has no path proportions and must say so');
         assert.ok(SLOTS.technical.partial.includes('openPorts'));
+        // The block names this address's neighbours; whether any of them is in
+        // use is a second question, and the slot has to keep them apart.
+        assert.equal(SLOTS.neighbours.status, 'partial');
+        assert.ok(SLOTS.neighbours.missing.includes('sameBlockActivity'));
+    });
+
+    // A gap row is named by a machine key on the server and translated on the
+    // page, so a key without copy renders as its own path — a reader sees
+    // `dossier.neighbours.gap.…` where the pack comparison sees nothing wrong.
+    it('names every gap row with a key the reference pack carries', () => {
+        const en = JSON.parse(fs.readFileSync(new URL('../frontend/locales/en.json', import.meta.url), 'utf8'));
+        const gaps = en.dossier?.neighbours?.gap || {};
+        for (const key of SLOTS.neighbours.missing) {
+            assert.ok(gaps[key], `neighbours: no copy for gap "${key}"`);
+        }
+    });
+});
+
+// The neighbour list is arithmetic on the registered block, so what is worth
+// pinning is where the arithmetic must stop: at the two ends of the block, and
+// at the point where a block stops being a range at all.
+describe('buildNeighbours', () => {
+    const roles = (ip, cidr) => (buildNeighbours(ip, cidr)?.entries || []).map((e) => e.role);
+    const ips = (ip, cidr) => (buildNeighbours(ip, cidr)?.entries || []).map((e) => e.ip);
+
+    it('names the two neighbours and both edges of the block', () => {
+        assert.deepEqual(roles('203.0.113.50', '203.0.113.0/24'), ['previous', 'next', 'blockFirst', 'blockLast']);
+        assert.deepEqual(
+            ips('203.0.113.50', '203.0.113.0/24'),
+            ['203.0.113.49', '203.0.113.51', '203.0.113.0', '203.0.113.255'],
+        );
+    });
+
+    // Stepping off either end would name an address somebody else holds, so the
+    // walk stops at the edge — and the edge it stopped at is shown once, as an
+    // edge, not a second time as a neighbour.
+    it('never steps outside the block and never repeats an address', () => {
+        assert.deepEqual(ips('203.0.113.0', '203.0.113.0/24'), ['203.0.113.1', '203.0.113.255']);
+        assert.deepEqual(ips('203.0.113.1', '203.0.113.0/24'), ['203.0.113.2', '203.0.113.0', '203.0.113.255']);
+        assert.deepEqual(ips('203.0.113.255', '203.0.113.0/24'), ['203.0.113.254', '203.0.113.0']);
+        assert.deepEqual(roles('203.0.113.1', '203.0.113.0/24'), ['next', 'blockFirst', 'blockLast']);
+    });
+
+    it('keeps a block of one address an answer rather than a missing block', () => {
+        const one = buildNeighbours('203.0.113.50', '203.0.113.50/32');
+        assert.deepEqual(one.entries, []);
+        assert.equal(one.cidr, '203.0.113.50/32');
+    });
+
+    it('says nothing when the registry named no block', () => {
+        assert.equal(buildNeighbours('203.0.113.50', null), null);
+        assert.equal(buildNeighbours('203.0.113.50', 'not-a-prefix'), null);
+    });
+
+    // A block that cannot contain the address is a bug upstream of here;
+    // inventing neighbours from a range this address is not inside is worse.
+    it('refuses a block of the other family', () => {
+        assert.equal(buildNeighbours('203.0.113.50', '2001:db8::/32'), null);
+    });
+
+    it('writes IPv6 neighbours in the form the page already uses', () => {
+        assert.deepEqual(ips('2001:db8:1234::5', '2001:db8:1200::/28'), [
+            '2001:db8:1234::4',
+            '2001:db8:1234::6',
+            '2001:db0::',
+            '2001:dbf:ffff:ffff:ffff:ffff:ffff:ffff',
+        ]);
     });
 });
 
@@ -172,5 +281,27 @@ describe('technicalSlot', () => {
         const slot = technicalSlot({ status: 'failed' });
         assert.equal(slot.status, 'placeholder');
         assert.match(slot.needs, /did not answer/);
+    });
+});
+
+// Which sentence a blocklist pass with nothing to score earns. The pass names
+// its own reason — `common/dnsbl.js` owns that reading — and the dossier only
+// turns the name into a gap line, so this table is where a wrong reading shows up.
+describe('BLOCKLIST_GAP_REASONS', () => {
+    it('has a reason for every gap the pass can report', () => {
+        const reported = ['no-ipv6-zone', 'no-trustworthy-resolver', 'no-zones', 'unparseable', 'no-answer', 'policy-only'];
+        for (const reason of reported) {
+            assert.ok(BLOCKLIST_GAP_REASONS[reason], `no reason text for "${reason}"`);
+        }
+    });
+
+    // The bug this pins: a policy-only pass falling through to `no-answer`, which
+    // tells the reader nobody replied when every zone replied in fact — about the
+    // block. Neither may it imply the whole list answered about the address.
+    it('describes a policy-only pass as an answer about the range, not about nobody', () => {
+        const text = BLOCKLIST_GAP_REASONS['policy-only'];
+        assert.doesNotMatch(text, /none of the zones replied/i, 'policy-only borrowed the silent pass\'s words');
+        assert.match(text, /polic/, 'policy-only stopped naming what it did hear');
+        assert.match(text, /address itself/i, 'policy-only stopped saying what is still missing');
     });
 });
