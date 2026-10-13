@@ -21,6 +21,7 @@ const expressBody = () => {
     let body = null;
     const res = {
         status() { return this; },
+        setHeader() { return this; },
         json(value) { body = value; return this; },
     };
     expressConfigs({ method: 'GET', headers: { referer: REFERER } }, res);
