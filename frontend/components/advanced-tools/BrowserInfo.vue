@@ -334,7 +334,13 @@ const getFingerPrint = async () => {
         // library otherwise unconditionally drops permissions (the 'iframe'
         // rule has no browsers filter, fires everywhere) and silently masks
         // canvas/audio/fonts on private mode. Our toggles are the only gate.
-        const tm = new Thumbmark({ exclude: excludes, stabilize: [] });
+        // `logging: false` because the library's default is true: in about one
+        // session in 10,000 it POSTs the whole fingerprint to
+        // api.thumbmarkjs.com and loads a script from
+        // experimental.thumbmarkjs.com into this origin. `experimental: false`
+        // and no `api_key` keep every other remote call off as well — the
+        // fingerprint is computed here and goes nowhere.
+        const tm = new Thumbmark({ exclude: excludes, stabilize: [], logging: false, experimental: false });
         const result = await tm.get();
         fingerprint.value = result.thumbmark;
         components.value = result.components || {};
