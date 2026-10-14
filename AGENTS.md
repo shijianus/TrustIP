@@ -87,9 +87,20 @@ Two things that spec does cover, because they are easy to assume otherwise:
 
 - **The upstream sync's merge logic is tested.** `tests/upstream-sync-workflow.test.js`
   extracts the `Merge upstream into dev, or file the conflicts` step's script out of
-  `.github/workflows/sync.yml` and runs it against throwaway git repos with a stubbed
-  `gh`. Rename or reformat that step and the extraction fails by name — the point is
-  that a silent no-op there would leave the schedule untested.
+  `.github/workflows/sync.yml` and runs it as the runner does (`bash --noprofile
+  --norc -eo pipefail`) against throwaway git repos, with git config isolated
+  (`GIT_CONFIG_GLOBAL=/dev/null`) and a `gh` stub whose `gh api` answers come from
+  JSON fixtures run through the script's own `--jq` filter (needs `git` ≥ 2.38 and
+  `jq`). Rename or reformat that step and the extraction fails by name — a silent
+  no-op there would leave the schedule untested. What it pins: the sync never pushes
+  `dev` or `main` — a clean merge goes to the bot branch `sync/upstream-<sha12>` plus
+  one PR into `dev` (opened with `GITHUB_TOKEN`, so CI does not run on it until
+  someone closes and reopens it or pushes to it; merge it with a merge commit);
+  a conflict, or a clean merge that changes `.github/workflows`, is one tracking
+  issue found by its marker and bot author, never its title; a failed merge-tree,
+  push or API call is red; path names never reach the log or escape the issue's
+  code block. Its static checks fail on new permissions, a new trigger, `${{` inside
+  a `run:`, or an action not pinned by SHA.
 - **A runtime missing an ICU surface skips, with the reason, and never passes.**
   `Intl.Locale#getTimeZones` (region-info data) and `Intl.DurationFormat` are not in
   every Node the suite runs on; the guarded specs report `skipped` rather than failing
