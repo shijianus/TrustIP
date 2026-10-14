@@ -81,8 +81,14 @@ describe('upstreamHeaders', () => {
         assert.deepEqual(h, { 'Content-Type': 'application/json' });
     });
 
-    it('resolveClientIp prefers CF-Connecting-IP, then req.ip, never the raw X-Forwarded-For', () => {
-        assert.equal(resolveClientIp({ headers: { 'cf-connecting-ip': '198.51.100.1' }, ip: '10.0.0.1' }), '198.51.100.1');
+    it('resolveClientIp reads req.ip, CF-Connecting-IP only when declared, never the raw X-Forwarded-For', () => {
+        assert.equal(resolveClientIp({ headers: { 'cf-connecting-ip': '198.51.100.1' }, ip: '10.0.0.1' }), '10.0.0.1');
+        process.env.TRUST_CF_CONNECTING_IP = '1';
+        try {
+            assert.equal(resolveClientIp({ headers: { 'cf-connecting-ip': '198.51.100.1' }, ip: '10.0.0.1' }), '198.51.100.1');
+        } finally {
+            delete process.env.TRUST_CF_CONNECTING_IP;
+        }
         assert.equal(resolveClientIp({ headers: { 'x-forwarded-for': '6.6.6.6, 203.0.113.9' }, ip: '203.0.113.9' }), '203.0.113.9');
         assert.equal(resolveClientIp({ headers: {} }), null);
     });

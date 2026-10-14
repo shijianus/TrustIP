@@ -7,6 +7,7 @@
 // only when VITE_SENTRY_DSN_FRONTEND is set.
 import { fetchUpstream } from '../common/fetch-with-timeout.js';
 import { isValidIP } from '../common/valid-ip.js';
+import { trustsCfConnectingIp } from '../common/client-ip.js';
 import logger from '../common/logger.js';
 
 // The envelope header is the first newline-delimited JSON line and carries
@@ -24,8 +25,12 @@ export const parseEnvelopeDsn = (rawBody) => {
     }
 };
 
-// Resolves the visitor's real IP from the incoming tunnel request.
+// Resolves the visitor's real IP from the incoming tunnel request: Cloudflare's
+// header, and only when the deployment declares Cloudflare in front
+// (TRUST_CF_CONNECTING_IP=1, common/client-ip.js) — anywhere else the client
+// wrote it, and an event would carry whatever address it chose.
 export const visitorIpFrom = (headers) => {
+    if (!trustsCfConnectingIp()) return null;
     const ip = headers?.['cf-connecting-ip'];
     return isValidIP(ip) ? ip : null;
 };

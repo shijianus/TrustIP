@@ -4,7 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { slowDown } from 'express-slow-down'
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import pinoHttp from 'pino-http';
 import logger from './common/logger.js';
 import { requireReferer, requirePublicIP, requireValidPrefix, requireValidASN, requireValidDomain, requireValidProviderId,
@@ -66,7 +66,7 @@ import { runOfflineBootstrap, requireOfflineData, isOfflineBootstrapping } from 
 import { cacheable } from './common/cache-control.js';
 import { initUpstreamUserAgent } from './common/upstream-ua.js';
 import { apiNotFound, jsonErrorHandler } from './common/error-handler.js';
-import { resolveClientIp } from './common/upstream-headers.js';
+import { resolveClientIp, trustProxySetting } from './common/client-ip.js';
 import { securityHeaders } from './common/security-headers.js';
 
 dotenv.config({ quiet: true });
@@ -86,7 +86,11 @@ const blackListIPLogFilePath = process.env.SECURITY_BLACKLIST_LOG_FILE_PATH || '
 const rateLimitSet = parseInt(process.env.SECURITY_RATE_LIMIT || 0, 10);
 const speedLimitSet = parseInt(process.env.SECURITY_DELAY_AFTER || 0, 10);
 
-app.set('trust proxy', 1);
+// Which peers may name the client in X-Forwarded-For (TRUST_PROXY, default
+// `loopback` — frontend-server.js on the same host). See common/client-ip.js.
+const trustProxy = trustProxySetting();
+if (trustProxy.invalid) logger.warn({ TRUST_PROXY: process.env.TRUST_PROXY }, '⚠️ TRUST_PROXY is not understood; using loopback');
+app.set('trust proxy', trustProxy.value);
 
 // HTTP request logging on /api/* — off by default to keep pm2 logs lean.
 // Set LOG_HTTP=true in .env to enable. Mounted before the rate limiter
@@ -109,10 +113,16 @@ if (process.env.LOG_HTTP === 'true') {
     logger.info('📝 HTTP request logging enabled (LOG_HTTP=true)');
 }
 
-// The leftmost X-Forwarded-For entry is whatever the client typed, so it no
-// longer names the address in the blacklist ledger; req.ip already applies the
-// `trust proxy` hop count to that header. See common/upstream-headers.js.
-const getClientIp = (req) => resolveClientIp(req) || req.socket?.remoteAddress || 'unknown';
+// One resolved address per request for every limiter, the ledger and the
+// upstream headers (common/client-ip.js). IPv6 clients are keyed by their /56,
+// as express-rate-limit recommends, so one host cannot rotate through its own
+// prefix to reset a budget.
+const getClientIp = (req) => resolveClientIp(req) || 'unknown';
+const clientKey = (req) => ipKeyGenerator(getClientIp(req));
+
+// Every limiter keys on `clientKey`, so the route limiters, the global one and
+// the ledger always agree on who the client is.
+const limiter = (options) => rateLimit({ keyGenerator: clientKey, ...options });
 
 // Host-local time with an explicit UTC offset ("2026-07-14 10:23:45 +0800"),
 // matching the pretty-log timestamp style — ledger entries stay unambiguous
@@ -176,7 +186,7 @@ function logLimitedIP(ip) {
     });
 }
 
-const rateLimiter = rateLimit({
+const rateLimiter = limiter({
     windowMs: 20 * 60 * 1000,
     max: rateLimitSet,
     message: 'Too Many Requests',
@@ -202,6 +212,7 @@ const rateLimiter = rateLimit({
 });
 
 const speedLimiter = slowDown({
+    keyGenerator: clientKey,
     windowMs: 60 * 60 * 1000,
     delayAfter: speedLimitSet,
     delayMs: (used, req) => (used - req.slowDown.limit) * 400,
@@ -308,7 +319,7 @@ app.get('/api/macchecker', needsOui, cacheable(THIRTY_DAYS_CACHE), macChecker);
 // day. Note what that means for the one signal that does change within a day —
 // a score's blocklist verdict is up to 24h old, so `/api/dnsbl` is the fresh
 // source for that signal and the score is the considered summary of it.
-const trustScoreLimiter = rateLimit({
+const trustScoreLimiter = limiter({
     windowMs: 60 * 1000,
     max: 12,
     message: 'Too Many Requests',
@@ -318,7 +329,7 @@ app.get('/api/trustscore', requirePublicIP(), trustScoreLimiter, cacheable(24 * 
 // step worse: it answers the registry evidence plus two extra geolocation
 // sources, so it gets its own budget rather than sharing the smaller one and
 // starving the endpoint the home page depends on.
-const dossierLimiter = rateLimit({
+const dossierLimiter = limiter({
     windowMs: 60 * 1000,
     max: 10,
     message: 'Too Many Requests',
@@ -328,7 +339,7 @@ app.get('/api/dossier', requirePublicIP(), dossierLimiter, cacheable(24 * 60 * 6
 // appears and is delisted within days. The edge cache therefore matches the 30
 // minute answer cache in common/dnsbl.js rather than the registry routes' day,
 // so a delisted address stops being accused within the hour it was cleared.
-const dnsblLimiter = rateLimit({
+const dnsblLimiter = limiter({
     windowMs: 60 * 1000,
     max: 20,
     message: 'Too Many Requests',
@@ -339,7 +350,7 @@ app.get('/api/dnsbl', requirePublicIP(), dnsblLimiter, cacheable(30 * 60), dnsbl
 // answering on 22 today may not have when Shodan looked. Six hours is short enough
 // that a fresh observation shows up within the working day and long enough that a
 // scanner walking a /8 cannot turn our bandwidth into Shodan's problem.
-const internetdbLimiter = rateLimit({
+const internetdbLimiter = limiter({
     windowMs: 60 * 1000,
     max: 20,
     message: 'Too Many Requests',
@@ -349,7 +360,7 @@ app.get('/api/internetdb', requirePublicIP(), internetdbLimiter, cacheable(6 * 6
 // published artifact, so it lives or dies by the same 24h clock the score it shows
 // sits behind — and it is asked for by the same address, so a per-IP limiter of the
 // dossier's size is the right ceiling.
-const ipCardLimiter = rateLimit({
+const ipCardLimiter = limiter({
     windowMs: 60 * 1000,
     max: 10,
     message: 'Too Many Requests',
@@ -361,7 +372,7 @@ app.get('/api/map', cacheable(ONE_YEAR_CACHE), mapHandler);
 app.get('/api/ipchecking', requirePublicIP(), withTimeZone(), ipCheckingHandler);
 // One lookup fans out to 24 resolvers (18 UDP + 6 DoH), so it gets its own
 // per-IP budget like the other fan-out routes; the global limiter is opt-in.
-const dnsResolverLimiter = rateLimit({
+const dnsResolverLimiter = limiter({
     windowMs: 60 * 1000,
     max: 30,
     message: 'Too Many Requests',
@@ -391,7 +402,7 @@ app.post('/api/split', requireSplitSignals(), splitHandler);
 // would never be populated.
 if (process.env.VITE_SENTRY_DSN_FRONTEND) {
     // Dedicated, more generous per-IP limiter
-    const monitoringLimiter = rateLimit({
+    const monitoringLimiter = limiter({
         windowMs: 20 * 60 * 1000,
         max: 600,
         message: 'Too Many Requests',

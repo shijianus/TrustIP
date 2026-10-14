@@ -78,9 +78,18 @@ test('returns 403 when the envelope targets a foreign DSN', async () => {
 
 // -- visitorIpFrom -----------------------------------------------------------
 
-test('visitorIpFrom returns the Cloudflare connecting IP when valid', () => {
-    assert.strictEqual(visitorIpFrom({ 'cf-connecting-ip': '203.0.113.7' }), '203.0.113.7');
-    assert.strictEqual(visitorIpFrom({ 'cf-connecting-ip': '2001:db8::1' }), '2001:db8::1');
+test('visitorIpFrom returns the Cloudflare connecting IP when Cloudflare is declared', () => {
+    process.env.TRUST_CF_CONNECTING_IP = '1';
+    try {
+        assert.strictEqual(visitorIpFrom({ 'cf-connecting-ip': '203.0.113.7' }), '203.0.113.7');
+        assert.strictEqual(visitorIpFrom({ 'cf-connecting-ip': '2001:db8::1' }), '2001:db8::1');
+    } finally {
+        delete process.env.TRUST_CF_CONNECTING_IP;
+    }
+});
+
+test('visitorIpFrom ignores a client-written CF-Connecting-IP by default', () => {
+    assert.strictEqual(visitorIpFrom({ 'cf-connecting-ip': '203.0.113.7' }), null);
 });
 
 test('visitorIpFrom returns null without a trustworthy header', () => {

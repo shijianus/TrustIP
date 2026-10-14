@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import logger from './common/logger.js';
 import { securityHeaders } from './common/security-headers.js';
+import { apiProxyOptions } from './common/frontend-proxy.js';
 
 dotenv.config({ quiet: true });
 
@@ -18,11 +19,9 @@ const frontEndPort = parseInt(process.env.FRONTEND_PORT || 18966, 10);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// API Proxy to backend server
-frontendApp.use('/api', createProxyMiddleware({ 
-  target: `http://localhost:${backEndPort}/api`,
-  changeOrigin: true
-}));
+// API Proxy to backend server; X-Forwarded-For is overwritten with the socket
+// peer (common/frontend-proxy.js).
+frontendApp.use('/api', createProxyMiddleware(apiProxyOptions(backEndPort)));
 
 // Set static file directory.
 // Cache-Control is set per-asset class so the static layer behaves well

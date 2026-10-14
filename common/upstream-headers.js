@@ -9,6 +9,8 @@
 // content negotiation, the visitor's Firebase bearer token, the browser's
 // own identity hints, and the client address as this server resolved it.
 
+import { resolveClientIp } from './client-ip.js';
+
 const FORWARDED = [
     'accept',
     'accept-language',
@@ -22,15 +24,9 @@ const FORWARDED = [
     'dnt',
 ];
 
-// The visitor's address as this deployment resolves it: Cloudflare's header
-// when Cloudflare fronts the site (it overwrites any client-sent value), else
-// Express's req.ip, which honours the `trust proxy` hop count instead of
-// believing the leftmost X-Forwarded-For entry.
-export const resolveClientIp = (req) => {
-    const cf = req.headers?.['cf-connecting-ip'];
-    if (typeof cf === 'string' && cf) return cf;
-    return typeof req.ip === 'string' && req.ip ? req.ip : null;
-};
+// The visitor's address as this deployment resolves it — the same one the
+// limiters and the ledger key on (common/client-ip.js).
+export { resolveClientIp };
 
 export const upstreamHeaders = (req, extra = {}) => {
     const headers = {};
