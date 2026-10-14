@@ -33,7 +33,7 @@
 
 import { fetchUpstream } from './fetch-with-timeout.js';
 import { toBgpPrefix } from './bgp-prefix.js';
-import { reverseName } from './ip-math.js';
+import { reverseName, blockContaining } from './ip-math.js';
 import { pickIpApiIsKey } from './ipapi-key.js';
 import { checkBlocklists } from './dnsbl.js';
 import { lookupAsOrgName } from './as-org-db.js';
@@ -133,6 +133,12 @@ const ripestat = (endpoint, resource, params = {}, timeoutMs = 6000) =>
 const readRirRecord = async (ip) => {
     const { data, failed } = await ripestat('whois', ip, {}, 6000);
     if (failed) return { failed: true };
+    return rirRecordFrom(data);
+};
+
+// RIPEstat `whois` data → the record fields the assessment reads. Pure, so the
+// dialect handling is testable without a network.
+const rirRecordFrom = (data) => {
     const rows = [];
     for (const group of data?.records || []) {
         for (const row of group || []) {
@@ -154,13 +160,13 @@ const readRirRecord = async (ip) => {
     const pick = (...keys) => valuesFor(...keys).join(' ') || null;
     const pickOne = (...keys) => valuesFor(...keys)[0] || null;
     // ARIN spells these NetType/CIDR/RegDate; RIPE/APNIC/LACNIC/AFRINIC use
-    // inetnum/status/created. Reading both dialects keeps one code path.
+    // inetnum (inet6num for IPv6)/status/created. Reading both dialects keeps one code path.
     return {
         netType: pickOne('nettype'),
         status: pickOne('status'),
         descr: pick('descr', 'org-name', 'organisation', 'org'),
         netName: pickOne('netname'),
-        cidr: pickOne('cidr', 'inetnum', 'prefix'),
+        cidr: pickOne('cidr', 'inetnum', 'inet6num', 'prefix'),
         regDate: pickOne('regdate', 'created'),
         country: pickOne('country', 'org_country', 'country-code'),
         originAs: pickOne('originas', 'origin'),
@@ -513,7 +519,8 @@ export const gatherTrustEvidence = async (ip, { geo = null } = {}) => {
     // CIDR form is something RPKI can validate — otherwise fall back to the DFZ
     // floor (/24, /48), which is what an ROA is normally written for and what
     // lets the edge cache dedupe across a whole prefix.
-    const allocation = (rir?.cidr || '').split(',')[0]?.trim();
+    // Of an ARIN list, the CIDR that actually holds this address.
+    const allocation = blockContaining(ip, rir?.cidr || null)?.label;
     const prefix = allocation?.includes('/') ? allocation : toBgpPrefix(ip);
     const rpkiResult = await readRpki(asn, prefix);
     evidence.rpki = rpkiResult?.state ?? null;
@@ -523,4 +530,4 @@ export const gatherTrustEvidence = async (ip, { geo = null } = {}) => {
     return evidence;
 };
 
-export { RIPESTAT_APP, blocklistSummary };
+export { RIPESTAT_APP, blocklistSummary, rirRecordFrom };

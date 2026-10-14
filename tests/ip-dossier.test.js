@@ -10,9 +10,10 @@ import fs from 'node:fs';
 
 import {
     buildGeo, buildNeighbours, haversineKm, geoFromEvidence, technicalSlot, SLOTS,
-    BLOCKLIST_GAP_REASONS, blocklistSlot,
+    BLOCKLIST_GAP_REASONS, blocklistSlot, neighboursSlot,
 } from '../common/ip-dossier.js';
-import { blocklistSummary } from '../common/trust-signals.js';
+import { blocklistSummary, rirRecordFrom } from '../common/trust-signals.js';
+import { blockContaining } from '../common/ip-math.js';
 
 const source = (id, over = {}) => ({
     id, label: id.toUpperCase(),
@@ -245,6 +246,28 @@ describe('buildNeighbours', () => {
         assert.equal(buildNeighbours('203.0.113.50', '2001:db8::/32'), null);
     });
 
+    // RIPE-family `inetnum` is a range, not a CIDR.
+    it('reads a RIPE inetnum range as the block', () => {
+        const n = buildNeighbours('193.0.6.139', '193.0.0.0 - 193.0.7.255');
+        assert.equal(n.cidr, '193.0.0.0 - 193.0.7.255');
+        assert.deepEqual(n.entries.map((e) => e.ip), ['193.0.6.138', '193.0.6.140', '193.0.0.0', '193.0.7.255']);
+    });
+
+    // ARIN lists several CIDRs; the one holding the address is the block.
+    it('picks the CIDR of an ARIN list that contains the address', () => {
+        const n = buildNeighbours('104.26.10.5', '104.16.0.0/13, 104.24.0.0/14');
+        assert.equal(n.cidr, '104.24.0.0/14');
+        assert.deepEqual(n.entries.map((e) => e.ip), ['104.26.10.4', '104.26.10.6', '104.24.0.0', '104.27.255.255']);
+        assert.equal(buildNeighbours('104.17.0.1', '104.16.0.0/13, 104.24.0.0/14').cidr, '104.16.0.0/13');
+    });
+
+    // A block the address is not inside is somebody else's block.
+    it('refuses a block that does not contain the address', () => {
+        assert.equal(buildNeighbours('8.8.8.8', '1.1.1.0/24'), null);
+        assert.equal(buildNeighbours('8.8.8.8', '1.0.0.0 - 1.255.255.255'), null);
+        assert.equal(buildNeighbours('8.8.8.8', '1.1.1.0/24, 9.9.9.0/24'), null);
+    });
+
     it('writes IPv6 neighbours in the form the page already uses', () => {
         assert.deepEqual(ips('2001:db8:1234::5', '2001:db8:1200::/28'), [
             '2001:db8:1234::4',
@@ -347,5 +370,65 @@ describe('a policy-only blocklist pass in the dossier', () => {
     it('reports a scoreable pass as ready with its count and recursor', () => {
         const slot = blocklistSlot({ blocklists: { zones: 4, answered: 3, resolver: '1.1.1.1' } });
         assert.deepEqual(slot, { status: 'ready', note: '3 of 4 zones answered through 1.1.1.1' });
+    });
+});
+
+describe('blockContaining', () => {
+    it('reads each registry shape and labels the part it used', () => {
+        assert.deepEqual(blockContaining('8.8.8.8', '8.8.8.0/24'), { family: 4, start: 134744064n, end: 134744319n, label: '8.8.8.0/24' });
+        assert.equal(blockContaining('2001:67c:2e8::2', '2001:67c:2e8::/48').label, '2001:67c:2e8::/48');
+        assert.equal(blockContaining('193.0.0.1', '193.0.0.0-193.0.7.255').label, '193.0.0.0-193.0.7.255');
+    });
+
+    it('answers null for a reversed range, junk, and another family', () => {
+        assert.equal(blockContaining('193.0.0.1', '193.0.7.255 - 193.0.0.0'), null);
+        assert.equal(blockContaining('193.0.0.1', 'not a block'), null);
+        assert.equal(blockContaining('193.0.0.1', '2001:db8::/32'), null);
+        assert.equal(blockContaining('193.0.0.1', null), null);
+    });
+});
+
+// The RIR record is the source of `network.cidr`; RIPE-family IPv6 objects are
+// `inet6num`, and reading only `inetnum` left every one of them blockless.
+describe('rirRecordFrom', () => {
+    const rows = (pairs) => ({ records: [pairs.map(([key, value]) => ({ key, value }))] });
+
+    it('reads a RIPE inet6num as the block', () => {
+        const rec = rirRecordFrom(rows([['inet6num', '2001:67c:2e8::/48'], ['netname', 'RIPE-NCC'], ['country', 'NL']]));
+        assert.equal(rec.cidr, '2001:67c:2e8::/48');
+        assert.equal(rec.netName, 'RIPE-NCC');
+    });
+
+    it('keeps ARIN CIDR and RIPE inetnum as they were', () => {
+        assert.equal(rirRecordFrom(rows([['CIDR', '104.16.0.0/13, 104.24.0.0/14']])).cidr, '104.16.0.0/13, 104.24.0.0/14');
+        assert.equal(rirRecordFrom(rows([['inetnum', '193.0.0.0 - 193.0.7.255']])).cidr, '193.0.0.0 - 193.0.7.255');
+    });
+
+    it('feeds the neighbours an IPv6 block end to end', () => {
+        const rec = rirRecordFrom(rows([['inet6num', '2001:67c:2e8::/48']]));
+        const n = buildNeighbours('2001:67c:2e8:22::c100:68b', rec.cidr);
+        assert.equal(n.cidr, '2001:67c:2e8::/48');
+        assert.deepEqual(n.entries.map((e) => e.ip), [
+            '2001:67c:2e8:22::c100:68a',
+            '2001:67c:2e8:22::c100:68c',
+            '2001:67c:2e8::',
+            '2001:67c:2e8:ffff:ffff:ffff:ffff:ffff',
+        ]);
+    });
+});
+
+// With no block holding the address the section has no real half, so the slot
+// must not say `partial` beside a null neighbours value.
+describe('neighboursSlot', () => {
+    it('is the declared partial section when a block was found', () => {
+        assert.equal(neighboursSlot({ cidr: '8.8.8.0/24', entries: [] }), SLOTS.neighbours);
+        assert.equal(neighboursSlot({ cidr: '8.8.8.0/24', entries: [] }).status, 'partial');
+    });
+
+    it('is a placeholder naming the missing block when there is none', () => {
+        const slot = neighboursSlot(null);
+        assert.equal(slot.status, 'placeholder');
+        assert.deepEqual(slot.missing, []);
+        assert.match(slot.needs, /registered block that contains this address/);
     });
 });

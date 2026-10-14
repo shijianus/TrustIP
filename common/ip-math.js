@@ -402,3 +402,32 @@ export const cidrToRange = (cidrStr) => {
     if (!info) return null;
     return { family: info.family, start: info.network, end: info.lastAddress };
 };
+
+// The registered block that holds this address, out of whatever shape a
+// registry wrote it in: a CIDR (`8.8.8.0/24`), RIPE-family `inetnum`'s range
+// (`193.0.0.0 - 193.0.7.255`), or ARIN's list of CIDRs (`104.16.0.0/13,
+// 104.24.0.0/14`). A list is split and the part that contains the address is
+// kept; a block that does not contain it — another family, another range — is
+// not this address's block, so the answer is null rather than a stranger's
+// edges. `label` is the part as the registry wrote it.
+export const blockContaining = (ipStr, raw) => {
+    const parsed = parseIp(ipStr);
+    if (!parsed || typeof raw !== 'string') return null;
+    for (const part of raw.split(',').map((s) => s.trim()).filter(Boolean)) {
+        const dash = /^([0-9a-fA-F:.]+)\s*-\s*([0-9a-fA-F:.]+)$/.exec(part);
+        let range = null;
+        if (dash) {
+            const a = parseIp(dash[1]);
+            const b = parseIp(dash[2]);
+            if (a && b && a.family === b.family && a.value <= b.value) {
+                range = { family: a.family, start: a.value, end: b.value };
+            }
+        } else {
+            range = cidrToRange(part);
+        }
+        if (range && range.family === parsed.family && parsed.value >= range.start && parsed.value <= range.end) {
+            return { ...range, label: part };
+        }
+    }
+    return null;
+};

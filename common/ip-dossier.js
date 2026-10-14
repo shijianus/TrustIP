@@ -29,7 +29,7 @@ import { isMaxMindReady, lookupMaxMind } from './maxmind-service.js';
 import { buildAsnHistoryBlock } from './asn-announcement-history.js';
 import { buildLatencyMatrix } from './latency-matrix.js';
 import { toBgpPrefix } from './bgp-prefix.js';
-import { parseIp, formatIp, cidrToRange } from './ip-math.js';
+import { parseIp, formatIp, blockContaining } from './ip-math.js';
 import { isIPv6 } from './valid-ip.js';
 import { normalizeLang } from './lang-param.js';
 import logger from './logger.js';
@@ -236,14 +236,19 @@ const buildTopology = (asn) => {
  * observation the links cannot substitute for.
  *
  * @param {string} ip    the address the dossier is about
- * @param {string|null} cidr  its registered block, as `network.cidr`
- * @returns {object|null} `{ cidr, entries: [{ role, ip }] }`, or null when the
- *   registry named no block for this family — no block is not a block of one.
+ * @param {string|null} cidr  its registered block, as `network.cidr` — a CIDR,
+ *   an `a - b` range, or a comma-separated list of CIDRs
+ * @returns {object|null} `{ cidr, entries: [{ role, ip }] }` with `cidr` the
+ *   part of the block text that holds this address, or null when the registry
+ *   named no block that contains it — no block is not a block of one.
  */
 const buildNeighbours = (ip, cidr) => {
     const parsed = parseIp(ip);
-    const range = cidrToRange(cidr);
-    if (!parsed || !range || range.family !== parsed.family) return null;
+    // The part of the registry's block text that holds this address — a
+    // range, a CIDR, or one entry of a list. A block that does not contain it
+    // is somebody else's, and its edges are not this address's neighbours.
+    const range = parsed ? blockContaining(ip, cidr) : null;
+    if (!range) return null;
 
     const { value } = parsed;
     const format = (v) => formatIp({ family: range.family, value: v });
@@ -267,8 +272,25 @@ const buildNeighbours = (ip, cidr) => {
         seen.add(addr);
         entries.push({ role, ip: addr });
     }
-    return { cidr, entries };
+    return { cidr: range.label, entries };
 };
+
+/**
+ * The neighbours slot for the block `buildNeighbours` found. The static entry in
+ * `SLOTS` describes the half-real section a block makes possible; with no block
+ * containing the address there is no real half, and claiming `partial` would
+ * tell the reader the registry named neighbours it never named.
+ *
+ * @param {object|null} neighbours  `buildNeighbours`' answer
+ * @returns {object}
+ */
+const neighboursSlot = (neighbours) => (neighbours
+    ? SLOTS.neighbours
+    : {
+        status: 'placeholder',
+        missing: [],
+        needs: 'a registered block that contains this address — the registry record named none, so there is no block to name neighbours from',
+    });
 
 // Every section the page lays out, with the state of its backing data.
 // `needs` names the specific thing that would turn the slot from a declared
@@ -408,6 +430,7 @@ export const buildDossier = async (ip, { lang = 'en' } = {}) => {
     const usablePrivacy = Boolean(evidence.privacy?.sources?.length);
     const technical = technicalSlot(evidence.scan);
 
+    const neighbours = buildNeighbours(ip, evidence.rir?.cidr || null);
     return {
         ip,
         version: isIPv6(ip) ? 6 : 4,
@@ -453,7 +476,7 @@ export const buildDossier = async (ip, { lang = 'en' } = {}) => {
         blocklists: evidence.blocklists || null,
         privacy: evidence.privacy || null,
         topology: buildTopology(resolvedAsn),
-        neighbours: buildNeighbours(ip, evidence.rir?.cidr || null),
+        neighbours,
         latency: buildLatencyMatrix(ip),
         asnHistory,
         slots: {
@@ -464,6 +487,7 @@ export const buildDossier = async (ip, { lang = 'en' } = {}) => {
                 ? { status: 'placeholder', needs: 'RIPEstat routing-history did not answer within our timeout for this prefix' }
                 : { status: 'ready' },
             blocklists: blocklistSlot(evidence),
+            neighbours: neighboursSlot(neighbours),
             // The two panels the optional keyed feed fills. Off, they stay the
             // declared gaps they have always been; on, they report what it said,
             // and the honeypot half — which needs traffic we cannot observe —
@@ -480,5 +504,5 @@ export const buildDossier = async (ip, { lang = 'en' } = {}) => {
 
 export {
     SLOTS, BLOCKLIST_GAP_REASONS, buildGeo, buildNeighbours, buildTopology,
-    haversineKm, geoFromEvidence, technicalSlot,
+    haversineKm, geoFromEvidence, technicalSlot, neighboursSlot,
 };
