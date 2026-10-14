@@ -23,6 +23,13 @@ import {
 } from '../frontend/utils/time-utils.js';
 import { LOCALE_CODES } from '../common/locale-registry.js';
 
+// `Intl.DurationFormat` is not in every runtime this suite runs on (Node 22
+// has no it, Node 24 does). Without it formatDuration takes its own stated
+// compact fallback — "1d 2h" for every locale — which is worth asserting, but
+// is not the localised-units behaviour these tests describe.
+const hasDurationFormat = typeof Intl.DurationFormat === 'function';
+const noDurationFormat = 'needs Intl.DurationFormat';
+
 /* ------------------------------------------------------------------ */
 /* UTC offsets & zone wall-clock time                                  */
 /* ------------------------------------------------------------------ */
@@ -232,7 +239,9 @@ describe('formatDuration', () => {
     });
 
     // Duration stays deliberately compact ("2d 3h"), so only the CJK rule applies.
-    it('spaces numerals against CJK units', () => {
+    it('spaces numerals against CJK units', {
+        skip: hasDurationFormat ? false : noDurationFormat,
+    }, () => {
         for (const locale of LOCALE_CODES) {
             assertCjkSpacing(formatDuration(26 * 60 * 60 * 1000, locale));
         }

@@ -83,6 +83,19 @@ same change, and behavior shifts update the affected specs. UI rendering, real
 network behavior and browser APIs are out of scope. **`pnpm check` must be green
 before handing off.**
 
+Two things that spec does cover, because they are easy to assume otherwise:
+
+- **The upstream sync's merge logic is tested.** `tests/upstream-sync-workflow.test.js`
+  extracts the `Merge upstream into dev, or file the conflicts` step's script out of
+  `.github/workflows/sync.yml` and runs it against throwaway git repos with a stubbed
+  `gh`. Rename or reformat that step and the extraction fails by name — the point is
+  that a silent no-op there would leave the schedule untested.
+- **A runtime missing an ICU surface skips, with the reason, and never passes.**
+  `Intl.Locale#getTimeZones` (region-info data) and `Intl.DurationFormat` are not in
+  every Node the suite runs on; the guarded specs report `skipped` rather than failing
+  or asserting against the fallback as if it were the real thing. So `pnpm check` on
+  such a runtime ends `0 fail, 4 skipped` — that is green, not a hole in the run.
+
 ## Security & Boundaries
 
 Access control and timeouts live in shared middleware, never in handlers (details
