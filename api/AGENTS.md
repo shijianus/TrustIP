@@ -167,11 +167,12 @@ loading (`isStillLoading`) answers `error`, leaving the others to answer.
 
 Handlers proxying the upstream project's private IPCheck.ing API
 (`ipcheck-ing`, `invisibility-test`, `update-user-achievement`, `get-user-info`,
-`dns-leak-test`, `persona`) forward the caller's headers
-(`headers: { ...req.headers }`) — the upstream needs caller context
-(Accept-Language, auth tokens). `persona` strips the framing headers first
-(`host` / `content-length` / …) because it re-serializes the body. Do **not**
-replicate this for third-party upstreams; those get only what's explicitly needed.
+`dns-leak-test`, `persona`, and `asn-profile`'s reputation section) forward the
+caller context the upstream needs (Accept-Language, auth tokens) through
+`upstreamHeaders(req)` (`common/upstream-headers.js`): an allow-list plus the
+client address as `common/client-ip.js` resolved it — never `{ ...req.headers }`,
+which would hand a third party this site's cookies and let a client choose the
+address the upstream sees. Third-party upstreams get only what's explicitly needed.
 
 ### Defensive method gates
 

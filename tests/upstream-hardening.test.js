@@ -10,6 +10,7 @@ import getUserInfoHandler from '../api/get-user-info.js';
 import updateAchievementHandler from '../api/update-user-achievement.js';
 import invisibilityHandler from '../api/invisibility-test.js';
 import cfRadarHandler from '../api/cf-radar.js';
+import asnProfileHandler from '../api/asn-profile.js';
 import logger from '../common/logger.js';
 
 const ENV = ['IPCHECKING_API_KEY', 'IPCHECKING_API_ENDPOINT'];
@@ -112,6 +113,20 @@ describe('IPCheck.ing proxy routes no longer forward visitor headers wholesale',
             assert.equal(sent.authorization, 'Bearer FIREBASE');
         });
     }
+
+    // asn-profile's reputation section calls the same private API, and its
+    // answer sits behind a 7-day public cache — no visitor's cookie belongs in it.
+    it('asn-profile: the reputation call sends only the allow-list and the resolved IP', async () => {
+        const calls = captureFetch(() => new Response('{"found":false}', { status: 200, headers: { 'content-type': 'application/json' } }));
+        await asnProfileHandler({
+            method: 'GET', headers: { ...hostileHeaders, 'cf-connecting-ip': '7.7.7.7' }, query: { asn: '13335' }, ip: '203.0.113.9',
+        }, res());
+        const rep = calls.find((c) => c.url.includes('/asnreputation'));
+        assert.ok(rep, 'the reputation source was not asked');
+        assert.deepEqual(Object.keys(rep.options.headers).sort(), ['accept-language', 'authorization', 'referer', 'user-agent', 'x-forwarded-for', 'x-real-ip']);
+        assert.equal(rep.options.headers['x-forwarded-for'], '203.0.113.9');
+        assert.equal(rep.options.headers.cookie, undefined);
+    });
 
     it('updateuserachievement: a pretty-printed JSON body no longer fails on a stale content-length', async () => {
         const calls = captureFetch();

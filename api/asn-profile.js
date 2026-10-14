@@ -19,6 +19,7 @@ import {
     SOURCE_TIMEOUTS, buildSectionLoaders, composeAsnProfile, allSourcesFailed,
 } from '../common/asn-profile.js';
 import { getAsnConnectivity } from './asn-connectivity.js';
+import { upstreamHeaders } from '../common/upstream-headers.js';
 
 // A section whose local data isn't there fails (status 'error'): left out
 // of the answer and keeping it out of the week-long cache, while every other
@@ -56,8 +57,10 @@ export default async (req, res) => {
         rdapAutnum: (n) => rdapAutnum(n, { timeoutMs: SOURCE_TIMEOUTS.autnum }),
         isAutnumMissing,
         queryAsRank: (n) => queryAsRank(n, { timeoutMs: SOURCE_TIMEOUTS.rank }),
-        // Private-API pass-through: the caller's headers go upstream.
-        requestReputation: (n) => requestAsnReputation(n, req.headers, { timeoutMs: SOURCE_TIMEOUTS.reputation }),
+        // Private-API call: only the allow-listed headers and the resolved
+        // client address go upstream (common/upstream-headers.js), never the
+        // visitor's cookies or a client-written X-Forwarded-For.
+        requestReputation: (n) => requestAsnReputation(n, upstreamHeaders(req), { timeoutMs: SOURCE_TIMEOUTS.reputation }),
         isPeeringdbLoaded: peeringdbReadiness(),
         lookupPeeringdb,
     });
