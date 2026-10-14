@@ -14,7 +14,7 @@ import { Resolver } from 'node:dns/promises';
 
 import { checkBlocklists, tallyOf, classifyError, isBlocklistedRange, readCode } from '../common/dnsbl.js';
 import { DNSBL_ZONES } from '../common/dnsbl-zones.js';
-import { reverseName } from '../common/ip-math.js';
+import { reverseName, reversedLabels } from '../common/ip-math.js';
 import dnsblHandler from '../api/dnsbl.js';
 
 const ZONE_NAMES = ['bl.spamcop.net', 'b.barracudacentral.org', 'bl.blocklist.de', 'psbl.surriel.com'];
@@ -73,20 +73,29 @@ describe('checkBlocklists', () => {
 
     it('names the zone that listed the address, with the code it answered', async () => {
         process.env.DNSBL_RESOLVERS = '10.53.0.2';
-        const target = reverseName('198.51.100.7');
+        // The exact name the zone publishes (RFC 5782 §2.1): reversed octets
+        // directly under the zone, never under in-addr.arpa.
         const seen = install((name) => {
             if (isCanary(name)) return [];
-            if (name.startsWith(target) && name.endsWith('bl.blocklist.de')) return ['127.0.0.2'];
-            if (name.startsWith(target)) throw dnsError('ENOTFOUND');
-            return [];
+            if (name === '7.100.51.198.bl.blocklist.de') return ['127.0.0.14'];
+            throw dnsError('ENOTFOUND');
         });
 
         const pass = await checkBlocklists('198.51.100.7');
         const hit = pass.results.find((r) => r.listed);
         assert.equal(hit.zone, 'bl.blocklist.de');
         assert.equal(hit.category, 'Botnet');
-        assert.equal(hit.codes[0].address, '127.0.0.2');
-        assert.equal(hit.codes[0].meaning, 'listed');
+        assert.equal(hit.codes[0].address, '127.0.0.14');
+        assert.equal(hit.codes[0].meaning, 'ssh');
+        assert.deepEqual(
+            seen.filter((q) => !isCanary(q.name)).map((q) => q.name).sort(),
+            [
+                '7.100.51.198.b.barracudacentral.org',
+                '7.100.51.198.bl.blocklist.de',
+                '7.100.51.198.bl.spamcop.net',
+                '7.100.51.198.psbl.surriel.com',
+            ],
+        );
         assert.equal(pass.tally.listed, 1);
         // The canary is asked because an accusation is about to be reported — and
         // only of the zone that made it. A zone that answered "clean" has already
@@ -149,10 +158,9 @@ describe('checkBlocklists', () => {
     // the listing would be exactly the false accusation the canary exists for.
     it('downgrades a listing whose canary timed out, without abandoning the resolver', async () => {
         process.env.DNSBL_RESOLVERS = '10.53.0.8';
-        const target = reverseName('198.51.100.12');
         install((name) => {
             if (isCanary(name)) throw dnsError('ETIMEOUT');
-            if (name.startsWith(target) && name.endsWith('bl.spamcop.net')) return ['127.0.0.2'];
+            if (name === '12.100.51.198.bl.spamcop.net') return ['127.0.0.2'];
             throw dnsError('ENOTFOUND');
         });
 
@@ -231,10 +239,9 @@ describe('a range-policy answer', () => {
         // A fresh address per pass: `checkBlocklists` caches by address, so an IP
         // another block has already asked about would answer from that cache.
         process.env.DNSBL_RESOLVERS = '10.53.0.40';
-        const target = reverseName('198.51.100.150');
         const seen = install((name) => {
             if (isCanary(name)) return [];
-            if (name.startsWith(target) && name.endsWith(POLICY_ZONE.zone)) return ['127.0.0.11'];
+            if (name === '150.100.51.198.policy.spec.test') return ['127.0.0.11'];
             throw dnsError('ENOTFOUND');
         });
 
@@ -258,10 +265,9 @@ describe('a range-policy answer', () => {
 
     it('lets a real listing stand when a policy code arrives beside it', async () => {
         process.env.DNSBL_RESOLVERS = '10.53.0.41';
-        const target = reverseName('198.51.100.151');
         install((name) => {
             if (isCanary(name)) return [];
-            if (name.startsWith(target) && name.endsWith(POLICY_ZONE.zone)) return ['127.0.0.2', '127.0.0.11'];
+            if (name === '151.100.51.198.policy.spec.test') return ['127.0.0.2', '127.0.0.11'];
             throw dnsError('ENOTFOUND');
         });
 
@@ -271,6 +277,25 @@ describe('a range-policy answer', () => {
         assert.equal(hit.listed, true);
         assert.equal(pass.tally.listed, 1);
         assert.equal(pass.tally.policy, 0, 'a mixed answer is an accusation, not a policy row');
+    });
+
+    // Two answers that are each "not about this address" cannot add up to one
+    // that is: a policy code beside a refusal code is a policy row, not a listing.
+    it('reads a policy code beside a diagnostic code as policy, never as a listing', async () => {
+        process.env.DNSBL_RESOLVERS = '10.53.0.47';
+        install((name) => {
+            if (isCanary(name)) return [];
+            if (name === '157.100.51.198.policy.spec.test') return ['127.0.0.11', '127.255.255.254'];
+            throw dnsError('ENOTFOUND');
+        });
+
+        const pass = await withPolicyZone(() => checkBlocklists('198.51.100.157'));
+        const hit = pass.results.find((r) => r.zone === POLICY_ZONE.zone);
+        assert.equal(hit.status, 'policy');
+        assert.equal(hit.listed, false);
+        assert.deepEqual(hit.codes.map((c) => c.kind), ['policy', 'diagnostic']);
+        assert.equal(pass.tally.listed, 0);
+        assert.equal(pass.tally.policy, 1);
     });
 
     it('classifies each code once, in the order the zone speaks about it', () => {
@@ -301,7 +326,9 @@ describe('a range-policy answer', () => {
         // and pinning the address into the matcher only invites reuse mistakes.
         const policyZoneAnswer = (name) => name.endsWith(POLICY_ZONE.zone) && !isCanary(name);
 
-        // Policy beside failures: still a pass that heard only about the block.
+        // Policy beside timeouts: the other zones said nothing at all, so this
+        // is not a pass that heard only about the block — calling it that would
+        // hide the failures behind the range's rules.
         process.env.DNSBL_RESOLVERS = '10.53.0.42';
         install((name) => {
             if (isCanary(name)) return [];
@@ -311,8 +338,21 @@ describe('a range-policy answer', () => {
         const mixed = await withPolicyZone(() => checkBlocklists('198.51.100.152'));
         assert.equal(mixed.tally.answered, 0);
         assert.equal(mixed.tally.policy, 1);
-        assert.equal(mixed.reason, 'policy-only');
-        assert.ok(mixed.results.some((r) => r.status === 'timeout'), 'the failures were hidden instead of counted');
+        assert.equal('reason' in mixed, false, 'timeouts were reported as policy-only');
+        assert.equal(mixed.results.filter((r) => r.status === 'timeout').length, ZONE_NAMES.length);
+
+        // Policy beside refusals only: every zone did reply, none about the
+        // address — that is the policy-only pass.
+        process.env.DNSBL_RESOLVERS = '10.53.0.46';
+        install((name) => {
+            if (isCanary(name)) return [];
+            if (policyZoneAnswer(name)) return ['127.0.0.11'];
+            return ['127.255.255.254'];
+        });
+        const refusedBeside = await withPolicyZone(() => checkBlocklists('198.51.100.156'));
+        assert.equal(refusedBeside.tally.answered, 0);
+        assert.equal(refusedBeside.tally.policy, 1);
+        assert.equal(refusedBeside.reason, 'policy-only');
 
         // Policy plus real answers: the zones spoke about the address, so the
         // reason belongs to nothing — the pass is scoreable.
@@ -351,6 +391,26 @@ describe('a range-policy answer', () => {
         assert.equal(silent.tally.answered, 0);
         assert.equal(silent.tally.policy, 0);
         assert.equal('reason' in silent, false, 'a silent pass claimed to have heard range policy');
+    });
+});
+
+describe('reversedLabels', () => {
+    it('reverses v4 octets with no suffix, the shape a blocklist zone publishes', () => {
+        assert.equal(reversedLabels('198.51.100.7'), '7.100.51.198');
+        assert.equal(reversedLabels('127.0.0.2'), '2.0.0.127');
+    });
+
+    it('reverses all 32 v6 nibbles with no suffix', () => {
+        assert.equal(
+            reversedLabels('2001:db8::1'),
+            '1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.b.d.0.1.0.0.2',
+        );
+    });
+
+    it('returns null for something that is not an address', () => {
+        for (const bad of ['', 'example.com', '01.2.3.4', '999.1.1.1', '1.2.3']) {
+            assert.equal(reversedLabels(bad), null, `${bad} must not produce a query name`);
+        }
     });
 });
 

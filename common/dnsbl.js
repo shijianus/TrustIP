@@ -30,7 +30,7 @@
 // an address we do not control.
 
 import { Resolver } from 'node:dns/promises';
-import { reverseName } from './ip-math.js';
+import { reversedLabels } from './ip-math.js';
 import { DNSBL_ZONES, DIAGNOSTICS } from './dnsbl-zones.js';
 import logger from './logger.js';
 
@@ -88,6 +88,11 @@ const remember = (key, ttlMs, value) => {
 const CANARY_LABEL = Array.from({ length: 32 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
 
 const isBlocklistedRange = (address) => address.startsWith('127.');
+
+// The statuses a diagnostic-only answer takes (`query-refused`, `rate-limited`…):
+// the zone replied, about our query rather than the address.
+const DIAGNOSTIC_STATUSES = new Set(Object.values(DIAGNOSTICS));
+const isDiagnosticStatus = (status) => DIAGNOSTIC_STATUSES.has(status);
 
 // What one in-range answer says, and about what.
 //
@@ -174,21 +179,25 @@ const queryZone = async (server, name, zone) => {
     // reply, not a verdict about the address.
     if (!inRange.length) return { ...base, status: 'bogus-answer', listed: false, codes: [] };
 
-    // A diagnostic code is the zone refusing our query, and says nothing about
-    // the address. Never let one read either way.
-    if (codes.every((c) => c.kind === 'diagnostic')) {
-        return { ...base, status: codes[0].meaning, listed: false, codes };
+    // Only an accusation accuses. A code the zone blames on this address —
+    // documented or not — makes the zone `listed`, whatever else it said beside
+    // it.
+    if (codes.some((c) => c.kind === 'accusation')) {
+        return { ...base, status: 'listed', listed: true, codes };
     }
 
-    // Every code is the zone's rule about the range this address sits in. That
-    // is a fact about the netblock, so it accuses neither the address nor its
-    // neighbours — and it does not clear it either, which is why the status is
-    // its own and `tallyOf` refuses to count it as an answer.
-    if (codes.every((c) => c.kind === 'policy')) {
+    // Otherwise, a code that is the zone's rule about the range this address
+    // sits in. That is a fact about the netblock, so it accuses neither the
+    // address nor its neighbours — and it does not clear it either, which is why
+    // the status is its own and `tallyOf` refuses to count it as an answer. A
+    // refusal code beside it changes nothing: neither one is about the address.
+    if (codes.some((c) => c.kind === 'policy')) {
         return { ...base, status: 'policy', listed: false, codes };
     }
 
-    return { ...base, status: 'listed', listed: true, codes };
+    // Every code is a diagnostic: the zone refusing our query, which says
+    // nothing about the address. Never let one read either way.
+    return { ...base, status: codes[0].meaning, listed: false, codes };
 };
 
 // How much of a pass is allowed to speak.
@@ -234,7 +243,10 @@ const queryAllZones = async (server, name, zones) => Promise.all(zones.map(async
  *   pass is — `policy-only` among them.
  */
 const runPass = async (ip) => {
-    const name = reverseName(ip);
+    // `7.100.51.198`, not `7.100.51.198.in-addr.arpa`: a zone publishes the
+    // reversed address directly under itself, and the PTR-tree name is an
+    // NXDOMAIN in every zone — which would read as "clean" for every address.
+    const name = reversedLabels(ip);
     if (!name) return { ip, supported: false, reason: 'unparseable', results: [], tally: tallyOf([]) };
 
     const v6 = ip.includes(':');
@@ -260,7 +272,13 @@ const runPass = async (ip) => {
         // address, versus everybody answered about its *range*. Calling the
         // second one "none of the zones replied" would be the module's own words
         // lying about its own reading, three layers downstream.
-        const reason = tally.answered === 0 && results.some((r) => r.status === 'policy')
+        // `policy-only` only when the policy answers are all there was to hear:
+        // a pass where another zone timed out or failed did not hear "only the
+        // range's rules", it heard nothing from that zone, and the generic
+        // no-answer gap is the true sentence for it.
+        const reason = tally.answered === 0
+            && results.some((r) => r.status === 'policy')
+            && results.every((r) => r.status === 'policy' || isDiagnosticStatus(r.status))
             ? 'policy-only'
             : undefined;
         return {
@@ -301,8 +319,13 @@ const runPass = async (ip) => {
  *   be scored; `resolver` names which recursor the answers came through, because
  *   a stored listing is only as good as the path that reported it.
  */
+// Versioned so a pass cached under an older reading of the zones — the PTR-tree
+// query name that made every address "clean", say — is never served by a build
+// that reads them differently. Bump it whenever the query or its reading changes.
+const PASS_CACHE_VERSION = 'bl:v2';
+
 export const checkBlocklists = async (ip) => {
-    const key = `bl:${ip}`;
+    const key = `${PASS_CACHE_VERSION}:${ip}`;
     const hit = cache.get(key);
     if (hit && hit.expires > Date.now()) return hit.value;
     return remember(key, ZONE_TTL_MS, await runPass(ip));

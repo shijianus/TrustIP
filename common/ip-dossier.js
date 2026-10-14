@@ -343,6 +343,32 @@ const BLOCKLIST_GAP_REASONS = {
 };
 
 /**
+ * The blocklist slot. Which recursor the accusations came through is part of
+ * their meaning, so it is reported; a pass with nothing to score — `answered: 0`,
+ * including one kept only for its range-policy rows — is a declared gap rather
+ * than a clean sheet, and the reason it had nothing to say is the pass's own
+ * words, not a guess made here.
+ *
+ * @param {object} evidence  `{ blocklists, blocklistsReason }` from gatherTrustEvidence
+ * @returns {object}
+ */
+export const blocklistSlot = (evidence) => (evidence?.blocklists?.answered
+    ? {
+        status: 'ready',
+        note: `${evidence.blocklists.answered} of ${evidence.blocklists.zones} zones answered through ${evidence.blocklists.resolver || 'an unattributed recursor'}`,
+    }
+    : {
+        // The reason travels as a machine key as well as a sentence. The page
+        // reads its own words out of the locale packs, and one of these gaps is
+        // misdescribed by the generic line: "nobody replied" is not what a pass
+        // that heard only range policy looks like, and the panel has to be able
+        // to tell without parsing English.
+        status: 'placeholder',
+        gapKey: evidence?.blocklistsReason,
+        needs: BLOCKLIST_GAP_REASONS[evidence?.blocklistsReason] || BLOCKLIST_GAP_REASONS['no-answer'],
+    });
+
+/**
  * Build the dossier for one address.
  *
  * @param {string} ip  validated, publicly routable
@@ -437,26 +463,7 @@ export const buildDossier = async (ip, { lang = 'en' } = {}) => {
             asnHistory: asnHistory.failed
                 ? { status: 'placeholder', needs: 'RIPEstat routing-history did not answer within our timeout for this prefix' }
                 : { status: 'ready' },
-            // Which recursor the accusations came through is part of their
-            // meaning, so it is reported; a pass with nothing to say is a
-            // declared gap rather than a clean sheet — and the reason it had
-            // nothing to say is the pass's own words, not a guess made here.
-            blocklists: evidence.blocklists
-                ? {
-                    status: 'ready',
-                    note: `${evidence.blocklists.answered} of ${evidence.blocklists.zones} zones answered through ${evidence.blocklists.resolver || 'an unattributed recursor'}`,
-                }
-                : {
-                    // The reason travels as a machine key as well as a sentence.
-                    // The page reads its own words out of the locale packs, and
-                    // one of these gaps is misdescribed by the generic line:
-                    // "nobody replied" is not what a pass that heard only range
-                    // policy looks like, and the panel has to be able to tell
-                    // without parsing English.
-                    status: 'placeholder',
-                    gapKey: evidence.blocklistsReason,
-                    needs: BLOCKLIST_GAP_REASONS[evidence.blocklistsReason] || BLOCKLIST_GAP_REASONS['no-answer'],
-                },
+            blocklists: blocklistSlot(evidence),
             // The two panels the optional keyed feed fills. Off, they stay the
             // declared gaps they have always been; on, they report what it said,
             // and the honeypot half — which needs traffic we cannot observe —

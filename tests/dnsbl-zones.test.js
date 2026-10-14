@@ -95,6 +95,22 @@ describe('DNSBL_ZONES data integrity', () => {
     });
 });
 
+// The service codes blocklist.de documents for bl.blocklist.de at
+// https://www.blocklist.de/en/rbldns.html. Pinned by value: an answer of
+// 127.0.0.9 is "mail", and a typo here would mislabel a live accusation.
+describe('bl.blocklist.de service codes', () => {
+    const zone = DNSBL_ZONES.find((z) => z.zone === 'bl.blocklist.de');
+
+    it('names the codes seen live and the documented edges of the table', () => {
+        assert.equal(zone.listings['127.0.0.2'], 'amavis');
+        assert.equal(zone.listings['127.0.0.9'], 'mail');
+        assert.equal(zone.listings['127.0.0.13'], 'sasl');
+        assert.equal(zone.listings['127.0.0.14'], 'ssh');
+        assert.equal(zone.listings['127.0.0.22'], 'mysql');
+        assert.equal(Object.keys(zone.listings).length, 21);
+    });
+});
+
 describe('DIAGNOSTICS', () => {
     it('covers the query-refusal family inside 127.255.255.0/24', () => {
         for (const code of Object.keys(DIAGNOSTICS)) {

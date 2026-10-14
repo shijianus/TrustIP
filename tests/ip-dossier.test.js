@@ -10,8 +10,9 @@ import fs from 'node:fs';
 
 import {
     buildGeo, buildNeighbours, haversineKm, geoFromEvidence, technicalSlot, SLOTS,
-    BLOCKLIST_GAP_REASONS,
+    BLOCKLIST_GAP_REASONS, blocklistSlot,
 } from '../common/ip-dossier.js';
+import { blocklistSummary } from '../common/trust-signals.js';
 
 const source = (id, over = {}) => ({
     id, label: id.toUpperCase(),
@@ -303,5 +304,48 @@ describe('BLOCKLIST_GAP_REASONS', () => {
         assert.doesNotMatch(text, /none of the zones replied/i, 'policy-only borrowed the silent pass\'s words');
         assert.match(text, /polic/, 'policy-only stopped naming what it did hear');
         assert.match(text, /address itself/i, 'policy-only stopped saying what is still missing');
+    });
+});
+
+// A pass that heard only range policy keeps its rows for the panel, but scores
+// as nothing answered: the slot is a gap named `policy-only`, and the summary the
+// scorer reads has `answered: 0`.
+describe('a policy-only blocklist pass in the dossier', () => {
+    const policyPass = {
+        ip: '198.51.100.9',
+        supported: true,
+        resolver: '8.8.8.8',
+        reason: 'policy-only',
+        results: [
+            { id: 'zen', label: 'ZEN', status: 'policy', listed: false, codes: [{ address: '127.0.0.10', kind: 'policy', meaning: 'pbl' }] },
+            { id: 'other', label: 'Other', status: 'query-refused', listed: false, codes: [] },
+        ],
+        tally: { zones: 2, answered: 0, listed: 0, botnet: 0, policy: 1 },
+    };
+
+    it('keeps the policy rows instead of dropping the pass', () => {
+        const summary = blocklistSummary(policyPass);
+        assert.equal(summary.answered, 0);
+        assert.equal(summary.policy, 1);
+        assert.equal(summary.resolver, '8.8.8.8');
+        assert.equal(summary.results[0].codes[0].address, '127.0.0.10');
+        assert.deepEqual(summary.labels, []);
+    });
+
+    it('still drops a pass that heard nothing at all', () => {
+        assert.equal(blocklistSummary({ ...policyPass, tally: { ...policyPass.tally, policy: 0 } }), null);
+        assert.equal(blocklistSummary(null), null);
+    });
+
+    it('declares the slot a gap with the policy-only key, not a ready section', () => {
+        const slot = blocklistSlot({ blocklists: blocklistSummary(policyPass), blocklistsReason: 'policy-only' });
+        assert.equal(slot.status, 'placeholder');
+        assert.equal(slot.gapKey, 'policy-only');
+        assert.equal(slot.needs, BLOCKLIST_GAP_REASONS['policy-only']);
+    });
+
+    it('reports a scoreable pass as ready with its count and recursor', () => {
+        const slot = blocklistSlot({ blocklists: { zones: 4, answered: 3, resolver: '1.1.1.1' } });
+        assert.deepEqual(slot, { status: 'ready', note: '3 of 4 zones answered through 1.1.1.1' });
     });
 });

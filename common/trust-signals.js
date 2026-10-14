@@ -260,9 +260,12 @@ const readGeoContext = async (ip) => {
 // The scorer reads three numbers out of a DNSBL pass — how many zones answered
 // truthfully, how many named this address, how many of those are botnet feeds —
 // so a pass with nothing to say becomes `null` rather than a zero, which the
-// ladder reads as "not measured" instead of "clean".
+// ladder reads as "not measured" instead of "clean". A pass that heard only
+// range policy is kept, `answered: 0` and all: the scorer still reads it as
+// unmeasured, and the page still gets the policy rows it was built to show.
 const blocklistSummary = (pass) => {
-    if (!pass?.tally || pass.tally.answered < 1) return null;
+    if (!pass?.tally) return null;
+    if (pass.tally.answered < 1 && !(pass.tally.policy > 0)) return null;
     const listed = pass.results.filter((r) => r.listed).map((r) => r.label);
     return {
         ...pass.tally,
@@ -442,7 +445,7 @@ export const gatherTrustEvidence = async (ip, { geo = null } = {}) => {
     if (allocated?.failed) failed.push('rdap-asn');
 
     evidence.blocklists = blocklistSummary(blocklists);
-    if (!evidence.blocklists) {
+    if (!evidence.blocklists?.answered) {
         failed.push('dnsbl');
         // A pass that had nothing to say names why: no zone in the list answers
         // questions about this address family, every configured recursor
@@ -520,4 +523,4 @@ export const gatherTrustEvidence = async (ip, { geo = null } = {}) => {
     return evidence;
 };
 
-export { RIPESTAT_APP };
+export { RIPESTAT_APP, blocklistSummary };

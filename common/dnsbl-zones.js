@@ -37,8 +37,10 @@
 //     it is to query authoritative Spamhaus mirrors from an entitled address,
 //     which is a deployment decision, not a code change. Its diagnostic codes
 //     are still understood (see `DIAGNOSTICS`), because an operator who adds the
-//     zone by configuration must not have those answers read as verdicts; the
-//     same holds for the codes its policy list returns for a whole range.
+//     zone by configuration must not have those answers read as verdicts. Its
+//     policy list's range codes (PBL, 127.0.0.10 and 127.0.0.11) are *not*
+//     known here: an operator who adds the zone must declare them in its
+//     `policy` map, or they read as undocumented listings.
 //   * UCEPROTECT — it lists address ranges on the strength of one member's
 //     behaviour, which condemns every clean address in the block. A signal that
 //     cannot distinguish the abuser from its neighbours is not evidence.
@@ -75,7 +77,34 @@ export const DNSBL_ZONES = [
         // Brute-force and botnet C2 hosts observed by abuse.ch: a hit here
         // accuses the address of a specific attack, not of a reputation.
         category: 'Botnet',
-        listings: { '127.0.0.2': 'listed' },
+        // bl.blocklist.de answers one code per attacked service, as documented
+        // at https://www.blocklist.de/en/rbldns.html ("If you use
+        // all.bl.blocklist.de or bl.blocklist.de and the Return-IP was
+        // different"). Every one is an attack this address ran in the last 48
+        // hours, so all are listings; the name only says which service.
+        listings: {
+            '127.0.0.2': 'amavis',
+            '127.0.0.3': 'apacheddos',
+            '127.0.0.4': 'asterisk',
+            '127.0.0.5': 'badbot',
+            '127.0.0.6': 'ftp',
+            '127.0.0.7': 'imap',
+            '127.0.0.8': 'ircbot',
+            '127.0.0.9': 'mail',
+            '127.0.0.10': 'pop3',
+            '127.0.0.11': 'regbot',
+            '127.0.0.12': 'rfi-attack',
+            '127.0.0.13': 'sasl',
+            '127.0.0.14': 'ssh',
+            '127.0.0.15': 'w00tw00t',
+            '127.0.0.16': 'portflood',
+            '127.0.0.17': 'sql-injection',
+            '127.0.0.18': 'webmin',
+            '127.0.0.19': 'trigger-spam',
+            '127.0.0.20': 'manual',
+            '127.0.0.21': 'bruteforcelogin',
+            '127.0.0.22': 'mysql',
+        },
     },
     {
         id: 'surriel',
