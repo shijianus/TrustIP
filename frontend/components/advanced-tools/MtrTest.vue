@@ -190,6 +190,8 @@
                 </div>
             </CardContent>
         </Card>
+
+        <TestRunLog :log="testLog" />
     </div>
 </template>
 
@@ -199,7 +201,9 @@ import { useMainStore } from '@/store';
 import { useI18n } from 'vue-i18n';
 import { trackEvent } from '@/utils/analytics';
 import { emitAppEvent } from '@/utils/app-events';
-import { useGlobalpingMeasurement, GLOBALPING_SUGGESTED_COUNTRIES, GLOBALPING_MAX_COUNTRIES, selectableIPs, classifyTarget } from '@/composables/use-globalping-measurement';
+import { useGlobalpingMeasurement, probeStepsOf, GLOBALPING_SUGGESTED_COUNTRIES, GLOBALPING_MAX_COUNTRIES, selectableIPs, classifyTarget } from '@/composables/use-globalping-measurement';
+import { useTestLog, summarizeSteps } from '@/composables/use-test-log.js';
+import TestRunLog from '@/components/widgets/TestRunLog.vue';
 import GlobalpingCountryPicker from './GlobalpingCountryPicker.vue';
 import { parseMtrOutput } from '@/utils/mtr-parse.js';
 import getCountryName from '@/data/country-name.js';
@@ -249,6 +253,17 @@ const targetIP = computed(() =>
     manualMode.value ? (isValidManualIP.value ? manualIP.value.trim() : '') : selectedIP.value,
 );
 // status: 'idle' | 'running' | 'finished' | 'error' — driven by the composable
+// Test-process log: the Globalping create request, every poll, and one step per
+// probe with its raw output (probeStepsOf). Begun by the run, finished by the
+// composable's onFinish / onError.
+const testLog = useTestLog('mtrtest');
+let lastData = null;
+const finishTestLog = (errorStage) => {
+    probeStepsOf(lastData, 'mtr').forEach((step) => testLog.add(step));
+    testLog.finish(errorStage && !lastData?.results?.length
+        ? { verdict: 'fail', reason: 'gpError', params: { stage: errorStage } }
+        : summarizeSteps(testLog.record.value?.steps || [], { kinds: ['probe'] }));
+};
 const { status: mtrCheckStatus, start: runMeasurement } = useGlobalpingMeasurement({
     pollInterval: 1000,
     maxRetries: 4,
@@ -267,6 +282,8 @@ const startmtrCheck = () => {
     if (!canRun.value) return;
     trackEvent('Section', 'StartClick', 'MTRTest');
     mtrResults.value = [];
+    lastData = null;
+    testLog.begin({ target: targetIP.value, type: 'mtr', protocol: 'ICMP', countries: selectedCountries.value.join(', ') });
 
     runMeasurement({
         limit: selectedCountries.value.length,
@@ -275,11 +292,15 @@ const startmtrCheck = () => {
         type: 'mtr',
         measurementOptions: { port: 80, protocol: 'ICMP' },
     }, {
+        log: testLog,
         onResults: (data) => {
+            lastData = data;
             processmtrResults(data);
             return mtrResults.value.length > 0;
         },
+        onError: (stage) => finishTestLog(stage),
         onFinish: () => {
+            finishTestLog(null);
             // Domain event: final probes with parsed hops for the report
             // collector (rawOutput stays local — only the structured hops
             // belong in a shareable report).
