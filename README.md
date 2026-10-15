@@ -166,6 +166,18 @@ named in [.env.example](.env.example):
 | Curl API card | `VITE_CURL_IPV4_DOMAIN` / `IPV6` / `IPV64` — hostnames you serve yourself |
 | Google Analytics, Sentry error monitoring | opt-in by design; unset means the SDK is not even in the bundle |
 
+### Content-Security-Policy
+
+`pnpm start` (frontend-server.js) sends a CSP built from what the app really loads
+(`common/csp.js`): its own origin, hashes of the inline scripts in the built
+`index.html`, Google Analytics, Firebase sign-in, the proxy-detection script, and
+your `VITE_DOCS_URL` / `VITE_FIREBASE_AUTH_DOMAIN` when set. `connect-src` and
+`img-src` allow any `https:` host, because the connectivity, split-routing,
+DNS-leak and speed tests probe hosts that are data, not code. It ships as
+**Report-Only** — check the browser console (or `CSP_REPORT_URI`) for violations,
+then set `CSP_ENFORCE=1` to enforce it. Restart the server after a rebuild so the
+inline-script hashes match.
+
 ## 📖 Documentation
 
 This fork keeps no documentation site. What is authoritative, in this repository:

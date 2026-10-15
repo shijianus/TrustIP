@@ -1,6 +1,7 @@
 // The Express app frontend-server.js serves (`pnpm start`, pm2, Docker): the /api
 // proxy to the backend, dist/ with per-asset-class caching, the SPA history
-// fallback, and uncacheable answers for everything that fails. Built by a factory
+// fallback, a Content-Security-Policy (common/csp.js), and uncacheable answers
+// for everything that fails. Built by a factory
 // so specs can mount it on an ephemeral port against a throwaway dist/.
 
 import express from 'express';
@@ -9,6 +10,7 @@ import { createProxyMiddleware } from 'http-proxy-middleware';
 import { securityHeaders } from './security-headers.js';
 import { apiProxyOptions } from './frontend-proxy.js';
 import { noStore } from './cache-control.js';
+import { cspMiddleware } from './csp.js';
 
 // Root-level SEO / AI-engine surfaces
 const SEO_SURFACES = new Set(['llms.txt', 'llms-full.txt', 'sitemap.xml', 'robots.txt']);
@@ -17,12 +19,18 @@ const SEO_SURFACES = new Set(['llms.txt', 'llms-full.txt', 'sitemap.xml', 'robot
  * @param {object} options
  * @param {string} options.distDir      the built front-end
  * @param {number} options.backEndPort  where the /api proxy points
+ * @param {object} [options.env]        process.env or a stand-in (CSP_ENFORCE,
+ *                                      CSP_REPORT_URI, VITE_DOCS_URL,
+ *                                      VITE_FIREBASE_AUTH_DOMAIN; common/csp.js)
  * @returns {import('express').Express}
  */
-export const createFrontendApp = ({ distDir, backEndPort }) => {
+export const createFrontendApp = ({ distDir, backEndPort, env = {} }) => {
     const frontendApp = express();
     frontendApp.disable('x-powered-by');
     frontendApp.use(securityHeaders);
+    // Report-Only unless CSP_ENFORCE=1; inline scripts are allowed by the hashes
+    // of the dist/index.html this process starts with.
+    frontendApp.use(cspMiddleware({ indexPath: path.join(distDir, 'index.html'), env }));
 
     // API Proxy to backend server; X-Forwarded-For is overwritten with the socket
     // peer (common/frontend-proxy.js). no-store first: the backend's own
