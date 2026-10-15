@@ -11,10 +11,27 @@ function isValidRequest(req) {
 
     if (!isLatitudeValid || !isLongitudeValid || !isLanguageValid) {
         return false;
-    } else {
-        return true;
     }
+    // Coordinates Google would only answer with an error image are not worth a
+    // billed request.
+    return Math.abs(Number(req.query.latitude)) <= 90 && Math.abs(Number(req.query.longitude)) <= 180;
 }
+
+// Every image is a billed Static Maps request, and the edge caches by URL — so
+// one place must have one URL. The SPA already asks with one decimal
+// (frontend/utils/transform-ip-data.js: sub-pixel at zoom 3) and nothing else;
+// any other spelling (more digits, trailing zeros, an unknown CanvasMode, an
+// extra parameter) is answered with a cacheable redirect to that URL instead of
+// a new call to Google.
+export const canonicalMapQuery = (query) => {
+    const params = new URLSearchParams({
+        latitude: Number(query.latitude).toFixed(1),
+        longitude: Number(query.longitude).toFixed(1),
+        language: query.language,
+    });
+    if (query.CanvasMode === 'Dark') params.set('CanvasMode', 'Dark');
+    return params.toString();
+};
 
 // Define day and night mode style strings
 const styles = {
@@ -51,6 +68,15 @@ export default async (req, res) => {
 
     if (!latitude || !longitude || !language) {
         return res.status(400).json({ error: 'Missing latitude, longitude, or language' });
+    }
+
+    const canonical = canonicalMapQuery(req.query);
+    const wanted = Object.fromEntries(new URLSearchParams(canonical));
+    const isCanonical = Object.keys(req.query).length === Object.keys(wanted).length
+        && Object.entries(wanted).every(([key, value]) => req.query[key] === value);
+    if (!isCanonical) {
+        if (res.locals.cacheControl) res.setHeader('Cache-Control', res.locals.cacheControl);
+        return res.redirect(301, `/api/map?${canonical}`);
     }
 
     // Size targets the Dialog-based map viewer: aspect-2/1 at up to ~768px wide.

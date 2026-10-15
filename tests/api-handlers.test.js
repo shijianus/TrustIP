@@ -171,7 +171,7 @@ describe('google-map handler', () => {
         { headers: { 'content-type': 'image/jpeg' } },
     );
 
-    const mapQuery = { query: { latitude: '1', longitude: '2', language: 'en' } };
+    const mapQuery = { query: { latitude: '1.0', longitude: '2.0', language: 'en' } };
 
     // The upstream-path cases below need a key; the shared afterEach restores it.
     beforeEach(() => { process.env.GOOGLE_MAP_API_KEY = 'test-map-key'; });
@@ -194,6 +194,42 @@ describe('google-map handler', () => {
         }), res);
         assert.equal(res.statusCode, 400);
         assert.deepEqual(res.body, { error: 'Invalid request' });
+    });
+
+    it('rejects coordinates outside the globe without calling the external API', async () => {
+        let fetched = false;
+        globalThis.fetch = async () => { fetched = true; return new Response(''); };
+        for (const query of [
+            { latitude: '999', longitude: '0.0', language: 'en' },
+            { latitude: '0.0', longitude: '-5000', language: 'en' },
+        ]) {
+            const res = createResponse();
+            await googleMapHandler(createRequest({ query }), res);
+            assert.equal(res.statusCode, 400);
+        }
+        assert.equal(fetched, false);
+    });
+
+    it('redirects any other spelling of a place to its one-decimal URL instead of calling Google', async () => {
+        let fetched = false;
+        globalThis.fetch = async () => { fetched = true; return new Response(''); };
+        const cases = [
+            [{ latitude: '35.689487', longitude: '139.691711', language: 'en' }, 'latitude=35.7&longitude=139.7&language=en'],
+            [{ latitude: '35.70000', longitude: '139.7', language: 'en' }, 'latitude=35.7&longitude=139.7&language=en'],
+            [{ latitude: '35.7', longitude: '139.7', language: 'en', CanvasMode: 'x1' }, 'latitude=35.7&longitude=139.7&language=en'],
+            [{ latitude: '35.7', longitude: '139.7', language: 'en', cb: '1' }, 'latitude=35.7&longitude=139.7&language=en'],
+            [{ latitude: '35.71', longitude: '139.7', language: 'en', CanvasMode: 'Dark' }, 'latitude=35.7&longitude=139.7&language=en&CanvasMode=Dark'],
+        ];
+        for (const [query, target] of cases) {
+            const res = createResponse();
+            res.locals = { cacheControl: 'public, max-age=31536000' };
+            res.redirect = (code, url) => { res.statusCode = code; res.location = url; return res; };
+            await googleMapHandler(createRequest({ query }), res);
+            assert.equal(res.statusCode, 301, JSON.stringify(query));
+            assert.equal(res.location, `/api/map?${target}`);
+            assert.equal(res.headers['Cache-Control'], 'public, max-age=31536000');
+        }
+        assert.equal(fetched, false);
     });
 
     it('streams the upstream image through to completion', async () => {
