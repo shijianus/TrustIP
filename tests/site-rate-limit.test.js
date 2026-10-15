@@ -13,7 +13,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
-    clientIpOf, createRateLimiter, rateLimitConfig, RATE_LIMIT_DEFAULTS, UNKNOWN_CLIENT,
+    clientIpOf, clientKeyOf, createRateLimiter, rateLimitConfig, RATE_LIMIT_DEFAULTS, UNKNOWN_CLIENT,
 } from '../functions/shared/rate-limit.js';
 
 // `clientIpOf` only ever calls `.get()`, which is what a real Headers gives it.
@@ -40,6 +40,31 @@ describe('rate-limit.js clientIpOf', () => {
     it('names the shared unknown bucket when the platform header is missing or blank', () => {
         assert.equal(clientIpOf(headersOf({})), UNKNOWN_CLIENT);
         assert.equal(clientIpOf(headersOf({ 'cf-connecting-ip': '   ' })), UNKNOWN_CLIENT);
+    });
+
+    it('keys an IPv6 client on its /56, like the Express limiters', () => {
+        const key = clientKeyOf('2001:db8:b:1::1');
+        assert.equal(key, '2001:db8:b:0::/56');
+        // Any address in the same /64 or another /64 of the same /56 is the same client.
+        for (const ip of ['2001:db8:b:1::ffff', '2001:0db8:000b:0001:dead:beef:0:1', '2001:db8:b:ff::1', '2001:DB8:B:2::']) {
+            assert.equal(clientKeyOf(ip), key, ip);
+        }
+        // The next /56 is someone else.
+        assert.equal(clientKeyOf('2001:db8:b:100::1'), '2001:db8:b:100::/56');
+        assert.equal(clientIpOf(headersOf({ 'cf-connecting-ip': ' 2001:db8:b:7::9 ' })), key);
+    });
+
+    it('keeps IPv4 as written and unwraps an IPv4-mapped IPv6', () => {
+        assert.equal(clientKeyOf('203.0.113.7'), '203.0.113.7');
+        assert.equal(clientKeyOf('::ffff:203.0.113.7'), '203.0.113.7');
+    });
+
+    it('rotating addresses inside one /64 does not reset the budget', () => {
+        const limiter = createRateLimiter({ limit: 5, windowMs: 60_000, now: () => 1_000 });
+        const verdicts = Array.from({ length: 8 }, (_, i) => limiter.check(clientIpOf(headersOf({
+            'cf-connecting-ip': `2001:db8:b:1::${(i + 1).toString(16)}`,
+        }))).allowed);
+        assert.deepEqual(verdicts, [true, true, true, true, true, false, false, false]);
     });
 });
 

@@ -26,11 +26,38 @@
 // `unknown` bucket: on this platform its absence means something other than a
 // normal visitor reached the function, and failing open would turn "strip the
 // header" into "no limit at all".
+//
+// An IPv6 client is one /56, the same unit express-rate-limit's ipKeyGenerator
+// gives the Express app (common/route-limiter.js): one subscriber is delegated a
+// /64 at the very least and usually a /56 or /48, and picks any address inside
+// it per connection, so a per-address key would be a fresh bucket per request.
+import { expandIPv6 } from './bgp-prefix.js';
+
 export const UNKNOWN_CLIENT = 'unknown';
+
+const MAPPED_V4 = /^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/i;
+
+/**
+ * The bucket key for one client address: IPv4 as written, IPv6 as its /56
+ * (`2001:db8:a:100::/56`), an IPv4-mapped IPv6 as the IPv4 it carries.
+ *
+ * @param {string} ip
+ * @returns {string}
+ */
+export const clientKeyOf = (ip) => {
+    const text = String(ip ?? '').trim();
+    if (!text.includes(':')) return text;
+    const mapped = MAPPED_V4.exec(text);
+    if (mapped) return mapped[1];
+    const hextets = expandIPv6(text.replace(/%.*$/, ''));
+    if (!hextets) return text.toLowerCase();
+    const [a, b, c, d] = hextets.map((h) => parseInt(h, 16));
+    return `${a.toString(16)}:${b.toString(16)}:${c.toString(16)}:${(d & 0xff00).toString(16)}::/56`;
+};
 
 export const clientIpOf = (headers) => {
     const direct = String(headers.get('cf-connecting-ip') ?? '').trim();
-    return direct || UNKNOWN_CLIENT;
+    return direct ? clientKeyOf(direct) : UNKNOWN_CLIENT;
 };
 
 /**
