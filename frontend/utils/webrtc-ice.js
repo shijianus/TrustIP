@@ -35,6 +35,36 @@ export const STUN_SERVERS = [
     { id: 'cloudflare', url: 'stun.cloudflare.com' },
 ];
 
+// The probe matrix the `/webrtc` test-process log runs: the four servers above plus
+// one more operator, so the per-server table compares five independent answers.
+// Kept apart from STUN_SERVERS on purpose — the cards and the homepage's quiet pass
+// keep their exact list, and only the visitor-readable log asks one more.
+export const STUN_PROBE_SERVERS = [
+    ...STUN_SERVERS,
+    { id: 'nextcloud', url: 'stun.nextcloud.com:443' },
+];
+
+// `host:port` (or `[v6]:port`) entries, comma-separated. Anything else is dropped —
+// a malformed entry must never reach `new RTCPeerConnection`, which throws on it.
+const STUN_ENTRY_RE = /^(?:[a-z0-9.-]+|\[[0-9a-f:.]+\]):\d{1,5}$/i;
+export const parseExtraStun = (value) => String(value || '')
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter((entry) => STUN_ENTRY_RE.test(entry))
+    .map((url, i) => ({ id: `test-${i + 1}`, url, testOnly: true }));
+
+// Test-only: `VITE_TEST_EXTRA_STUN` (build time, empty by default) APPENDS servers to
+// the probe matrix — never replaces one — so a local deployment can prove the log
+// against a STUN server it runs itself (a headless browser in a sandbox with no
+// outbound UDP otherwise only ever records "no reflexive candidate"). It is a build
+// flag rather than a query parameter because a link must not be able to point a
+// visitor's browser at a STUN server of the link author's choosing. Documented in
+// .env.example; rows it adds are marked `testOnly` in the log.
+export const probeServers = (extra = import.meta.env?.VITE_TEST_EXTRA_STUN) => [
+    ...STUN_PROBE_SERVERS,
+    ...parseExtraStun(extra),
+];
+
 // Regex extracting the IP portion out of an ICE candidate line
 // (full SDP grammar not needed — just IPv4 / IPv6 with common forms).
 const CANDIDATE_IP_RE = /([0-9a-f]{1,4}(:[0-9a-f]{1,4}){7}|[0-9a-f]{0,4}(:[0-9a-f]{1,4}){0,6}::[0-9a-f]{0,4}|::[0-9a-f]{1,4}(:[0-9a-f]{1,4}){0,6}|[0-9]{1,3}(\.[0-9]{1,3}){3})/i;
@@ -75,6 +105,11 @@ const isConstructionBlocked = (error) => error?.name === 'NotAllowedError'
  */
 export const gatherAllCandidates = (url, { timeoutMs = 6000, signal } = {}) => new Promise((resolve) => {
     const candidates = [];
+    // ICE's own error reports (unreachable server, DNS failure), kept beside the
+    // candidates so a pass that produced nothing can still say what went wrong.
+    const errors = [];
+    const started = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    const elapsed = () => Math.round((typeof performance !== 'undefined' ? performance.now() : Date.now()) - started);
     let pc = null;
     let timer = null;
     let settled = false;
@@ -88,7 +123,7 @@ export const gatherAllCandidates = (url, { timeoutMs = 6000, signal } = {}) => n
             pc = null;
         }
         if (signal) signal.removeEventListener('abort', onAbort);
-        resolve(result);
+        resolve({ ...result, errors, elapsedMs: elapsed() });
     };
     const onAbort = () => settle({ ok: false, reason: 'aborted', candidates });
 
@@ -110,6 +145,15 @@ export const gatherAllCandidates = (url, { timeoutMs = 6000, signal } = {}) => n
         pc.onicegatheringstatechange = () => {
             if (pc?.iceGatheringState === 'complete') settle({ ok: true, candidates });
         };
+        pc.onicecandidateerror = (event) => {
+            errors.push({
+                at: elapsed(),
+                code: event.errorCode || null,
+                text: event.errorText || null,
+                url: event.url || null,
+                address: event.address || null,
+            });
+        };
         pc.onicecandidate = (event) => {
             if (!event.candidate) { settle({ ok: true, candidates }); return; }
             const line = String(event.candidate.candidate || '');
@@ -129,6 +173,7 @@ export const gatherAllCandidates = (url, { timeoutMs = 6000, signal } = {}) => n
                 port: fields[5] || null,
                 related: fields[9] || null,
                 raw: line,
+                at: elapsed(),
             });
         };
 
