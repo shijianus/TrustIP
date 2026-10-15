@@ -37,12 +37,26 @@ const isNoRecord = (error) => error instanceof RdapNotFound
 // ["Malformed request.", …]}}` is a 200 to every layer above it. A reply that
 // names no registration (no status, no name server, no registry field) and opens
 // with one of these lines is a miss or a refusal, never data to show or cache.
-const NO_MATCH_LINE = /^(?:no match\b|no matching record|not found\b|no entries found|no data found|no object found|object does not exist|the queried object does not exist|domain not found|no such domain|nothing found|status:\s*(?:free|available)\b|error:101\b|.*\breturned 0 objects)/i;
+const NO_MATCH_LINE = /^(?:no match\b|no matching record|not found\b|no found\b|no entries found|no data found|no object found|object does not exist|the queried object does not exist|the requested domain was not found\b|domain not found|no such domain|nothing found|status:\s*(?:free|available)\b|error:101\b|\S+ is free$|.*\breturned 0 objects)/i;
 const REGISTRY_ERROR_LINE = /^(?:malformed (?:request|query)|invalid (?:request|query|domain name|input)|wrong query|error\b|(?:query )?rate limit|quota exceeded|too many (?:requests|queries|connections)|(?:your )?connection limit exceeded|access denied|requests? limit|limit exceeded|service unavailable|temporarily unavailable)/i;
 // Field names that only a real registration carries — IP (RIR) and domain
 // (registry / registrar) alike; anything else whoiser parses out of a refusal
 // is boilerplate (`>>> Last update of WHOIS database`, notices, terms).
 const RECORD_FIELD = /domain|registr|creat|expir|updated date|netrange|inet6?num|cidr|^range$|^route|netname|^asn$|organi[sz]ation|orgname|nic-hdl/i;
+
+// DENIC, .it and EURid answer a free name with a parsed record of its own —
+// `Domain: x.de` / `Status: free` — which whoiser turns into a `Domain Name` and
+// a `Domain Status` of ['free'] / ['AVAILABLE']. A status list that only says the
+// name is available, with no name server, registrar or date beside it, is a miss.
+const AVAILABLE_STATUS = /^(?:free|available|not registered|no object found)$/i;
+const REGISTRATION_ONLY_FIELD = /name ?server|registrar|creat|expir|updated|changed/i;
+const statusSaysUnregistered = (entry) => {
+    const statuses = entry['Domain Status'];
+    if (!Array.isArray(statuses) || statuses.length === 0) return false;
+    if (!statuses.every((status) => AVAILABLE_STATUS.test(String(status).trim()))) return false;
+    return !Object.entries(entry).some(([key, value]) => REGISTRATION_ONLY_FIELD.test(key)
+        && (Array.isArray(value) ? value.length > 0 : typeof value === 'string' && value.trim() !== ''));
+};
 
 const namesARegistration = (entry) => Object.entries(entry).some(([key, value]) => {
     if (key === 'text' || key === '__raw' || key.startsWith('>>>')) return false;
@@ -61,7 +75,9 @@ const hasRaw = (v) => v && typeof v === 'object' && typeof v.__raw === 'string' 
 export const registryReplyFault = (result) => {
     if (!result || typeof result !== 'object') return null;
     const entry = hasRaw(result) ? result : Object.values(result).find(hasRaw);
-    if (!entry || namesARegistration(entry)) return null;
+    if (!entry) return null;
+    if (statusSaysUnregistered(entry)) return 'no-match';
+    if (namesARegistration(entry)) return null;
     const lines = entry.__raw.split('\n')
         .map((line) => line.trim().replace(/^[%#]+\s*/, ''))
         .filter((line) => line && !line.startsWith('>>>'))

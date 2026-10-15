@@ -493,6 +493,22 @@ describe('get-whois registry replies', () => {
         // Text this does not recognise keeps today's behaviour.
         assert.equal(registryReplyFault({ s: { 'Domain Status': [], 'Name Server': [], __raw: 'Some registry banner\n' } }), null);
         assert.equal(registryReplyFault(null), null);
+    });
+
+    it('reads the free-name replies of DENIC, SIDN, .it, EURid, KISA and TWNIC as misses', () => {
+        // Shapes as whoiser parsed them from the live registries (audit 6).
+        const free = {
+            de: { 'whois.denic.de': { 'Domain Status': ['free'], 'Name Server': [], 'Domain Name': 'zz-free.de', text: [], __raw: 'Domain: zz-free.de\nStatus: free\n' } },
+            nl: { 'whois.domain-registry.nl': { 'Domain Status': [], 'Name Server': [], text: [], __raw: 'zz-free.nl is free\n' } },
+            it: { 'whois.nic.it': { 'Domain Status': ['AVAILABLE'], 'Name Server': [], 'Domain Name': 'zz-free.it', text: [], __raw: 'Domain:             zz-free.it\nStatus:             AVAILABLE\n' } },
+            eu: { 'whois.eu': { 'Domain Status': ['AVAILABLE'], 'Name Server': [], 'Domain Name': 'zz-free.eu', Script: 'LATIN', text: [], __raw: '% The WHOIS service offered by EURid\n%\nDomain: zz-free.eu\nScript: LATIN\nStatus: AVAILABLE\n' } },
+            kr: { 'whois.kr': { 'Domain Status': [], 'Name Server': [], query: 'zz-free.kr', text: [], __raw: 'query : zz-free.kr\n\n\n# KOREAN(UTF8)\n\n상기 도메인이름은 등록되어 있지 않습니다.\n상기 도메인이름의 사용을 원하실 경우 도메인이름 등록대행자를 통해 \n등록 신청하시기 바랍니다.\n\n\n\n# ENGLISH\n\nThe requested domain was not found in the Registry or Registrar’s WHOIS Server.\n' } },
+            tw: { 'whois.twnic.net.tw': { 'Domain Status': [], 'Name Server': [], text: [], __raw: 'No Found\n' } },
+        };
+        for (const [tld, reply] of Object.entries(free)) assert.equal(registryReplyFault(reply), 'no-match', tld);
+        // A registered .de / .eu keeps its record: a live status, or a name server beside it.
+        assert.equal(registryReplyFault({ s: { 'Domain Status': ['connect'], 'Name Server': ['ns1.example.de'], 'Domain Name': 'example.de', __raw: 'Domain: example.de\nNserver: ns1.example.de\nStatus: connect\n' } }), null);
+        assert.equal(registryReplyFault({ s: { 'Domain Status': ['AVAILABLE'], 'Name Server': ['ns1.example.eu'], 'Domain Name': 'example.eu', __raw: 'Domain: example.eu\n' } }), null);
         assert.equal(registryReplyFault({ 'whois.nic.io': { error: 'Timeout' } }), null);
     });
 
