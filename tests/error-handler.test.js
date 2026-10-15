@@ -10,6 +10,8 @@ function makeRes({ headersSent = false } = {}) {
         body: null,
         ended: false,
         headersSent,
+        headers: {},
+        setHeader(name, value) { this.headers[name.toLowerCase()] = value; },
         status(code) { this.statusCode = code; return this; },
         json(payload) { this.body = payload; return this; },
         end() { this.ended = true; return this; },
@@ -28,6 +30,7 @@ describe('apiNotFound', () => {
         apiNotFound({ path: '/nope' }, res);
         assert.equal(res.statusCode, 404);
         assert.deepEqual(res.body, { error: 'Not found' });
+        assert.equal(res.headers['cache-control'], 'no-store');
     });
 });
 
@@ -47,6 +50,7 @@ describe('jsonErrorHandler', () => {
         jsonErrorHandler(err, { path: '/api/split' }, res, () => {});
         assert.equal(res.statusCode, 400);
         assert.deepEqual(res.body, { error: 'Invalid request body' });
+        assert.equal(res.headers['cache-control'], 'no-store');
     });
 
     it('keeps body-parser 413 (oversized body) as a JSON 413', () => {
@@ -55,6 +59,7 @@ describe('jsonErrorHandler', () => {
         jsonErrorHandler(err, { path: '/api/report' }, res, () => {});
         assert.equal(res.statusCode, 413);
         assert.deepEqual(res.body, { error: 'Request body too large' });
+        assert.equal(res.headers['cache-control'], 'no-store');
     });
 
     it('maps other 4xx to a generic message', () => {

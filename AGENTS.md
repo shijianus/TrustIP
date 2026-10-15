@@ -58,7 +58,7 @@ frontend/ · api/      ← SPA and Express handlers (own AGENTS.md each)
 common/               ← shared back-end code; the SPA imports parts of it
 tests/                ← Node test runner specs
 backend-server.js     ← Express app, every route wired here (default port 11966)
-frontend-server.js    ← static server for `pnpm start` (+ SPA fallback)
+frontend-server.js    ← static server for `pnpm start` (app in common/frontend-app.js: proxy, SPA fallback, no-store misses)
 sentry-instrument.js  ← backend Sentry bootstrap via `node --import`
 ecosystem.config.cjs  ← pm2 definitions (carries the `--import` flag)
 index.html · vite.config.js · jsconfig.json (alias @ → frontend/)
