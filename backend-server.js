@@ -67,6 +67,7 @@ import { initUpstreamUserAgent } from './common/upstream-ua.js';
 import { apiNotFound, jsonErrorHandler } from './common/error-handler.js';
 import { trustProxySetting } from './common/client-ip.js';
 import { backendHost, hostPort } from './common/backend-host.js';
+import { exitOnBootFailure } from './common/boot-failure.js';
 import { limiter, perMinute, clientKey, getClientIp } from './common/route-limiter.js';
 import { securityHeaders } from './common/security-headers.js';
 
@@ -454,9 +455,12 @@ const bootBackend = async () => {
         await reloadMaxMindDatabases('startup').catch(() => {});
     }
 
-    app.listen(backEndPort, backEndHost, () => {
-        logger.info(`🚀 Backend server ready on http://${hostPort(backEndHost, backEndPort)}`);
+    // Awaited, so a port in use or an address this host does not have
+    // rejects the boot instead of throwing from inside the listen callback.
+    await new Promise((resolve, reject) => {
+        app.listen(backEndPort, backEndHost, (err) => (err ? reject(err) : resolve()));
     });
+    logger.info(`🚀 Backend server ready on http://${hostPort(backEndHost, backEndPort)}`);
 
     // Watching from before the downloads: a dataset another process
     // publishes (or someone places by hand) while a boot step is still
@@ -479,4 +483,8 @@ const bootBackend = async () => {
     startServiceStatusPolling();
 };
 
-bootBackend();
+// A boot step that throws leaves no half-started server behind: one ❌ line
+// and exit code 1, which pm2 and Docker's restart policy act on. The steps
+// that can fail on bad data or config (downloads, DATASET_UPDATE_CRON)
+// degrade inside their own step instead of reaching this.
+bootBackend().catch(exitOnBootFailure);

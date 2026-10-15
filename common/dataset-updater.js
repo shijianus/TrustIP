@@ -396,7 +396,9 @@ let scheduler = null;
 /**
  * Run the auto-updating rows daily at DATASET_UPDATE_CRON (server-local time,
  * default 04:30). `protect` skips a tick while the previous run is still
- * going. Sentry Crons sees the run as one 'dataset-update' check-in.
+ * going. Sentry Crons sees the run as one 'dataset-update' check-in. A pattern
+ * croner refuses turns auto update off with a warning and returns null — the
+ * datasets already loaded keep serving, and the server keeps running.
  */
 export const startDatasetScheduler = (rows) => {
     if (scheduler) return scheduler;
@@ -407,11 +409,16 @@ export const startDatasetScheduler = (rows) => {
     }
     const pattern = process.env.DATASET_UPDATE_CRON || DEFAULT_UPDATE_CRON;
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    scheduler = new Cron(pattern, { protect: true, unref: true }, () => withCronMonitor(
-        'dataset-update',
-        () => updateDatasets(scheduled),
-        monitorConfigFor(pattern, scheduled.length, timezone),
-    ).catch((error) => logger.error({ err: error }, 'dataset update run failed')));
+    try {
+        scheduler = new Cron(pattern, { protect: true, unref: true }, () => withCronMonitor(
+            'dataset-update',
+            () => updateDatasets(scheduled),
+            monitorConfigFor(pattern, scheduled.length, timezone),
+        ).catch((error) => logger.error({ err: error }, 'dataset update run failed')));
+    } catch (err) {
+        logger.warn({ err, DATASET_UPDATE_CRON: pattern }, '⚠️  DATASET_UPDATE_CRON is not a valid cron pattern; dataset auto update: off');
+        return null;
+    }
     const next = scheduler.nextRun()?.toLocaleString('en-US', { hour12: false });
     logger.info(`🗓️  Dataset auto update: ${scheduled.map((row) => row.id).join(', ')} at cron ${pattern} (next ${next})`);
 

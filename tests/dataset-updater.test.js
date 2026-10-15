@@ -353,6 +353,24 @@ describe('startDatasetScheduler', () => {
         assert.equal(startDatasetScheduler([makeRow().row]), null);
     });
 
+    // Before the valid-pattern spec: a scheduler, once started, is returned as-is.
+    it('turns auto update off with a warning when DATASET_UPDATE_CRON is invalid', () => {
+        process.env.DATASET_AUTO_UPDATE = 'true';
+        const warned = [];
+        const originalWarn = logger.warn;
+        logger.warn = (ctx, msg) => warned.push([ctx.DATASET_UPDATE_CRON, msg]);
+        try {
+            for (const pattern of ['61 4 * * *', '30 4 * *', 'nightly']) {
+                process.env.DATASET_UPDATE_CRON = pattern;
+                assert.doesNotThrow(() => assert.equal(startDatasetScheduler([makeRow().row]), null));
+            }
+        } finally {
+            logger.warn = originalWarn;
+        }
+        assert.deepEqual(warned.map(([pattern]) => pattern), ['61 4 * * *', '30 4 * *', 'nightly']);
+        assert.match(warned[0][1], /DATASET_UPDATE_CRON.*auto update: off/);
+    });
+
     it('runs at DATASET_UPDATE_CRON, defaulting to 04:30', () => {
         assert.equal(DEFAULT_UPDATE_CRON, '30 4 * * *');
         process.env.DATASET_AUTO_UPDATE = 'true';
