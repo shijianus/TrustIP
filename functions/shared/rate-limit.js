@@ -15,25 +15,22 @@
 // would need atomic state this runtime does not offer. It is a brake on a single
 // abuser, not a distributed firewall.
 //
-// Fail-open rule: a request whose client cannot be identified is *not* put in a
-// shared bucket. Everyone anonymous would mean every visitor paying for one
-// abuser's traffic, which is the opposite of the point. The platform sets
-// `X-Forwarded-For` for real connections, so the fallback path is a misconfigured
-// proxy rather than a normal visitor.
+// Who a request is: only the address the platform itself writes. The edge
+// deployment sits behind Cloudflare, which sets `CF-Connecting-IP` at the edge
+// and overwrites any copy the client sent, so that header is the one claim a
+// visitor cannot choose. `X-Forwarded-For` and `X-Real-IP` are never read: their
+// first hop is whatever the client typed, so keying on them lets a script mint a
+// fresh bucket per request.
+//
+// A request without that header is not waved through. It lands in one shared
+// `unknown` bucket: on this platform its absence means something other than a
+// normal visitor reached the function, and failing open would turn "strip the
+// header" into "no limit at all".
+export const UNKNOWN_CLIENT = 'unknown';
 
-// The headers a deployment fronting this function sets, in order of trust.
-// `cf-connecting-ip` and `x-real-ip` are written by the proxy, not the client;
-// `X-Forwarded-For` is a chain, and only its first hop claims to be the client —
-// every later one is something an upstream proxy added, so it proves nothing about
-// who connected.
 export const clientIpOf = (headers) => {
-    const direct = headers.get('cf-connecting-ip') || headers.get('x-real-ip');
-    if (direct) return direct.trim() || null;
-
-    const chain = headers.get('x-forwarded-for');
-    if (!chain) return null;
-    const first = chain.split(',')[0].trim();
-    return first || null;
+    const direct = String(headers.get('cf-connecting-ip') ?? '').trim();
+    return direct || UNKNOWN_CLIENT;
 };
 
 /**
@@ -43,40 +40,60 @@ export const clientIpOf = (headers) => {
  * vendor's daily/monthly request allowance: the unit of the problem is "how many
  * did this address ask for", and a window says that directly.
  *
+ * Memory is bounded twice. Expired buckets are swept, at most once per
+ * `sweepIntervalMs` so a busy isolate never pays an O(n) walk per request. And the
+ * map never holds more than `maxKeys`: it is kept in least-recently-used order
+ * (a hit re-inserts its key at the tail), so a new client past the cap evicts the
+ * client idle the longest, never the one currently being counted.
+ *
  * @param {object} options
  * @param {number} options.limit     requests allowed per window; <= 0 disables
  * @param {number} options.windowMs  window length
+ * @param {number} [options.maxKeys] most buckets held at once
+ * @param {number} [options.sweepIntervalMs] least time between expiry sweeps
  * @param {() => number} [options.now] clock, injected so tests do not wait
  * @returns {{ check: (key: string|null) => { allowed: boolean, retryAfterSeconds: number },
  *            size: () => number }}
  */
-export const createRateLimiter = ({ limit, windowMs, now = () => Date.now() }) => {
+export const createRateLimiter = ({
+    limit, windowMs, maxKeys = 10_000, sweepIntervalMs = 1_000, now = () => Date.now(),
+}) => {
     const buckets = new Map();
-    // Entries expire per key, but nothing wakes up to notice. Sweep when the map
-    // outgrows a comfortable size: an idle deployment must not keep every visitor
-    // of the day, and a busy one should not pay an O(n) walk on each request.
-    const SWEEP_AT = 2048;
+    const cap = Math.max(1, Math.floor(maxKeys));
+    let lastSweep = -Infinity;
 
     const sweep = (moment) => {
+        lastSweep = moment;
         for (const [key, bucket] of buckets) {
             if (bucket.resetAt <= moment) buckets.delete(key);
         }
     };
 
+    // Map iteration order is insertion order, so the first key is the least
+    // recently used one.
+    const evictOldest = () => {
+        const oldest = buckets.keys().next();
+        if (!oldest.done) buckets.delete(oldest.value);
+    };
+
     return {
-        check(key) {
+        check(rawKey) {
             if (!(limit > 0)) return { allowed: true, retryAfterSeconds: 0 };
-            if (!key) return { allowed: true, retryAfterSeconds: 0 };
+            const key = (typeof rawKey === 'string' && rawKey.trim()) || UNKNOWN_CLIENT;
 
             const moment = now();
-            if (buckets.size >= SWEEP_AT) sweep(moment);
+            if (moment - lastSweep >= sweepIntervalMs) sweep(moment);
 
             const bucket = buckets.get(key);
             if (!bucket || bucket.resetAt <= moment) {
+                buckets.delete(key);
+                while (buckets.size >= cap) evictOldest();
                 buckets.set(key, { count: 1, resetAt: moment + windowMs });
                 return { allowed: true, retryAfterSeconds: 0 };
             }
 
+            buckets.delete(key);
+            buckets.set(key, bucket);
             bucket.count += 1;
             if (bucket.count <= limit) return { allowed: true, retryAfterSeconds: 0 };
 
