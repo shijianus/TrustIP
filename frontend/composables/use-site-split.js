@@ -30,6 +30,7 @@
 
 import { ref, shallowRef, computed, watch, onScopeDispose } from 'vue';
 import { fetchWithTimeout } from '../utils/fetch-with-timeout.js';
+import { isUsablePublicIP } from '../utils/valid-ip.js';
 import { onAppEvent } from '../utils/app-events.js';
 import { probeTone } from '../utils/latency-probes.js';
 import { classifyEgress } from '../utils/egress-attribution.js';
@@ -84,6 +85,16 @@ const parseTrace = (text) => {
 // The lists keep the order they were given, so the strip under the opening card does
 // not reshuffle every time a destination answers.
 export const mergeEgressIps = (...lists) => [...new Set(lists.flat().filter(Boolean))];
+
+// The visitor's own exit to geolocate when no card did: IPv4 first, else IPv6.
+// A card whose source failed holds its localized error text ("Fetch Failed or No
+// IPv4 Address") in `ip`, so only a usable public address counts — the text is
+// not an address to look up, and an IPv6-only visitor still has one.
+export const ownAddressOf = (cardList = []) => {
+    const usable = cardList.filter((c) => c?.ip && isUsablePublicIP(c.ip));
+    const v4 = usable.find((c) => !String(c.ip).includes(':'));
+    return (v4 || usable[0])?.ip || null;
+};
 
 // The round trip is timed around the echo rather than measured separately: the one
 // request the row was going to make anyway is the cheapest honest sample of the
@@ -216,8 +227,7 @@ export function useSiteSplit({ geoLookup, ownGeolocations, knownExits, leaks } =
             return;
         }
         if (ownLookupRunning || !geoLookup) return;
-        const v4 = cardList.find((c) => c.ip && !String(c.ip).includes(':'));
-        const own = (v4 || cardList.find((c) => c.ip))?.ip;
+        const own = ownAddressOf(cardList);
         if (!own || cancelled) return;
         ownLookupRunning = true;
         try {

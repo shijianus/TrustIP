@@ -23,7 +23,7 @@ import { cacheable } from '../common/cache-control.js';
 import cfRadarHandler from '../api/cf-radar.js';
 import invisibilityHandler from '../api/invisibility-test.js';
 import macCheckerHandler, { createMacChecker } from '../api/mac-checker.js';
-import githubStarsHandler from '../api/github-stars.js';
+import githubStarsHandler, { resetGithubStarsCache } from '../api/github-stars.js';
 import personaEvaluateHandler from '../api/persona.js';
 import splitHandler from '../api/split.js';
 import asnProfileHandler, { peeringdbReadiness, connectivityReadiness } from '../api/asn-profile.js';
@@ -171,7 +171,7 @@ describe('google-map handler', () => {
         { headers: { 'content-type': 'image/jpeg' } },
     );
 
-    const mapQuery = { query: { latitude: '1', longitude: '2', language: 'en' } };
+    const mapQuery = { query: { latitude: '1.0', longitude: '2.0', language: 'en' } };
 
     // The upstream-path cases below need a key; the shared afterEach restores it.
     beforeEach(() => { process.env.GOOGLE_MAP_API_KEY = 'test-map-key'; });
@@ -194,6 +194,42 @@ describe('google-map handler', () => {
         }), res);
         assert.equal(res.statusCode, 400);
         assert.deepEqual(res.body, { error: 'Invalid request' });
+    });
+
+    it('rejects coordinates outside the globe without calling the external API', async () => {
+        let fetched = false;
+        globalThis.fetch = async () => { fetched = true; return new Response(''); };
+        for (const query of [
+            { latitude: '999', longitude: '0.0', language: 'en' },
+            { latitude: '0.0', longitude: '-5000', language: 'en' },
+        ]) {
+            const res = createResponse();
+            await googleMapHandler(createRequest({ query }), res);
+            assert.equal(res.statusCode, 400);
+        }
+        assert.equal(fetched, false);
+    });
+
+    it('redirects any other spelling of a place to its one-decimal URL instead of calling Google', async () => {
+        let fetched = false;
+        globalThis.fetch = async () => { fetched = true; return new Response(''); };
+        const cases = [
+            [{ latitude: '35.689487', longitude: '139.691711', language: 'en' }, 'latitude=35.7&longitude=139.7&language=en'],
+            [{ latitude: '35.70000', longitude: '139.7', language: 'en' }, 'latitude=35.7&longitude=139.7&language=en'],
+            [{ latitude: '35.7', longitude: '139.7', language: 'en', CanvasMode: 'x1' }, 'latitude=35.7&longitude=139.7&language=en'],
+            [{ latitude: '35.7', longitude: '139.7', language: 'en', cb: '1' }, 'latitude=35.7&longitude=139.7&language=en'],
+            [{ latitude: '35.71', longitude: '139.7', language: 'en', CanvasMode: 'Dark' }, 'latitude=35.7&longitude=139.7&language=en&CanvasMode=Dark'],
+        ];
+        for (const [query, target] of cases) {
+            const res = createResponse();
+            res.locals = { cacheControl: 'public, max-age=31536000' };
+            res.redirect = (code, url) => { res.statusCode = code; res.location = url; return res; };
+            await googleMapHandler(createRequest({ query }), res);
+            assert.equal(res.statusCode, 301, JSON.stringify(query));
+            assert.equal(res.location, `/api/map?${target}`);
+            assert.equal(res.headers['Cache-Control'], 'public, max-age=31536000');
+        }
+        assert.equal(fetched, false);
     });
 
     it('streams the upstream image through to completion', async () => {
@@ -457,6 +493,22 @@ describe('get-whois registry replies', () => {
         // Text this does not recognise keeps today's behaviour.
         assert.equal(registryReplyFault({ s: { 'Domain Status': [], 'Name Server': [], __raw: 'Some registry banner\n' } }), null);
         assert.equal(registryReplyFault(null), null);
+    });
+
+    it('reads the free-name replies of DENIC, SIDN, .it, EURid, KISA and TWNIC as misses', () => {
+        // Shapes as whoiser parsed them from the live registries (audit 6).
+        const free = {
+            de: { 'whois.denic.de': { 'Domain Status': ['free'], 'Name Server': [], 'Domain Name': 'zz-free.de', text: [], __raw: 'Domain: zz-free.de\nStatus: free\n' } },
+            nl: { 'whois.domain-registry.nl': { 'Domain Status': [], 'Name Server': [], text: [], __raw: 'zz-free.nl is free\n' } },
+            it: { 'whois.nic.it': { 'Domain Status': ['AVAILABLE'], 'Name Server': [], 'Domain Name': 'zz-free.it', text: [], __raw: 'Domain:             zz-free.it\nStatus:             AVAILABLE\n' } },
+            eu: { 'whois.eu': { 'Domain Status': ['AVAILABLE'], 'Name Server': [], 'Domain Name': 'zz-free.eu', Script: 'LATIN', text: [], __raw: '% The WHOIS service offered by EURid\n%\nDomain: zz-free.eu\nScript: LATIN\nStatus: AVAILABLE\n' } },
+            kr: { 'whois.kr': { 'Domain Status': [], 'Name Server': [], query: 'zz-free.kr', text: [], __raw: 'query : zz-free.kr\n\n\n# KOREAN(UTF8)\n\n상기 도메인이름은 등록되어 있지 않습니다.\n상기 도메인이름의 사용을 원하실 경우 도메인이름 등록대행자를 통해 \n등록 신청하시기 바랍니다.\n\n\n\n# ENGLISH\n\nThe requested domain was not found in the Registry or Registrar’s WHOIS Server.\n' } },
+            tw: { 'whois.twnic.net.tw': { 'Domain Status': [], 'Name Server': [], text: [], __raw: 'No Found\n' } },
+        };
+        for (const [tld, reply] of Object.entries(free)) assert.equal(registryReplyFault(reply), 'no-match', tld);
+        // A registered .de / .eu keeps its record: a live status, or a name server beside it.
+        assert.equal(registryReplyFault({ s: { 'Domain Status': ['connect'], 'Name Server': ['ns1.example.de'], 'Domain Name': 'example.de', __raw: 'Domain: example.de\nNserver: ns1.example.de\nStatus: connect\n' } }), null);
+        assert.equal(registryReplyFault({ s: { 'Domain Status': ['AVAILABLE'], 'Name Server': ['ns1.example.eu'], 'Domain Name': 'example.eu', __raw: 'Domain: example.eu\n' } }), null);
         assert.equal(registryReplyFault({ 'whois.nic.io': { error: 'Timeout' } }), null);
     });
 
@@ -545,6 +597,46 @@ describe('github-stars handler', () => {
         await githubStarsHandler(createRequest({ method: 'POST' }), res);
         assert.equal(res.statusCode, 405);
         assert.deepEqual(res.body, { message: 'Method Not Allowed' });
+    });
+
+    it('asks GitHub once per hour however the query string varies', async () => {
+        resetGithubStarsCache();
+        let calls = 0;
+        globalThis.fetch = async () => {
+            calls += 1;
+            return { status: 200, ok: true, json: async () => ({ stargazers_count: 42 }) };
+        };
+        for (let i = 0; i < 5; i += 1) {
+            const res = createResponse();
+            await githubStarsHandler(createRequest({ method: 'GET', query: { n: String(i) } }), res);
+            assert.equal(res.statusCode, 200);
+            assert.deepEqual(res.body, { stars: 42 });
+        }
+        assert.equal(calls, 1);
+        resetGithubStarsCache();
+    });
+
+    it('concurrent misses share one GitHub call, and a failure is held briefly too', async () => {
+        resetGithubStarsCache();
+        let calls = 0;
+        globalThis.fetch = async () => {
+            calls += 1;
+            return { status: 403, ok: false, json: async () => ({}) };
+        };
+        const answers = await Promise.all([0, 1, 2].map(async () => {
+            const res = createResponse();
+            await githubStarsHandler(createRequest({ method: 'GET' }), res);
+            return res;
+        }));
+        for (const res of answers) {
+            assert.equal(res.statusCode, 500);
+            assert.deepEqual(res.body, { error: 'Failed to fetch GitHub stars' });
+        }
+        const again = createResponse();
+        await githubStarsHandler(createRequest({ method: 'GET' }), again);
+        assert.equal(again.statusCode, 500);
+        assert.equal(calls, 1);
+        resetGithubStarsCache();
     });
 });
 

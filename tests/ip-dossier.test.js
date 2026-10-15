@@ -10,7 +10,7 @@ import fs from 'node:fs';
 
 import {
     buildGeo, buildNeighbours, haversineKm, geoFromEvidence, technicalSlot, SLOTS,
-    BLOCKLIST_GAP_REASONS, blocklistSlot, neighboursSlot,
+    BLOCKLIST_GAP_REASONS, blocklistSlot, neighboursSlot, rdapBlockOf, registeredBlockOf,
 } from '../common/ip-dossier.js';
 import { blocklistSummary, rirRecordFrom } from '../common/trust-signals.js';
 import { blockContaining } from '../common/ip-math.js';
@@ -430,5 +430,41 @@ describe('neighboursSlot', () => {
         assert.equal(slot.status, 'placeholder');
         assert.deepEqual(slot.missing, []);
         assert.match(slot.needs, /registered block that contains this address/);
+    });
+});
+
+describe('rdapBlockOf', () => {
+    it('reads the cidr0 prefixes, else the start - end range', () => {
+        assert.equal(rdapBlockOf({ cidr0_cidrs: [{ v6prefix: '2606:4700::', length: 32 }] }), '2606:4700::/32');
+        assert.equal(rdapBlockOf({ cidr0_cidrs: [{ v4prefix: '104.16.0.0', length: 13 }, { v4prefix: '104.24.0.0', length: 14 }] }),
+            '104.16.0.0/13, 104.24.0.0/14');
+        assert.equal(rdapBlockOf({ startAddress: '2606:4700::', endAddress: '2606:4700:ffff:ffff:ffff:ffff:ffff:ffff' }),
+            '2606:4700:: - 2606:4700:ffff:ffff:ffff:ffff:ffff:ffff');
+        assert.equal(rdapBlockOf({}), null);
+        assert.equal(rdapBlockOf(null), null);
+    });
+});
+
+describe('registeredBlockOf', () => {
+    const arinV6 = async () => ({ cidr0_cidrs: [{ v6prefix: '2606:4700::', length: 32 }] });
+
+    it('keeps the RIR record\'s block when it contains the address, without asking RDAP', async () => {
+        let asked = false;
+        const block = await registeredBlockOf('8.8.8.8', '8.8.8.0/24', { lookup: async () => { asked = true; return {}; } });
+        assert.equal(block, '8.8.8.0/24');
+        assert.equal(asked, false);
+    });
+
+    it('asks RDAP when the RIR record named no block (ARIN IPv6), and neighbours follow', async () => {
+        const block = await registeredBlockOf('2606:4700:4700::1111', null, { lookup: arinV6 });
+        assert.equal(block, '2606:4700::/32');
+        const neighbours = buildNeighbours('2606:4700:4700::1111', block);
+        assert.equal(neighbours.cidr, '2606:4700::/32');
+        assert.ok(neighbours.entries.length > 0);
+    });
+
+    it('ignores an RDAP block that does not contain the address, and a failed lookup', async () => {
+        assert.equal(await registeredBlockOf('2606:4700:4700::1111', null, { lookup: async () => ({ cidr0_cidrs: [{ v6prefix: '2001:db8::', length: 32 }] }) }), null);
+        assert.equal(await registeredBlockOf('2606:4700:4700::1111', null, { lookup: async () => { throw new Error('timeout'); } }), null);
     });
 });

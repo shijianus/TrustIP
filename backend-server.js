@@ -70,6 +70,7 @@ import { backendHost, hostPort } from './common/backend-host.js';
 import { exitOnBootFailure } from './common/boot-failure.js';
 import { limiter, perMinute, clientKey, getClientIp } from './common/route-limiter.js';
 import { securityHeaders } from './common/security-headers.js';
+import { cspMiddleware } from './common/csp.js';
 
 dotenv.config({ quiet: true });
 initUpstreamUserAgent();
@@ -270,6 +271,9 @@ const ONE_YEAR_CACHE = 365 * 24 * 60 * 60;
 //   - shared reports: 30 reads, 5 writes (each a Cloudflare KV write)
 //   - persona / split: 10 — per-visitor computations a person reruns by hand
 const VENDOR_LOOKUP_MAX = 30;
+//   - IPCheck.ing proxies (invisibility, DNS-leak session, user info,
+//     achievements): KEYED_PROXY_MAX each — every call spends the shared key
+const KEYED_PROXY_MAX = 20;
 
 // Cacheable routes — TTLs picked against each upstream's natural refresh cadence.
 // Short Cache
@@ -387,10 +391,14 @@ const dnsResolverLimiter = limiter({
     message: 'Too Many Requests',
 });
 app.get('/api/dnsresolver', requireValidDomain('hostname'), requireValidRecordType(), dnsResolverLimiter, dnsResolver);
-app.get('/api/dnsleaktest/session/:token', dnsLeakGetResult);
-app.get('/api/invisibility', invisibilitytestHandler);
-app.get('/api/getuserinfo', getUserinfo);
-app.put('/api/updateuserachievement', updateUserAchievement);
+// The IPCheck.ing proxies each spend IPCHECKING_API_KEY's monthly quota on every
+// origin request, whatever the id or token says, so each carries its own budget.
+// A real visitor polls a DNS-leak session three times and an invisibility result
+// four times per test, signs in once and earns achievements one at a time.
+app.get('/api/dnsleaktest/session/:token', perMinute(KEYED_PROXY_MAX), dnsLeakGetResult);
+app.get('/api/invisibility', perMinute(KEYED_PROXY_MAX), invisibilitytestHandler);
+app.get('/api/getuserinfo', perMinute(KEYED_PROXY_MAX), getUserinfo);
+app.put('/api/updateuserachievement', perMinute(KEYED_PROXY_MAX), updateUserAchievement);
 // Shared reports stay no-store: an edge cache could serve a report past its
 // KV expiry, and private diagnostic data doesn't belong in a public cache.
 app.get('/api/report/:id', requireValidReportId(), perMinute(30), getReportHandler);
@@ -422,7 +430,13 @@ if (process.env.VITE_SENTRY_DSN_FRONTEND) {
 // Set static file server
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-app.use(express.static(path.join(__dirname, './dist')));
+// The same dist/ frontend-server.js serves, reachable here on the API port
+// (a split deployment widens BACKEND_HOST), so its pages carry the same
+// Content-Security-Policy (common/csp.js) rather than none; /api answers skip it.
+const distDir = path.join(__dirname, './dist');
+const staticCsp = cspMiddleware({ indexPath: path.join(distDir, 'index.html'), env: process.env });
+app.use((req, res, next) => (req.path.startsWith('/api/') ? next() : staticCsp(req, res, next)));
+app.use(express.static(distDir));
 
 // Sentry error capture — the SDK itself is initialized (or not) by
 // sentry-instrument.js via `node --import`; this attaches the Express error

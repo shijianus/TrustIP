@@ -43,6 +43,10 @@ const METERED_ROUTES = [
     ['post', '/api/persona/evaluate'],
     ['post', '/api/split'],
     ['post', '/api/monitoring'],
+    ['get', '/api/invisibility'],
+    ['get', '/api/dnsleaktest/session/:token'],
+    ['get', '/api/getuserinfo'],
+    ['put', '/api/updateuserachievement'],
 ];
 
 // The source text of one `app.get('/api/x', …)` call, up to its closing `);`.

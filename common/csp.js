@@ -1,5 +1,5 @@
 // Content-Security-Policy for the SPA served by frontend-server.js
-// (common/frontend-app.js).
+// (common/frontend-app.js), and for the same dist/ on backend-server.js.
 //
 // Shipped as `Content-Security-Policy-Report-Only` by default, so a missed
 // origin shows up as a console report rather than a broken feature;

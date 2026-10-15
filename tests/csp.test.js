@@ -125,3 +125,15 @@ describe('frontend app sends the policy', () => {
         assert.ok(res.headers.get('content-security-policy'));
     });
 });
+
+describe('backend-server.js static pages', () => {
+    it('sends the CSP on dist/ before express.static, and not on /api answers', async () => {
+        const { readFileSync } = await import('node:fs');
+        const source = readFileSync(new URL('../backend-server.js', import.meta.url), 'utf8');
+        const cspAt = source.indexOf('cspMiddleware({ indexPath');
+        const staticAt = source.indexOf('app.use(express.static(');
+        assert.ok(cspAt !== -1, 'backend-server.js builds no CSP middleware');
+        assert.ok(staticAt !== -1 && cspAt < staticAt, 'the CSP must be mounted before express.static');
+        assert.match(source, /req\.path\.startsWith\('\/api\/'\) \? next\(\) : staticCsp/);
+    });
+});
