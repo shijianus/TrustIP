@@ -305,7 +305,7 @@ const fetchGithubStars = async () => {
 
 // nav link style — the destination currently on screen reads as pressed
 const navLinkClass = (id, { block = false } = {}) => {
-  const base = 'rounded-md px-3 py-1.5 text-sm font-medium no-underline cursor-pointer transition-colors';
+  const base = 'rounded-full px-3 py-1.5 text-sm font-medium no-underline cursor-pointer transition-colors duration-200';
   const state = id === route.meta.section
     ? 'bg-accent text-accent-foreground'
     : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground';

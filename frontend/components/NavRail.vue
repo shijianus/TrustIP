@@ -63,7 +63,7 @@ const isActive = (item) => item.id === activeId.value;
 // Same shape as the old anchor row — `bg-accent` for the current destination,
 // muted + hover tint otherwise — so the header reads as one system.
 const linkClass = (active) => [
-  'block whitespace-nowrap rounded-md px-2.5 py-1.5 text-sm font-medium no-underline transition-colors',
+  'block whitespace-nowrap rounded-full px-2.5 py-1.5 text-sm font-medium no-underline transition-colors duration-200',
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
   active ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
 ];
