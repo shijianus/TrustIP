@@ -2421,6 +2421,61 @@
           "ru": "Раздел соседей на странице IP теперь перечисляет адреса, которые зарегистрированный блок ставит рядом с этим — по одному соседу с каждой стороны, плюс первый и последний адреса блока — а не остаётся пустым; используется ли кто-то из них, требует наблюдений, которых в этой сборке нет, и карточка по-прежнему об этом говорит",
           "pt-BR": "A seção de vizinhos da página de IP agora lista os endereços que o bloco registrado coloca ao lado deste — um de cada lado, além do primeiro e do último do bloco — em vez de ficar vazia: se algum deles está em uso exige uma observação que esta versão não tem, e o cartão continua dizendo isso"
         }
+      },
+      {
+        "type": "improve",
+        "change": {
+          "en": "Service Status now watches 31 providers, lists any service with a live incident first and tallies the board by category, so a fault is the first thing you see",
+          "zh": "服务状态现监测 31 家服务商，正在发生故障的服务排在最前，并按类别汇总，故障一眼可见",
+          "zh-TW": "服務狀態現監測 31 家服務商，正在發生故障的服務排在最前，並依類別彙總，故障一眼可見",
+          "fr": "L'état des services surveille désormais 31 fournisseurs, affiche en tête ceux qui ont un incident en cours et compte le tableau par catégorie : une panne se voit tout de suite",
+          "ru": "Статус сервисов теперь следит за 31 провайдером, сервисы с текущим инцидентом идут первыми, а доска подсчитана по категориям — сбой виден сразу",
+          "pt-BR": "O Status de Serviços agora acompanha 31 provedores, mostra primeiro os que têm incidente ativo e soma o painel por categoria, para a falha ser a primeira coisa que você vê"
+        }
+      },
+      {
+        "type": "add",
+        "change": {
+          "en": "AI News now loads real headlines from the AI labs' and tech press feeds, on the self-hosted server and the hosted build alike",
+          "zh": "AI 新闻现从各 AI 实验室与科技媒体的订阅源载入真实标题，自托管服务器与托管版本均可使用",
+          "zh-TW": "AI 新聞現從各 AI 實驗室與科技媒體的訂閱來源載入真實標題，自架伺服器與託管版本皆可使用",
+          "fr": "Actualités IA charge désormais de vrais titres depuis les flux des laboratoires d'IA et de la presse tech, sur le serveur auto-hébergé comme sur la version hébergée",
+          "ru": "Новости ИИ теперь загружают настоящие заголовки из лент ИИ-лабораторий и техпрессы — и на своём сервере, и в размещённой версии",
+          "pt-BR": "Notícias de IA agora carrega manchetes reais dos feeds dos laboratórios de IA e da imprensa de tecnologia, no servidor próprio e na versão hospedada"
+        }
+      },
+      {
+        "type": "improve",
+        "change": {
+          "en": "IPAPI.is, IP2Location and IPinfo now answer without an API key, and the IP card falls back to another source when the local MaxMind database is not installed",
+          "zh": "IPAPI.is、IP2Location 与 IPinfo 现无需 API 密钥即可查询；本地未安装 MaxMind 数据库时，IP 卡片会改用其他数据源",
+          "zh-TW": "IPAPI.is、IP2Location 與 IPinfo 現無需 API 金鑰即可查詢；本機未安裝 MaxMind 資料庫時，IP 卡片會改用其他資料來源",
+          "fr": "IPAPI.is, IP2Location et IPinfo répondent désormais sans clé d'API, et la carte IP passe à une autre source quand la base MaxMind locale n'est pas installée",
+          "ru": "IPAPI.is, IP2Location и IPinfo теперь отвечают без API-ключа, а карточка IP переключается на другой источник, если локальная база MaxMind не установлена",
+          "pt-BR": "IPAPI.is, IP2Location e IPinfo agora respondem sem chave de API, e o cartão de IP recorre a outra fonte quando o banco MaxMind local não está instalado"
+        }
+      },
+      {
+        "type": "improve",
+        "change": {
+          "en": "The censorship check waits long enough for OONI's slower answers and reuses recent results, and the trust evidence reads the routed prefix for its RPKI check",
+          "zh": "审查检测会等待 OONI 较慢的响应并复用近期结果；信任证据改用实际路由前缀进行 RPKI 校验",
+          "zh-TW": "審查檢測會等待 OONI 較慢的回應並重用近期結果；信任證據改用實際路由前綴進行 RPKI 驗證",
+          "fr": "La vérification de censure attend les réponses plus lentes d'OONI et réutilise les résultats récents, et les preuves de confiance lisent le préfixe routé pour leur contrôle RPKI",
+          "ru": "Проверка цензуры дожидается медленных ответов OONI и переиспользует недавние результаты, а доказательства доверия берут для RPKI маршрутизируемый префикс",
+          "pt-BR": "A verificação de censura espera as respostas mais lentas do OONI e reutiliza resultados recentes, e as evidências de confiança usam o prefixo roteado na checagem RPKI"
+        }
+      },
+      {
+        "type": "improve",
+        "change": {
+          "en": "Opening the IP page with no address now looks up your own IP, and the Cloudflare check names the destinations it tests",
+          "zh": "不带地址打开 IP 页面时现会查询你自己的 IP；Cloudflare 检测会列出所测试的目标",
+          "zh-TW": "不帶位址開啟 IP 頁面時現會查詢你自己的 IP；Cloudflare 檢測會列出所測試的目標",
+          "fr": "Ouvrir la page IP sans adresse affiche désormais votre propre IP, et la vérification Cloudflare nomme les destinations testées",
+          "ru": "Страница IP без адреса теперь показывает ваш собственный IP, а проверка Cloudflare называет проверяемые адреса назначения",
+          "pt-BR": "Abrir a página de IP sem endereço agora consulta o seu próprio IP, e a verificação do Cloudflare nomeia os destinos testados"
+        }
       }
     ]
   }
