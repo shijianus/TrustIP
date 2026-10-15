@@ -60,12 +60,20 @@ const activeId = computed(() => resolveRail(route.path)?.id ?? null);
 
 const isActive = (item) => item.id === activeId.value;
 
-// Same shape as the old anchor row — `bg-accent` for the current destination,
-// muted + hover tint otherwise — so the header reads as one system.
+// Current destination = full-contrast text + a 2px indicator bar on the
+// header's bottom edge (the Vercel / Linear / Material 3 tab pattern), instead
+// of a filled pill: the bar marks "you are here" without competing with the
+// page's own buttons, and it is not colour alone — position and weight of ink
+// change too. The bar is a ::before, because ::after is the 44px touch-target
+// extension (.jn-hit, style.css). Hover keeps a quiet tint. The weight never
+// changes between states, so the strip never reflows when the route does.
 const linkClass = (active) => [
-  'block whitespace-nowrap rounded-full px-2.5 py-1.5 text-sm font-medium no-underline transition-colors duration-200',
-  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-  active ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
+  'jn-hit relative block whitespace-nowrap rounded-md px-2.5 py-1.5 text-sm font-medium no-underline transition-colors duration-200',
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring',
+  'before:pointer-events-none before:absolute before:inset-x-2.5 before:-bottom-1 before:h-0.5 before:rounded-full before:transition-colors before:duration-200',
+  active
+    ? 'text-foreground before:bg-foreground'
+    : 'text-muted-foreground before:bg-transparent hover:bg-accent/60 hover:text-foreground',
 ];
 
 // Bring the current item into the strip on arrival. Two guards, because a page

@@ -20,7 +20,7 @@
     <StandalonePageHeader :title="page ? t(page.titleKey) : ''" rail />
 
     <main class="flex-1">
-      <div class="mx-auto w-full max-w-[1000px] px-5 py-6 max-[480px]:px-3 max-[480px]:py-3.5">
+      <div class="mx-auto w-full max-w-[1000px] px-5 py-6 max-[480px]:px-3 max-[480px]:py-4">
         <component :is="sectionComponent" v-if="sectionComponent" />
       </div>
     </main>

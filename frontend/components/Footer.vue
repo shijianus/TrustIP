@@ -4,7 +4,9 @@
          Thanks. The last three open the same About sheet on their own tab.
          Text-only (no per-button icons) to keep the row calm. -->
     <div class="flex flex-wrap items-center justify-center gap-x-3 mb-2 mx-auto">
-      <Button variant="link" size="default" as-child class="text-[#d63384] hover:text-[#d63384]">
+      <!-- Sponsor pink, one shade per theme: #d63384 measured 4.1:1 on both
+           page backgrounds; #c2185b (light) / #f06ba8 (dark) clear 5.4 / 6.5. -->
+      <Button variant="link" size="default" as-child class="text-[#c2185b] hover:text-[#c2185b] dark:text-[#f06ba8] dark:hover:text-[#f06ba8]">
         <a href="https://github.com/sponsors/jason5ng32" target="_blank" rel="noopener">
           {{ t('about.Sponsor') }}
         </a>
@@ -38,12 +40,14 @@
       </Button>
     </div>
 
-    <!-- Author + GitHub on one line, copyright dimmed beneath — low-emphasis signature block -->
-    <div class="flex flex-col items-center justify-center gap-y-1.5 text-xs opacity-70">
+    <!-- Author + GitHub on one line, copyright beneath — low-emphasis signature
+         block. De-emphasised by size (12px) and the muted token, not by
+         opacity: opacity-70 over muted text measured 2.3:1 on the light page. -->
+    <div class="flex flex-col items-center justify-center gap-y-1.5 text-xs">
       <div class="flex items-center justify-center gap-x-2">
         <span>Created by Jason Ng with love</span>
         <JnTooltip :text="t('Tooltips.GithubLink')" side="top">
-          <Button variant="ghost" size="icon" as-child class="size-5 text-foreground/70 hover:text-foreground">
+          <Button variant="ghost" size="icon" as-child class="size-6 text-muted-foreground hover:text-foreground">
             <a :href="t('page.footerLink')" target="_blank" rel="noopener" aria-label="Github"
               @click="trackEvent('Footer', 'FooterClick', 'Github')">
               <Icon icon="ri:github-line" />
@@ -58,19 +62,19 @@
         <span class="flex flex-wrap items-center justify-center gap-x-1.5">
           <span>© 2026</span>
           <a :href="t('page.copyRightLink')" target="_blank" rel="noopener"
-            class="text-foreground/80 hover:text-foreground hover:underline">
+            class="text-foreground/80 underline decoration-foreground/25 underline-offset-4 hover:text-foreground hover:decoration-current">
             {{ t('page.brand') }}
           </a>
           <span aria-hidden="true">·</span>
-          <RouterLink to="/" class="text-foreground/80 hover:text-foreground hover:underline">
+          <RouterLink to="/" class="text-foreground/80 underline decoration-foreground/25 underline-offset-4 hover:text-foreground hover:decoration-current">
             {{ t('page.footerIpLookup') }}
           </RouterLink>
           <span aria-hidden="true">·</span>
-          <RouterLink to="/tools/personacheck" class="text-foreground/80 hover:text-foreground hover:underline">
+          <RouterLink to="/tools/personacheck" class="text-foreground/80 underline decoration-foreground/25 underline-offset-4 hover:text-foreground hover:decoration-current">
             {{ t('page.footerClaudeCheck') }}
           </RouterLink>
           <span aria-hidden="true">·</span>
-          <RouterLink to="/ip" class="text-foreground/80 hover:text-foreground hover:underline">
+          <RouterLink to="/ip" class="text-foreground/80 underline decoration-foreground/25 underline-offset-4 hover:text-foreground hover:decoration-current">
             {{ t('page.footerIpScore') }}
           </RouterLink>
         </span>

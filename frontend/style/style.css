@@ -23,6 +23,32 @@
     border-color: var(--border);
   }
 
+  /* Type rendering: greyscale antialiasing on macOS (the Apple / Vercel /
+     Linear default), so light text on the dark theme stops looking bold. */
+  body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Display headings wrap as balanced lines instead of leaving one orphan
+     word on the last line, and tighten slightly as they grow. */
+  h1, h2, h3 {
+    text-wrap: balance;
+    letter-spacing: -0.01em;
+  }
+  p {
+    text-wrap: pretty;
+  }
+
+  /* Tabular figures wherever a value is a measurement. IP cells (marked
+     data-mask="ip" for InfoMask), tables, code and monospace runs keep every
+     digit the same width, so an address or a latency that updates in place
+     never shifts the row around it. Base layer: `proportional-nums` on an
+     element still wins. */
+  [data-mask="ip"], table, code, kbd, samp, .font-mono, time {
+    font-variant-numeric: tabular-nums;
+  }
+
   /* Always reserve the scrollbar gutter. Without it, moving between a short
      page and a long one shifts every centred column sideways. */
   html {
@@ -65,17 +91,26 @@
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.985 0 0);
   /* Project custom semantic colors (light mode, corresponding to Tailwind *-500 oklch values) */
-  --info: oklch(0.685 0.169 237.323);         /* sky-500 */
+  /* WCAG AA pass (second UI pass): every state hue below clears 4.5:1 as
+     TEXT on --card and --page-bg, and its -foreground clears 4.5:1 on the
+     solid fill. The previous *-500 anchors measured 2.2–3.3:1, so a latency
+     in `text-warning` or a white label on `bg-info` was unreadable for low
+     vision. Hue is unchanged; only lightness moved (≈ Tailwind *-700). */
+  --info: oklch(0.53 0.14 240);               /* ≈ sky-700, 5.2:1 on card */
   --info-foreground: oklch(0.985 0 0);
-  --success: oklch(0.63 0.17 149);      /* green-500 */
+  --success: oklch(0.53 0.15 150);            /* ≈ green-700, 4.9:1 */
   --success-foreground: oklch(0.985 0 0);
-  --warning: oklch(0.769 0.188 70.08);        /* amber-500 */
-  --warning-foreground: oklch(0.145 0 0);
-  --action: oklch(0.623 0.214 259.815);       /* blue-500 —— for "run action" */
+  --warning: oklch(0.56 0.16 55);             /* ≈ amber-700, 4.9:1 */
+  --warning-foreground: oklch(0.985 0 0);
+  --action: oklch(0.546 0.245 262.881);       /* blue-600 —— for "run action", 5.3:1 with white */
   --action-foreground: oklch(0.985 0 0);
   --border: oklch(0.925 0.007 258);
   --input: oklch(0.9 0.009 258);
   --ring: oklch(0.72 0.05 258);
+  /* Keyboard focus indicator. Separate from --ring (the soft input glow) so
+     it can meet WCAG 1.4.11 (≥3:1 against the surface it sits on) without
+     making every focused input loud. */
+  --focus-ring: oklch(0.546 0.245 262.881);
   /* 12px cards, 10px controls (rounded-md), 8px small chips. */
   --radius: 0.75rem;
 
@@ -156,7 +191,8 @@
   --accent: oklch(0.29 0.015 260);
   --accent-foreground: oklch(0.95 0.006 258);
   --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.985 0 0);
+  /* Dark ink on the light red fill: white measured 2.8:1. */
+  --destructive-foreground: oklch(0.145 0 0);
   /* dark mode slightly brightened (corresponding to Tailwind *-400, better readability in dark background) */
   --info: oklch(0.746 0.16 232.661);          /* sky-400 */
   --info-foreground: oklch(0.145 0 0);
@@ -164,11 +200,12 @@
   --success-foreground: oklch(0.145 0 0);
   --warning: oklch(0.828 0.189 84.429);       /* amber-400 */
   --warning-foreground: oklch(0.145 0 0);
-  --action: oklch(0.623 0.214 259.815);       /* blue-500 (same as light mode) */
-  --action-foreground: oklch(0.985 0 0);      /* white text */
+  --action: oklch(0.546 0.245 262.881);       /* blue-600 (same as light mode) */
+  --action-foreground: oklch(0.985 0 0);      /* white text, 5.3:1 */
   --border: oklch(0.85 0.02 258 / 0.12);
   --input: oklch(0.85 0.02 258 / 0.18);
   --ring: oklch(0.6 0.05 258);
+  --focus-ring: oklch(0.72 0.15 255);         /* 7:1 on --card */
   /* Black ink, heavier: a light-theme shadow is invisible against a dark
      surface, and a coloured ink tints the elevation. */
   --shadow-ink: oklch(0 0 0 / 0.35);
@@ -231,6 +268,7 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-focus-ring: var(--focus-ring);
   --color-page-bg: var(--page-bg);
   --shadow-card: var(--shadow-card);
   --shadow-pop: var(--shadow-pop);
@@ -251,6 +289,60 @@
       user-select: text !important;
     }
   }
+
+/* Type scale — one ramp for the whole app (Material 3 / Apple HIG style
+   roles). Each role fixes size, weight, line-height and tracking together so
+   a page title, a section heading, a card title and a caption can never drift
+   into near-duplicates. Steps follow the 4px baseline: 30/24/16/14/12.
+     display  — page <h1>               24→30px, 600
+     title    — section <h2>            20→24px, 600
+     headline — card title              16px,    600
+     body     — running text            14px,    400, 1.6
+     caption  — helper / meta text      12px,    muted
+     overline — card eyebrow (IPV4…)    11px,    600, caps, tracked */
+@utility jn-text-display {
+  font-size: 1.5rem;
+  line-height: 2rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  @media (width >= 48rem) {
+    font-size: 1.875rem;
+    line-height: 2.25rem;
+  }
+}
+@utility jn-text-title {
+  font-size: 1.25rem;
+  line-height: 1.75rem;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  @media (width >= 48rem) {
+    font-size: 1.5rem;
+    line-height: 2rem;
+  }
+}
+@utility jn-text-headline {
+  font-size: 1rem;
+  line-height: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+@utility jn-text-body {
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+@utility jn-text-caption {
+  font-size: 0.75rem;
+  line-height: 1rem;
+  color: var(--muted-foreground);
+}
+@utility jn-text-overline {
+  font-size: 0.6875rem;
+  line-height: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
 
 /* === Base end === */
 
@@ -386,9 +478,10 @@
   padding: 24px 20px;
 }
 
+/* Phone padding on the 4px rhythm (was 14px vertical). */
 @media (max-width: 480px) {
   .jn-container {
-    padding: 14px 12px;
+    padding: 16px 12px;
   }
 }
 
@@ -411,8 +504,57 @@ footer {
   background-color: var(--page-bg);
 }
 
-*:focus {
-  outline: none;
+/* Keyboard focus. A pointer click leaves no outline (the old blanket
+   `*:focus { outline: none }`), but a keyboard visitor now always sees where
+   they are: every focusable element without its own ring gets a 2px
+   --focus-ring outline (≥3:1 on card and page in both themes, WCAG 2.4.7 /
+   1.4.11). In @layer base so a component's own `focus-visible:ring-*` /
+   `outline-none` utility still wins where it draws its own indicator. */
+@layer base {
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+  :focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+
+  /* 44×44 touch targets on coarse pointers (Apple HIG 44pt, Material 48dp,
+     WCAG 2.5.5). The hit area grows through an invisible centred ::after, so
+     a 32px icon button keeps its look and its place in the row while the
+     finger gets the full 44px. Base layer: a `absolute`/`fixed` utility on a
+     button still beats this `relative`. */
+  @media (pointer: coarse) {
+    [data-slot="button"],
+    .jn-hit {
+      position: relative;
+    }
+    [data-slot="button"]::after,
+    .jn-hit::after {
+      content: '';
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: max(100%, 44px);
+      height: max(100%, 44px);
+      transform: translate(-50%, -50%);
+    }
+  }
+}
+
+/* Reduced motion (Apple HIG Motion, WCAG 2.3.3). Every animation and
+   transition in the app collapses to an instant change — shimmer, spin,
+   card lift, drawer slide — instead of each component opting out alone.
+   Unlayered + !important so it outranks utilities like `animate-spin`. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 .speedtest-p {
