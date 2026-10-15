@@ -4,7 +4,6 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { slowDown } from 'express-slow-down'
-import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import pinoHttp from 'pino-http';
 import logger from './common/logger.js';
 import { requireReferer, requirePublicIP, requireValidPrefix, requireValidASN, requireValidDomain, requireValidProviderId,
@@ -66,7 +65,10 @@ import { runOfflineBootstrap, requireOfflineData, isOfflineBootstrapping } from 
 import { cacheable, noStore } from './common/cache-control.js';
 import { initUpstreamUserAgent } from './common/upstream-ua.js';
 import { apiNotFound, jsonErrorHandler } from './common/error-handler.js';
-import { resolveClientIp, trustProxySetting } from './common/client-ip.js';
+import { trustProxySetting } from './common/client-ip.js';
+import { backendHost, hostPort } from './common/backend-host.js';
+import { exitOnBootFailure } from './common/boot-failure.js';
+import { limiter, perMinute, clientKey, getClientIp } from './common/route-limiter.js';
 import { securityHeaders } from './common/security-headers.js';
 
 dotenv.config({ quiet: true });
@@ -81,6 +83,8 @@ app.use(securityHeaders);
 // caching declare it explicitly via `cacheable(maxAge)` (common/cache-control.js).
 app.use('/api', noStore);
 const backEndPort = parseInt(process.env.BACKEND_PORT || 11966, 10);
+// Loopback unless BACKEND_HOST widens it — see common/backend-host.js.
+const backEndHost = backendHost(process.env.BACKEND_HOST);
 // Local rate-limit ledger file — opt-in: empty means no file is written.
 // The logger.warn in the limiter handler always fires regardless (and flows
 // to Sentry Logs when a backend DSN is configured), so the file only adds a
@@ -117,16 +121,8 @@ if (process.env.LOG_HTTP === 'true') {
     logger.info('📝 HTTP request logging enabled (LOG_HTTP=true)');
 }
 
-// One resolved address per request for every limiter, the ledger and the
-// upstream headers (common/client-ip.js). IPv6 clients are keyed by their /56,
-// as express-rate-limit recommends, so one host cannot rotate through its own
-// prefix to reset a budget.
-const getClientIp = (req) => resolveClientIp(req) || 'unknown';
-const clientKey = (req) => ipKeyGenerator(getClientIp(req));
-
-// Every limiter keys on `clientKey`, so the route limiters, the global one and
-// the ledger always agree on who the client is.
-const limiter = (options) => rateLimit({ keyGenerator: clientKey, ...options });
+// Every limiter, the slow-down, the ledger and the upstream headers key on one
+// resolved address per request (common/route-limiter.js → common/client-ip.js).
 
 // Host-local time with an explicit UTC offset ("2026-07-14 10:23:45 +0800"),
 // matching the pretty-log timestamp style — ledger entries stay unambiguous
@@ -259,18 +255,34 @@ const SEVEN_DAYS_CACHE = 7 * 24 * 60 * 60;
 const THIRTY_DAYS_CACHE = 30 * 24 * 60 * 60;
 const ONE_YEAR_CACHE = 365 * 24 * 60 * 60;
 
+// Per-route budgets. The global limiter is opt-in (SECURITY_RATE_LIMIT), so any
+// route that spends a vendor key, a third party's fair-use allowance, KV writes
+// or a fan-out carries its own `perMinute(n)` budget, mounted after its
+// validation guard and before `cacheable` so a 429 stays no-store. Each call is
+// an independent bucket. An edge-cached 200 never reaches here — the limiters
+// bound what the origin spends, not what visitors see.
+//   - keyed geolocation vendors (ipinfo, ipapi.com, ip.sb, ipapi.is,
+//     ip2location, IPCheck.ing): VENDOR_LOOKUP_MAX each — one IP page asks each
+//     once, so a person never comes near it
+//   - whois, OONI, Cloudflare Radar: 20 — public fair-use APIs
+//   - asn-profile: 10 — Radar plus five sources per request, like the dossier
+//   - Google Static Maps: 30 — every lat/lon pair is a billed image
+//   - shared reports: 30 reads, 5 writes (each a Cloudflare KV write)
+//   - persona / split: 10 — per-visitor computations a person reruns by hand
+const VENDOR_LOOKUP_MAX = 30;
+
 // Cacheable routes — TTLs picked against each upstream's natural refresh cadence.
 // Short Cache
 app.get('/api/service-status', needsServiceStatus, cacheable(FIVE_MIN_CACHE), serviceStatusHandler);
 app.get('/api/service-status/detail', requireValidProviderId(), needsServiceStatus, cacheable(FIVE_MIN_CACHE), serviceStatusDetailHandler);
 // Cache for 1 day
-app.get('/api/ipinfo', requirePublicIP(), withTimeZone(), cacheable(ONE_DAY_CACHE), ipinfoHandler);
-app.get('/api/ipapicom', requirePublicIP(), withTimeZone(), cacheable(ONE_DAY_CACHE), ipapicomHandler);
-app.get('/api/ipsb', requirePublicIP(), withTimeZone(), cacheable(ONE_DAY_CACHE), ipsbHandler);
-app.get('/api/ipapiis', requirePublicIP(), withTimeZone(), cacheable(ONE_DAY_CACHE), ipapiisHandler);
-app.get('/api/ip2location', requirePublicIP(), withTimeZone(), cacheable(ONE_DAY_CACHE), ip2locationHandler);
+app.get('/api/ipinfo', requirePublicIP(), perMinute(VENDOR_LOOKUP_MAX), withTimeZone(), cacheable(ONE_DAY_CACHE), ipinfoHandler);
+app.get('/api/ipapicom', requirePublicIP(), perMinute(VENDOR_LOOKUP_MAX), withTimeZone(), cacheable(ONE_DAY_CACHE), ipapicomHandler);
+app.get('/api/ipsb', requirePublicIP(), perMinute(VENDOR_LOOKUP_MAX), withTimeZone(), cacheable(ONE_DAY_CACHE), ipsbHandler);
+app.get('/api/ipapiis', requirePublicIP(), perMinute(VENDOR_LOOKUP_MAX), withTimeZone(), cacheable(ONE_DAY_CACHE), ipapiisHandler);
+app.get('/api/ip2location', requirePublicIP(), perMinute(VENDOR_LOOKUP_MAX), withTimeZone(), cacheable(ONE_DAY_CACHE), ip2locationHandler);
 app.get('/api/maxmind', requirePublicIP(), needsMaxMind, withTimeZone(), cacheable(ONE_DAY_CACHE), maxmindHandler);
-app.get('/api/whois', normalizeAsnQuery(), cacheable(ONE_DAY_CACHE), getWhois);
+app.get('/api/whois', normalizeAsnQuery(), perMinute(20), cacheable(ONE_DAY_CACHE), getWhois);
 app.get('/api/github-stars', cacheable(ONE_DAY_CACHE), githubStarsHandler);
 // Feature flags derived from env vars — they only change on a redeploy, so
 // an hour of caching is safe.
@@ -278,7 +290,7 @@ app.get('/api/configs', cacheable(ONE_HOUR_CACHE), validateConfigs);
 // OONI aggregates cover a 30-day window aligned to UTC days — the payload
 // only drifts as new measurements land, so 1 day of edge cache keeps us polite
 // to OONI's free API without the view going meaningfully stale.
-app.get('/api/ooni-blocking', requireValidDomain(), cacheable(ONE_DAY_CACHE), ooniBlockingHandler);
+app.get('/api/ooni-blocking', requireValidDomain(), perMinute(20), cacheable(ONE_DAY_CACHE), ooniBlockingHandler);
 // Which countries have online Globalping probes — coverage changes slowly,
 // and the pickers fail open anyway, so a week of edge cache is fine.
 app.get('/api/globalping-probes', cacheable(SEVEN_DAYS_CACHE), globalpingProbesHandler);
@@ -289,7 +301,7 @@ app.get('/api/globalping-probes', cacheable(SEVEN_DAYS_CACHE), globalpingProbesH
 // Not boot-gated: a section whose local data is still downloading answers
 // 'error' on its own (api/asn-profile.js), and nothing degraded is cached
 // during that window.
-app.get('/api/asn-profile', requireValidASN(), cacheable(SEVEN_DAYS_CACHE, {
+app.get('/api/asn-profile', requireValidASN(), perMinute(10), cacheable(SEVEN_DAYS_CACHE, {
     cacheIf: isCompleteProfile,
     degradedMaxAge: () => (isOfflineBootstrapping() ? 0 : ONE_DAY_CACHE),
 }), asnProfileHandler);
@@ -300,7 +312,7 @@ app.get('/api/asn-profile', requireValidASN(), cacheable(SEVEN_DAYS_CACHE, {
 // calls failed, or prefix countries MaxMind couldn't fully work out) is
 // served but not cached.
 // Own-key lookup: ?view=constructor / __proto__ must not reach Object.prototype.
-app.get('/api/cfradar', cacheable((req) => (Object.hasOwn(RADAR_VIEWS, String(req.query.view)) ? RADAR_VIEWS[req.query.view].ttl : undefined), { cacheIf: isCompleteRadarAnswer }), cfRadarHandler);
+app.get('/api/cfradar', perMinute(20), cacheable((req) => (Object.hasOwn(RADAR_VIEWS, String(req.query.view)) ? RADAR_VIEWS[req.query.view].ttl : undefined), { cacheIf: isCompleteRadarAnswer }), cfRadarHandler);
 // Cache for 30 days — registry / historical data that changes on a monthly
 // (or slower) cadence: IEEE OUI assignments, ASN metadata, ASN interconnection,
 // and append-only BGP routing history.
@@ -364,9 +376,9 @@ const ipCardLimiter = limiter({
 });
 app.get('/api/ip-card', requirePublicIP(), ipCardLimiter, cacheable(24 * 60 * 60), ipCardHandler);
 // Long Cache
-app.get('/api/map', cacheable(ONE_YEAR_CACHE), mapHandler);
+app.get('/api/map', perMinute(30), cacheable(ONE_YEAR_CACHE), mapHandler);
 // Non-cacheable routes — auth-context, debug tools, or per-request lookups.
-app.get('/api/ipchecking', requirePublicIP(), withTimeZone(), ipCheckingHandler);
+app.get('/api/ipchecking', requirePublicIP(), perMinute(VENDOR_LOOKUP_MAX), withTimeZone(), ipCheckingHandler);
 // One lookup fans out to 24 resolvers (18 UDP + 6 DoH), so it gets its own
 // per-IP budget like the other fan-out routes; the global limiter is opt-in.
 const dnsResolverLimiter = limiter({
@@ -381,14 +393,14 @@ app.get('/api/getuserinfo', getUserinfo);
 app.put('/api/updateuserachievement', updateUserAchievement);
 // Shared reports stay no-store: an edge cache could serve a report past its
 // KV expiry, and private diagnostic data doesn't belong in a public cache.
-app.get('/api/report/:id', requireValidReportId(), getReportHandler);
-app.post('/api/report', createReportHandler);
+app.get('/api/report/:id', requireValidReportId(), perMinute(30), getReportHandler);
+app.post('/api/report', perMinute(5), createReportHandler);
 // One observation in, one graded report out — per-visitor by definition.
-app.post('/api/persona/evaluate', personaEvaluateHandler);
+app.post('/api/persona/evaluate', perMinute(10), personaEvaluateHandler);
 // One set of profile signals in, one routing work order out. Per-visitor, never
 // cached, and the only route whose *answer* is a secret from its own client — see
 // api/split.js for why the scoring lives on this side of the wire.
-app.post('/api/split', requireSplitSignals(), splitHandler);
+app.post('/api/split', requireSplitSignals(), perMinute(10), splitHandler);
 
 // Sentry tunnel — first-party relay for the frontend SDK's envelopes
 // Mounted only when this deployment actually built the frontend with a DSN.
@@ -440,9 +452,12 @@ const bootBackend = async () => {
         await reloadMaxMindDatabases('startup').catch(() => {});
     }
 
-    app.listen(backEndPort, () => {
-        logger.info(`🚀 Backend server ready on http://localhost:${backEndPort}`);
+    // Awaited, so a port in use or an address this host does not have
+    // rejects the boot instead of throwing from inside the listen callback.
+    await new Promise((resolve, reject) => {
+        app.listen(backEndPort, backEndHost, (err) => (err ? reject(err) : resolve()));
     });
+    logger.info(`🚀 Backend server ready on http://${hostPort(backEndHost, backEndPort)}`);
 
     // Watching from before the downloads: a dataset another process
     // publishes (or someone places by hand) while a boot step is still
@@ -465,4 +480,8 @@ const bootBackend = async () => {
     startServiceStatusPolling();
 };
 
-bootBackend();
+// A boot step that throws leaves no half-started server behind: one ❌ line
+// and exit code 1, which pm2 and Docker's restart policy act on. The steps
+// that can fail on bad data or config (downloads, DATASET_UPDATE_CRON)
+// degrade inside their own step instead of reaching this.
+bootBackend().catch(exitOnBootFailure);

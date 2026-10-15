@@ -6,6 +6,11 @@
 // limiter, the ledger and its upstream headers on the address written here.
 // Behind Cloudflare that peer is Cloudflare's edge, and the backend reads
 // CF-Connecting-IP instead when TRUST_CF_CONNECTING_IP=1.
+//
+// The target is 127.0.0.1, where the backend listens by default
+// (common/backend-host.js); `localhost` can resolve to ::1 first.
+
+import { DEFAULT_BACKEND_HOST } from './backend-host.js';
 
 // `::ffff:203.0.113.9` is a dual-stack socket's spelling of an IPv4 peer.
 export const peerAddress = (req) => {
@@ -20,7 +25,7 @@ export const peerAddress = (req) => {
  * @returns {object}
  */
 export const apiProxyOptions = (backEndPort) => ({
-    target: `http://localhost:${backEndPort}/api`,
+    target: `http://${DEFAULT_BACKEND_HOST}:${backEndPort}/api`,
     changeOrigin: true,
     on: {
         proxyReq: (proxyReq, req) => {

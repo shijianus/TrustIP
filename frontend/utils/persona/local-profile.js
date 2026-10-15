@@ -27,9 +27,12 @@ const primaryLanguageOf = (country) => {
 
 // Uninhabited territories (BV, HM) legitimately have no zone — an empty list
 // is data, not an error, and the tool renders it as "nothing to pick".
+// `getTimeZones()` is the standard accessor; engines that shipped the earlier
+// proposal expose the same list as the `timeZones` getter instead.
 const timeZonesOf = (country) => {
     try {
-        return (new Intl.Locale(`und-${country}`).getTimeZones() || []).slice().sort();
+        const loc = new Intl.Locale(`und-${country}`);
+        return ((loc.getTimeZones?.() ?? loc.timeZones) || []).slice().sort();
     } catch {
         return [];
     }
