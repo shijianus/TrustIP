@@ -232,6 +232,8 @@ const acknowledgementsList = [
   { name: 'DigitalOcean', link: 'https://www.digitalocean.com/?refcode=fd2634a3981b&utm_campaign=Referral_Invite&utm_medium=Referral_Program&utm_source=badge' },
   { name: 'V.PS', link: 'https://v.ps/?utm_source=ipcheck.ing&utm_medium=acknowledgement&utm_campaign=footer' },
   { name: 'RapidProxy', link: 'https://www.rapidproxy.io/?ref=myip' },
+  { name: 'SwiftProxy', link: 'https://www.swiftproxy.net/?ref=myip' },
+  { name: 'Proxy-Seller', link: 'https://proxy-seller.com/?partner=4FEC1644D12240F4' },
   { name: 'Sentry', link: 'https://www.sentry.io/' },
   { name: '1Password', link: 'https://www.1password.com/' },
   { name: 'Greptile', link: 'https://www.greptile.com/' },
