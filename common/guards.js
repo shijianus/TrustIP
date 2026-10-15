@@ -11,6 +11,22 @@ import { STATUS_PROVIDER_IDS } from './service-status-providers.js';
 import { DNS_RECORD_TYPE_SET } from './dns-record-types.js';
 import { parseAsnInput } from './asn-input.js';
 
+// Write a canonical value back for the handlers behind a guard. Express 5
+// makes `req.query` a getter that re-parses the URL on every read, so
+// `req.query[k] = v` is silently lost and the handler sees the raw input
+// (`AS13335` reaching `Number()` as NaN). An own `query` property on the
+// request shadows the getter, so every later reader — handlers, the cache
+// key, the cf-radar dispatcher's `view.fetch(req.query)` — sees the
+// canonical value.
+export const setQueryParam = (req, name, value) => {
+    Object.defineProperty(req, 'query', {
+        value: { ...req.query, [name]: value },
+        configurable: true,
+        enumerable: true,
+        writable: true,
+    });
+};
+
 // Reject requests without an allowed referer. The error message variant
 // preserves the existing user-facing wording.
 export const requireReferer = (req, res, next) => {
@@ -45,7 +61,7 @@ export const requirePublicIP = (paramName = 'ip') => (req, res, next) => {
 };
 
 // Reject requests without a syntactically valid domain in the specified
-// query param. Lowercases the value in place so handlers and the edge cache
+// query param. Lowercases the value (setQueryParam) so handlers and the edge cache
 // see one canonical form (domains are case-insensitive; a mixed-case query
 // must not become a distinct CF cache entry).
 export const requireValidDomain = (paramName = 'domain') => (req, res, next) => {
@@ -57,7 +73,7 @@ export const requireValidDomain = (paramName = 'domain') => (req, res, next) => 
     if (!isValidDomain(domain)) {
         return res.status(400).json({ error: 'Invalid domain' });
     }
-    req.query[paramName] = domain;
+    setQueryParam(req, paramName, domain);
     next();
 };
 
@@ -77,7 +93,7 @@ export const requireValidPrefix = (paramName = 'prefix') => (req, res, next) => 
 
 // Reject requests without a valid ASN (AS1 … AS4294967295, up to ten
 // digits, optional 'AS' prefix — parseAsnInput in common/asn-input.js) and
-// rewrite it in place to the canonical number string (`AS013335` → `13335`),
+// rewrite it (setQueryParam) to the canonical number string (`AS013335` → `13335`),
 // so the edge cache sees one key. Used by /api/asn-connectivity,
 // /api/asn-profile and, per-view, the /api/cfradar dispatcher.
 export const requireValidASN = (paramName = 'asn') => (req, res, next) => {
@@ -89,12 +105,12 @@ export const requireValidASN = (paramName = 'asn') => (req, res, next) => {
     if (asn === null) {
         return res.status(400).json({ error: 'Invalid ASN' });
     }
-    req.query[paramName] = String(asn);
+    setQueryParam(req, paramName, String(asn));
     next();
 };
 
 // Canonicalize an ASN-shaped value (`AS13335`, `as13335` — the `AS` prefix
-// is required) to `AS<n>` in place, rejecting AS0 and anything past 32 bits.
+// is required) to `AS<n>` (setQueryParam), rejecting AS0 and anything past 32 bits.
 // Any other value, a bare number included, passes through untouched —
 // /api/whois also takes IPs and domains, which its handler validates.
 export const normalizeAsnQuery = (paramName = 'q') => (req, res, next) => {
@@ -104,11 +120,11 @@ export const normalizeAsnQuery = (paramName = 'q') => (req, res, next) => {
     if (asn === null) {
         return res.status(400).json({ error: 'Invalid ASN' });
     }
-    req.query[paramName] = `AS${asn}`;
+    setQueryParam(req, paramName, `AS${asn}`);
     next();
 };
 
-// Reject requests without a two-letter country code; uppercases in place so
+// Reject requests without a two-letter country code; uppercases it (setQueryParam) so
 // the edge cache sees one canonical key. Syntactic only — an unassigned code
 // just yields an empty upstream series.
 export const requireValidCountry = (paramName = 'country') => (req, res, next) => {
@@ -119,7 +135,7 @@ export const requireValidCountry = (paramName = 'country') => (req, res, next) =
     if (!/^[A-Za-z]{2}$/.test(raw)) {
         return res.status(400).json({ error: 'Invalid country' });
     }
-    req.query[paramName] = String(raw).toUpperCase();
+    setQueryParam(req, paramName, String(raw).toUpperCase());
     next();
 };
 
@@ -145,7 +161,7 @@ export const requireValidRecordType = (paramName = 'type') => (req, res, next) =
     if (!DNS_RECORD_TYPE_SET.has(String(type).toUpperCase())) {
         return res.status(400).json({ error: 'Invalid record type' });
     }
-    req.query[paramName] = String(type).toUpperCase();
+    setQueryParam(req, paramName, String(type).toUpperCase());
     next();
 };
 

@@ -127,15 +127,17 @@ upstream.
 
 `common/guards.js`, attached in `backend-server.js`. Handlers never repeat these
 checks, and a new param shape means a new guard here — never open-coded in the
-handler:
+handler. A guard hands its canonical value on through `setQueryParam(req, name, value)`,
+never `req.query[name] = value`: Express 5 re-parses `req.query` on every read, so
+a plain write is lost (`tests/guards-express5.test.js` pins this through a real app):
 
 - `requireReferer` — global on `/api/*` (ALLOWED_DOMAINS + localhost).
 - `requirePublicIP()` — per-route for `?ip=`: reserved space (RFC 1918, loopback, CGNAT, link-local, documentation …) is rejected here, so no geo source is ever asked about an address it can't answer for. `isUsablePublicIP` in `common/valid-ip.js` is the single definition, shared with the front-end IP forms.
-- `requireValidDomain()` — `?domain=`, lowercased in place for one canonical edge-cache key. Leading underscores are allowed on any label but the TLD, so RFC 8552 service names (`_dmarc.…`, `_domainkey.…`) stay reachable for DMARC / DKIM lookups.
+- `requireValidDomain()` — `?domain=`, lowercased (`setQueryParam`) for one canonical edge-cache key. Leading underscores are allowed on any label but the TLD, so RFC 8552 service names (`_dmarc.…`, `_domainkey.…`) stay reachable for DMARC / DKIM lookups.
 - `requireValidPrefix()` — `?prefix=` (CIDR); the frontend quantizes to the BGP DFZ floor (/24 v4, /48 v6) for maximal CF edge-cache reuse.
 - `requireValidASN()` — `?asn=` in AS1…AS4294967295, rewritten as bare digits.
 - `normalizeAsnQuery()` — `/api/whois` `?q=`: `AS<n>` (prefix required) is canonicalized to `AS<n>` (400 on AS0 / past 32 bits); anything else, a bare number included, passes through to the handler. Both use `common/asn-input.js`.
-- `requireValidCountry()` — `?country=` (alpha-2), uppercased in place. Syntactic only — an unassigned code just yields an empty upstream series.
+- `requireValidCountry()` — `?country=` (alpha-2), uppercased. Syntactic only — an unassigned code just yields an empty upstream series.
 - `requireValidProviderId()` / `requireValidReportId()` — whitelist `?id=` against service-status slugs, and the `/api/report/:id` param (22-char base64url).
 - `requireValidRecordType()` — whitelists `?type=` against `DNS_RECORD_TYPES` (`common/dns-record-types.js`) and uppercases it. That list is the single source the DnsResolver picker and the `resolveDns` switch also read; without the guard the DoH branch forwards any string verbatim to four third-party endpoints.
 
