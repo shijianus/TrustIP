@@ -2,10 +2,15 @@
 // imports this module, so process.env.ALLOWED_DOMAINS is already populated.
 // Avoid the duplicate call to keep this a pure, fast function.
 
+// A local deployment is opened as http://localhost:18966, http://127.0.0.1:18966
+// or http://[::1]:18966 alike (.env.example promises all of them work with
+// ALLOWED_DOMAINS empty); `URL.hostname` keeps the IPv6 brackets.
+const LOOPBACK_HOSTS = ['localhost', '127.0.0.1', '[::1]'];
+
 function refererCheck(referer) {
     // filter(Boolean): ''.split(',') is [''], and an empty entry would match the
     // empty hostname of file:, data: and javascript: referers.
-    const allowedDomains = ['localhost', ...(process.env.ALLOWED_DOMAINS || '').split(',').filter(Boolean)];
+    const allowedDomains = [...LOOPBACK_HOSTS, ...(process.env.ALLOWED_DOMAINS || '').split(',').filter(Boolean)];
 
     if (referer) {
         // Scanners send garbage Referer headers; a parse failure means

@@ -135,7 +135,7 @@ handler. A guard hands its canonical value on through `setQueryParam(req, name, 
 never `req.query[name] = value`: Express 5 re-parses `req.query` on every read, so
 a plain write is lost (`tests/guards-express5.test.js` pins this through a real app):
 
-- `requireReferer` — global on `/api/*` (ALLOWED_DOMAINS + localhost).
+- `requireReferer` — global on `/api/*` (ALLOWED_DOMAINS + localhost, 127.0.0.1, [::1]).
 - `requirePublicIP()` — per-route for `?ip=`: reserved space (RFC 1918, loopback, CGNAT, link-local, documentation …) is rejected here, so no geo source is ever asked about an address it can't answer for. `isUsablePublicIP` in `common/valid-ip.js` is the single definition, shared with the front-end IP forms.
 - `requireValidDomain()` — `?domain=`, lowercased (`setQueryParam`) for one canonical edge-cache key. Leading underscores are allowed on any label but the TLD, so RFC 8552 service names (`_dmarc.…`, `_domainkey.…`) stay reachable for DMARC / DKIM lookups.
 - `requireValidPrefix()` — `?prefix=` (CIDR); the frontend quantizes to the BGP DFZ floor (/24 v4, /48 v6) for maximal CF edge-cache reuse.

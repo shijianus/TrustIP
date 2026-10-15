@@ -29,6 +29,16 @@ describe('refererCheck — base cases', () => {
     assert.equal(refererCheck('http://localhost:5173/tools'), true);
     assert.equal(refererCheck('https://localhost:443/'), true);
   });
+
+  it('always whitelists the loopback addresses a local deployment is opened at', () => {
+    delete process.env.ALLOWED_DOMAINS;
+    assert.equal(refererCheck('http://127.0.0.1:18966/'), true);
+    assert.equal(refererCheck('http://[::1]:18966/tools'), true);
+    // Only the exact loopback spellings: other addresses and look-alike names stay out.
+    assert.equal(refererCheck('http://127.0.0.2:18966/'), false);
+    assert.equal(refererCheck('http://127.0.0.1.nip.io/'), false);
+    assert.equal(refererCheck('http://localhost.evil.example/'), false);
+  });
 });
 
 describe('refererCheck — ALLOWED_DOMAINS parsing', () => {
