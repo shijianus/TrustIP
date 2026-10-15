@@ -423,8 +423,57 @@ footer {
   background-color: var(--page-bg);
 }
 
-*:focus {
-  outline: none;
+/* Keyboard focus. A pointer click leaves no outline (the old blanket
+   `*:focus { outline: none }`), but a keyboard visitor now always sees where
+   they are: every focusable element without its own ring gets a 2px
+   --focus-ring outline (≥3:1 on card and page in both themes, WCAG 2.4.7 /
+   1.4.11). In @layer base so a component's own `focus-visible:ring-*` /
+   `outline-none` utility still wins where it draws its own indicator. */
+@layer base {
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+  :focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+
+  /* 44×44 touch targets on coarse pointers (Apple HIG 44pt, Material 48dp,
+     WCAG 2.5.5). The hit area grows through an invisible centred ::after, so
+     a 32px icon button keeps its look and its place in the row while the
+     finger gets the full 44px. Base layer: a `absolute`/`fixed` utility on a
+     button still beats this `relative`. */
+  @media (pointer: coarse) {
+    [data-slot="button"],
+    .jn-hit {
+      position: relative;
+    }
+    [data-slot="button"]::after,
+    .jn-hit::after {
+      content: '';
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: max(100%, 44px);
+      height: max(100%, 44px);
+      transform: translate(-50%, -50%);
+    }
+  }
+}
+
+/* Reduced motion (Apple HIG Motion, WCAG 2.3.3). Every animation and
+   transition in the app collapses to an instant change — shimmer, spin,
+   card lift, drawer slide — instead of each component opting out alone.
+   Unlayered + !important so it outranks utilities like `animate-spin`. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 .speedtest-p {
