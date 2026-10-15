@@ -1,8 +1,11 @@
 // /api/github-stars — stargazer count for this repo, fetched from GitHub's
 // public REST API without a token (`stargazers_count` is available
-// unauthenticated). Edge-cached for a day (see backend-server.js), so behind
-// Cloudflare the origin hits GitHub at most once per cache window — well under
-// the 60 req/hour unauthenticated limit.
+// unauthenticated). The edge caches a day of it (see backend-server.js), but a
+// self-hosted deployment has no edge and a query string is a new cache key, so
+// the answer is also held in process: GitHub is asked at most once per
+// ANSWER_TTL_MS (FAILURE_TTL_MS after a failure), whatever the request says —
+// far under the 60 req/hour unauthenticated limit the badge shares with every
+// other unauthenticated call from this host.
 import { fetchUpstream } from '../common/fetch-with-timeout.js';
 import logger from '../common/logger.js';
 
@@ -10,13 +13,21 @@ import logger from '../common/logger.js';
 // brand would credit the wrong project.
 const REPO = 'shijianus/TrustIP';
 
-export default async (req, res) => {
-    // Defensive; app.get() in backend-server.js already gates method, but a
-    // dedicated smoke test asserts this branch directly against the handler.
-    if (req.method !== 'GET') {
-        return res.status(405).json({ message: 'Method Not Allowed' });
-    }
+const ANSWER_TTL_MS = 60 * 60 * 1000;
+const FAILURE_TTL_MS = 5 * 60 * 1000;
 
+// { status, body, expiresAt } of the last GitHub round trip, and the round trip
+// in flight, so concurrent misses share one call.
+let held = null;
+let inFlight = null;
+
+// Test hook: forget the held answer.
+export const resetGithubStarsCache = () => {
+    held = null;
+    inFlight = null;
+};
+
+const askGithub = async () => {
     try {
         const apiRes = await fetchUpstream(`https://api.github.com/repos/${REPO}`, {
             headers: {
@@ -32,16 +43,33 @@ export default async (req, res) => {
         // logs without becoming an alertable error.
         if (apiRes.status === 404) {
             logger.warn({ repo: REPO }, 'github-stars: repository not public yet, hiding the badge');
-            return res.json({ stars: null });
+            return { status: 200, body: { stars: null }, ttl: ANSWER_TTL_MS };
         }
 
         if (!apiRes.ok) {
             throw new Error(`GitHub API responded ${apiRes.status}`);
         }
         const data = await apiRes.json();
-        res.json({ stars: data.stargazers_count ?? 0 });
+        return { status: 200, body: { stars: data.stargazers_count ?? 0 }, ttl: ANSWER_TTL_MS };
     } catch (error) {
         logger.error({ err: error }, 'github-stars handler failed');
-        res.status(500).json({ error: 'Failed to fetch GitHub stars' });
+        return { status: 500, body: { error: 'Failed to fetch GitHub stars' }, ttl: FAILURE_TTL_MS };
     }
+};
+
+export default async (req, res) => {
+    // Defensive; app.get() in backend-server.js already gates method, but a
+    // dedicated smoke test asserts this branch directly against the handler.
+    if (req.method !== 'GET') {
+        return res.status(405).json({ message: 'Method Not Allowed' });
+    }
+
+    if (!held || held.expiresAt <= Date.now()) {
+        inFlight ||= askGithub().then(({ status, body, ttl }) => {
+            held = { status, body, expiresAt: Date.now() + ttl };
+            inFlight = null;
+        });
+        await inFlight;
+    }
+    return res.status(held.status).json(held.body);
 };

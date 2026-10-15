@@ -23,7 +23,7 @@ import { cacheable } from '../common/cache-control.js';
 import cfRadarHandler from '../api/cf-radar.js';
 import invisibilityHandler from '../api/invisibility-test.js';
 import macCheckerHandler, { createMacChecker } from '../api/mac-checker.js';
-import githubStarsHandler from '../api/github-stars.js';
+import githubStarsHandler, { resetGithubStarsCache } from '../api/github-stars.js';
 import personaEvaluateHandler from '../api/persona.js';
 import splitHandler from '../api/split.js';
 import asnProfileHandler, { peeringdbReadiness, connectivityReadiness } from '../api/asn-profile.js';
@@ -545,6 +545,46 @@ describe('github-stars handler', () => {
         await githubStarsHandler(createRequest({ method: 'POST' }), res);
         assert.equal(res.statusCode, 405);
         assert.deepEqual(res.body, { message: 'Method Not Allowed' });
+    });
+
+    it('asks GitHub once per hour however the query string varies', async () => {
+        resetGithubStarsCache();
+        let calls = 0;
+        globalThis.fetch = async () => {
+            calls += 1;
+            return { status: 200, ok: true, json: async () => ({ stargazers_count: 42 }) };
+        };
+        for (let i = 0; i < 5; i += 1) {
+            const res = createResponse();
+            await githubStarsHandler(createRequest({ method: 'GET', query: { n: String(i) } }), res);
+            assert.equal(res.statusCode, 200);
+            assert.deepEqual(res.body, { stars: 42 });
+        }
+        assert.equal(calls, 1);
+        resetGithubStarsCache();
+    });
+
+    it('concurrent misses share one GitHub call, and a failure is held briefly too', async () => {
+        resetGithubStarsCache();
+        let calls = 0;
+        globalThis.fetch = async () => {
+            calls += 1;
+            return { status: 403, ok: false, json: async () => ({}) };
+        };
+        const answers = await Promise.all([0, 1, 2].map(async () => {
+            const res = createResponse();
+            await githubStarsHandler(createRequest({ method: 'GET' }), res);
+            return res;
+        }));
+        for (const res of answers) {
+            assert.equal(res.statusCode, 500);
+            assert.deepEqual(res.body, { error: 'Failed to fetch GitHub stars' });
+        }
+        const again = createResponse();
+        await githubStarsHandler(createRequest({ method: 'GET' }), again);
+        assert.equal(again.statusCode, 500);
+        assert.equal(calls, 1);
+        resetGithubStarsCache();
     });
 });
 
