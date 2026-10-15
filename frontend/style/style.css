@@ -65,17 +65,26 @@
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.985 0 0);
   /* Project custom semantic colors (light mode, corresponding to Tailwind *-500 oklch values) */
-  --info: oklch(0.685 0.169 237.323);         /* sky-500 */
+  /* WCAG AA pass (second UI pass): every state hue below clears 4.5:1 as
+     TEXT on --card and --page-bg, and its -foreground clears 4.5:1 on the
+     solid fill. The previous *-500 anchors measured 2.2–3.3:1, so a latency
+     in `text-warning` or a white label on `bg-info` was unreadable for low
+     vision. Hue is unchanged; only lightness moved (≈ Tailwind *-700). */
+  --info: oklch(0.53 0.14 240);               /* ≈ sky-700, 5.2:1 on card */
   --info-foreground: oklch(0.985 0 0);
-  --success: oklch(0.63 0.17 149);      /* green-500 */
+  --success: oklch(0.53 0.15 150);            /* ≈ green-700, 4.9:1 */
   --success-foreground: oklch(0.985 0 0);
-  --warning: oklch(0.769 0.188 70.08);        /* amber-500 */
-  --warning-foreground: oklch(0.145 0 0);
-  --action: oklch(0.623 0.214 259.815);       /* blue-500 —— for "run action" */
+  --warning: oklch(0.56 0.16 55);             /* ≈ amber-700, 4.9:1 */
+  --warning-foreground: oklch(0.985 0 0);
+  --action: oklch(0.546 0.245 262.881);       /* blue-600 —— for "run action", 5.3:1 with white */
   --action-foreground: oklch(0.985 0 0);
   --border: oklch(0.925 0.007 258);
   --input: oklch(0.9 0.009 258);
   --ring: oklch(0.72 0.05 258);
+  /* Keyboard focus indicator. Separate from --ring (the soft input glow) so
+     it can meet WCAG 1.4.11 (≥3:1 against the surface it sits on) without
+     making every focused input loud. */
+  --focus-ring: oklch(0.546 0.245 262.881);
   /* 12px cards, 10px controls (rounded-md), 8px small chips. */
   --radius: 0.75rem;
 
@@ -156,7 +165,8 @@
   --accent: oklch(0.29 0.015 260);
   --accent-foreground: oklch(0.95 0.006 258);
   --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.985 0 0);
+  /* Dark ink on the light red fill: white measured 2.8:1. */
+  --destructive-foreground: oklch(0.145 0 0);
   /* dark mode slightly brightened (corresponding to Tailwind *-400, better readability in dark background) */
   --info: oklch(0.746 0.16 232.661);          /* sky-400 */
   --info-foreground: oklch(0.145 0 0);
@@ -164,11 +174,12 @@
   --success-foreground: oklch(0.145 0 0);
   --warning: oklch(0.828 0.189 84.429);       /* amber-400 */
   --warning-foreground: oklch(0.145 0 0);
-  --action: oklch(0.623 0.214 259.815);       /* blue-500 (same as light mode) */
-  --action-foreground: oklch(0.985 0 0);      /* white text */
+  --action: oklch(0.546 0.245 262.881);       /* blue-600 (same as light mode) */
+  --action-foreground: oklch(0.985 0 0);      /* white text, 5.3:1 */
   --border: oklch(0.85 0.02 258 / 0.12);
   --input: oklch(0.85 0.02 258 / 0.18);
   --ring: oklch(0.6 0.05 258);
+  --focus-ring: oklch(0.72 0.15 255);         /* 7:1 on --card */
   /* Black ink, heavier: a light-theme shadow is invisible against a dark
      surface, and a coloured ink tints the elevation. */
   --shadow-ink: oklch(0 0 0 / 0.35);
@@ -231,6 +242,7 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-focus-ring: var(--focus-ring);
   --color-page-bg: var(--page-bg);
   --shadow-card: var(--shadow-card);
   --shadow-pop: var(--shadow-pop);
