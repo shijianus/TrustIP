@@ -3,35 +3,38 @@ name: Upstream Sync
 # TrustMy.IP is a derivative of jason5ng32/MyIP and stays one: keeping the
 # upstream flow of fixes and features is what makes the fork worth using, so
 # this is the one workflow that deliberately references the upstream repo.
-# It only ever *reads* upstream and merges into our own branch — it publishes
-# nothing under the upstream's name (compare docker-image.yml, which does, and
-# is therefore parked).
+# It only ever *reads* upstream; it publishes nothing under the upstream's name
+# (compare docker-image.yml, which does, and is therefore parked).
 #
-# Why this is plain git and not a fork-sync action. Two reasons, both learned
-# from the schedule failing every day:
+# Why this is plain git and not a fork-sync action:
 #   - This repo was created by pushing a clone, not by GitHub's Fork button, so
 #     `repository.fork` is false forever and there is no parent relation for a
 #     fork-sync action to read.
 #   - Upstream and this fork disagree on branding, docs, the six locale packs,
-#     `pnpm-lock.yaml`, and the shared whois / cache-control / AGENTS.md files —
-#     a merge of upstream `main` into `dev` conflicted in 27 files. Resolving
-#     that is a judgement call about which side this fork keeps, so no action
-#     can do it and a red X could not have told us anything we could act on.
+#     `pnpm-lock.yaml`, and the shared whois / cache-control / AGENTS.md files.
+#     Resolving that is a judgement call about which side this fork keeps.
 #
-# Repository rule: dev in, dev out — main only moves through a dev → main PR,
-# which is why the target is `dev` and why nothing here ever pushes to `main`.
+# Repository rule: dev in, dev out — and this workflow pushes to neither dev
+# nor main. A clean merge is still third-party code that no test has run on
+# (pushes and PRs made with GITHUB_TOKEN trigger no workflows, so ci.yml never
+# sees them), so it only ever reaches dev through a reviewed PR.
 #
-# Three outcomes, each reported as itself:
-#   - already synced, or a clean merge → land it on dev and the run is green.
-#   - a conflicted merge → the conflicts are filed as one open issue that names
-#     the files and the upstream commit, and the run is green. The gap is
-#     declared, not passed off as a success: someone reading Actions sees the
-#     issue, and only the issue.
-#   - anything else (fetch, push, auth) → red, because that is this workflow
-#     breaking rather than the fork having work to do.
+# Outcomes, each reported as itself:
+#   - dev already carries upstream → green; a leftover tracking issue or sync PR
+#     is closed as resolved.
+#   - a clean merge → the merge commit goes to the bot branch
+#     `sync/upstream-<sha12>` and one PR into dev is opened (or kept current);
+#     the tracking issue, if any, is closed. Green.
+#   - a conflicted merge, or a clean one that changes .github/workflows (which
+#     GITHUB_TOKEN is not allowed to push) → one open tracking issue names the
+#     files and the upstream commit; nothing is pushed. Green: the gap is
+#     declared in the issue, not passed off as a success.
+#   - anything else (fetch, merge-tree error, push, GitHub API) → red, because
+#     that is this workflow breaking rather than the fork having work to do.
 
 permissions:
-  contents: write # push a clean merge to dev; a conflicted merge pushes nothing
+  contents: write # push the bot branch sync/upstream-*; never dev or main
+  pull-requests: write # the one PR that carries a clean merge into dev
   issues: write # the one issue that says which files are blocked
 
 on:
@@ -39,9 +42,8 @@ on:
     - cron: "0 0 * * *" # every day at 00:00 UTC
   workflow_dispatch:
 
-# A night run and a manual re-run that both reach dev would have the second
-# push rejected for moving out from under it — a red X that says nothing about
-# upstream. Queue them instead.
+# A night run and a manual re-run would race on the same bot branch, PR and
+# issue. Queue them instead.
 concurrency:
   group: upstream-sync
   cancel-in-progress: false
@@ -58,106 +60,254 @@ jobs:
           # A shallow clone has no merge base with upstream, and `merge-base
           # --is-ancestor` is how "already synced" is recognised.
           fetch-depth: 0
+          # No token in .git/config while third-party history is in the repo;
+          # the script hands it to the git commands that talk to origin.
+          persist-credentials: false
 
       - name: Merge upstream into dev, or file the conflicts
         env:
           UPSTREAM_URL: https://github.com/jason5ng32/MyIP.git
           UPSTREAM_BRANCH: main
           TARGET_BRANCH: dev
+          GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
+          # Without this a failing `gh api` inside a $(…) helper would be
+          # swallowed and read as "no issue yet" — a duplicate every flaky night.
+          shopt -s inherit_errexit
+          export LC_ALL=C
 
-          git config user.name  "github-actions[bot]"
-          git config user.email "41449241+github-actions[bot]@users.noreply.github.com"
+          BOT_LOGIN='github-actions[bot]'
+          BOT_EMAIL='41449241+github-actions[bot]@users.noreply.github.com'
+          MARKER='<!-- upstream-sync-blocked -->'
+          TITLE='Upstream sync is blocked'
+          git config user.name "$BOT_LOGIN"
+          git config user.email "$BOT_EMAIL"
+
+          work=$(mktemp -d)
+          basic=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 | tr -d '\n')
+          echo "::add-mask::$basic"
+          # The token rides on the commands that talk to origin and nothing else.
+          origin_git() {
+            GIT_CONFIG_COUNT=1 \
+            GIT_CONFIG_KEY_0='http.https://github.com/.extraheader' \
+            GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $basic" \
+              git "$@"
+          }
+
+          # The open tracking issue: written by this workflow's bot and opening
+          # with the marker. Never matched on title — anyone can file an issue
+          # with any title on a public repo, and the bot would write into theirs.
+          # Read through the issues list, not the search index, which lags.
+          tracking_issue() {
+            local ids
+            ids=$(gh api --paginate "repos/$GH_REPO/issues?state=open&creator=github-actions%5Bbot%5D&per_page=100" \
+              --jq '.[] | select(.pull_request == null and .user.login == "github-actions[bot]" and ((.body // "") | startswith("<!-- upstream-sync-blocked -->"))) | .number')
+            printf '%s\n' "$ids" | sort -n | sed -n 1p
+          }
+
+          # Open sync PRs into dev: opened by the bot, from a sync/upstream-* branch
+          # of this repo (a fork's PR can carry the same branch name). "<n> <branch>".
+          sync_prs() {
+            gh api --paginate "repos/$GH_REPO/pulls?state=open&base=$TARGET_BRANCH&per_page=100" \
+              --jq '.[] | select(.user.login == "github-actions[bot]" and .head.repo.full_name == $ENV.GH_REPO and .base.ref == $ENV.TARGET_BRANCH and (.head.ref | startswith("sync/upstream-"))) | "\(.number) \(.head.ref)"'
+          }
+
+          close_tracking_issue() {
+            local issue
+            issue=$(tracking_issue)
+            if [ -n "$issue" ]; then
+              gh issue close "$issue" --comment "$1"
+              echo "Closed tracking issue #$issue." | tee -a "$GITHUB_STEP_SUMMARY"
+            fi
+          }
+
+          # Close every open sync PR except the one on branch $1.
+          close_sync_prs() {
+            local prs n ref
+            prs=$(sync_prs)
+            while read -r n ref; do
+              [ -n "$n" ] && [ "$ref" != "$1" ] || continue
+              gh pr close "$n" --comment "$2"
+              echo "Closed sync PR #$n ($ref)." | tee -a "$GITHUB_STEP_SUMMARY"
+            done <<< "$prs"
+          }
+
+          # A path list as a code block that no path can break out of. Paths are
+          # git-quoted (core.quotePath), so a newline in a name stays on one line;
+          # the fence is one backtick longer than any run inside the list; and
+          # the list is capped well under GitHub's 65,536-character body limit.
+          fenced_list() {
+            local total shown run fence
+            total=$(grep -c '' "$1" || true)
+            awk -v max=200 -v maxb=30000 '{ if (NR > max || b + length($0) + 1 > maxb) exit; b += length($0) + 1; print }' "$1" > "$1.shown"
+            shown=$(grep -c '' "$1.shown" || true)
+            run=$({ grep -oE '`+' "$1.shown" || true; } | awk '{ if (length($0) > m) m = length($0) } END { print m + 0 }')
+            fence='```'
+            while [ "${#fence}" -le "$run" ]; do fence="$fence\`"; done
+            printf '%s\n' "$fence"
+            cat "$1.shown"
+            printf '%s\n' "$fence"
+            if [ "$shown" -lt "$total" ]; then
+              echo
+              echo "…and $((total - shown)) more, not listed to keep this issue under GitHub's size limit."
+            fi
+          }
+
+          # File (or refresh) the one tracking issue. $1 = the headline, $2 = path list.
+          file_blocked() {
+            local issue
+            {
+              echo "$MARKER"
+              echo
+              echo "$1"
+              echo
+              fenced_list "$2"
+              echo
+              echo "Resolve by hand — this fork keeps its own branding, docs, locale packs and shared modules, which is a call the schedule cannot make:"
+              echo
+              echo '```'
+              echo "git fetch $UPSTREAM_URL $UPSTREAM_BRANCH"
+              echo "git checkout -b sync/$short origin/$TARGET_BRANCH"
+              echo "git merge $upstream_tip   # resolve, commit, then push and open a PR into $TARGET_BRANCH"
+              echo '```'
+              echo
+              echo "The nightly sync keeps this issue current and closes it once upstream merges cleanly or $TARGET_BRANCH already carries it. Closing it by hand while the block remains only gets it filed again the next night."
+            } > "$work/issue.md"
+
+            issue=$(tracking_issue)
+            if [ -n "$issue" ]; then
+              # One issue, kept current: a new comment per day would bury the list.
+              gh issue edit "$issue" --title "$TITLE" --body-file "$work/issue.md"
+              echo "::warning file=.github/workflows/sync.yml::Upstream $short is blocked from $TARGET_BRANCH ($count files); issue #$issue updated."
+            else
+              gh issue create --title "$TITLE" --body-file "$work/issue.md"
+              echo "::warning file=.github/workflows/sync.yml::Upstream $short is blocked from $TARGET_BRANCH ($count files); filed as a new issue."
+            fi
+            echo "Upstream $short blocked ($count files), filed as an issue; nothing pushed." | tee -a "$GITHUB_STEP_SUMMARY"
+          }
 
           # Fetched by URL, not by adding a remote named `upstream`: that name is
           # free today, and whoever claims it in the repo would break the schedule.
-          git fetch --no-tags "$UPSTREAM_URL" "$UPSTREAM_BRANCH"
+          # Quiet: fetch, merge and diff output can carry upstream path names, and
+          # nothing upstream controls is echoed into this log (workflow commands).
+          git fetch -q --no-tags "$UPSTREAM_URL" "refs/heads/$UPSTREAM_BRANCH"
           upstream_tip=$(git rev-parse FETCH_HEAD)
-
-          git fetch origin "$TARGET_BRANCH"
+          origin_git fetch -q --no-tags origin "refs/heads/$TARGET_BRANCH"
           target_tip=$(git rev-parse FETCH_HEAD)
-
-          short=$(git rev-parse --short "$upstream_tip")
-          echo "upstream $upstream_tip · dev $target_tip"
+          short=${upstream_tip:0:12}
+          branch="sync/upstream-$short"
+          echo "upstream $upstream_tip · $TARGET_BRANCH $target_tip"
 
           if git merge-base --is-ancestor "$upstream_tip" "$target_tip"; then
-            echo "dev already carries upstream $short — nothing to sync." | tee -a "$GITHUB_STEP_SUMMARY"
+            close_tracking_issue "$TARGET_BRANCH now carries upstream $UPSTREAM_BRANCH ($short); nothing left to resolve."
+            close_sync_prs "" "$TARGET_BRANCH already carries upstream $UPSTREAM_BRANCH ($short); this sync PR is no longer needed."
+            echo "$TARGET_BRANCH already carries upstream $short — nothing to sync." | tee -a "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
 
-          # Merge on a scratch branch built from dev's tip, so a success is a
-          # fast-forward for dev and a conflict leaves dev untouched.
-          git checkout -B sync-tmp "$target_tip"
+          # The merge is computed without an index or a work tree, so there is no
+          # half-merged state to abort. Exit 0 = clean, 1 = conflicts, anything
+          # else (e.g. unrelated histories) = this workflow broken.
+          status=0
+          git -c core.quotePath=false merge-tree --write-tree --name-only --no-messages \
+            "$target_tip" "$upstream_tip" > "$work/merge-tree.out" || status=$?
+          case "$status" in
+            0|1) ;;
+            *)
+              echo "::error::git merge-tree of upstream $short into $TARGET_BRANCH failed (exit $status) with nothing to resolve."
+              exit 1 ;;
+          esac
+          tree=$(sed -n 1p "$work/merge-tree.out")
+          tail -n +2 "$work/merge-tree.out" | grep -v '^$' > "$work/blocked.txt" || true
+          count=$(grep -c '' "$work/blocked.txt" || true)
 
-          if git merge --no-ff --no-commit "$upstream_tip"; then
-            # Named for the branch it lands on, not the scratch one: the runner
-            # history is the only place this merge is described.
-            git commit --no-edit -m "Merge upstream $UPSTREAM_BRANCH ($short) into $TARGET_BRANCH"
-            git push origin "HEAD:$TARGET_BRANCH"
-            echo "Merged upstream $short into $TARGET_BRANCH." | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "$status" -eq 1 ]; then
+            if [ "$count" -eq 0 ]; then
+              echo "::error::git merge-tree reported a conflicted merge of upstream $short but no conflicted files."
+              exit 1
+            fi
+            file_blocked "The scheduled merge of \`jason5ng32/MyIP\` \`$UPSTREAM_BRANCH\` (\`$short\`) into \`$TARGET_BRANCH\` conflicts in **$count** file(s), so nothing was pushed." "$work/blocked.txt"
             exit 0
           fi
 
-          conflicts=$(git diff --name-only --diff-filter=U)
-          count=$(printf '%s\n' "$conflicts" | grep -c . || true)
-          # A merge that never started (refusing unrelated histories) has nothing
-          # to abort, and dying on that would hide which merge broke.
-          git merge --abort || true
+          commit=$(git commit-tree --no-gpg-sign -p "$target_tip" -p "$upstream_tip" \
+            -m "Merge upstream $UPSTREAM_BRANCH ($short) into $TARGET_BRANCH" "$tree")
 
-          # A merge that failed with nothing to resolve is this workflow broken,
-          # not the fork having work to do — it must not be filed as a conflict.
-          if [ "$count" -eq 0 ]; then
-            echo "::error::git merge $short into $TARGET_BRANCH failed with no conflicted files to report."
-            exit 1
+          # GITHUB_TOKEN may not push a commit that changes workflow files, so
+          # that merge needs a person even when it is clean.
+          git -c core.quotePath=false diff --name-only "$target_tip" "$commit" -- .github/workflows > "$work/blocked.txt"
+          count=$(grep -c '' "$work/blocked.txt" || true)
+          if [ "$count" -gt 0 ]; then
+            file_blocked "Upstream \`$UPSTREAM_BRANCH\` (\`$short\`) merges into \`$TARGET_BRANCH\` without conflicts, but it changes **$count** workflow file(s), which this workflow's token is not allowed to push:" "$work/blocked.txt"
+            exit 0
           fi
 
-          git checkout -q --detach "$target_tip"
+          # The bot branch is the only ref this workflow writes. --force-with-lease
+          # pins it to what was just read (empty = must not exist yet), so a push
+          # that raced anything else is rejected rather than overwriting it.
+          remote_tip=$(origin_git ls-remote origin "refs/heads/$branch" | cut -f1)
+          push=yes
+          if [ -n "$remote_tip" ]; then
+            origin_git fetch -q --no-tags origin "refs/heads/$branch"
+            if git merge-base --is-ancestor "$target_tip" "$remote_tip" &&
+               git merge-base --is-ancestor "$upstream_tip" "$remote_tip"; then
+              push=no # already carries both: last night's merge, or a reviewer's follow-up
+            elif others=$(git log --format=%ce "$remote_tip" --not "$target_tip" "$upstream_tip" | grep -vxF "$BOT_EMAIL" || true)
+                 [ -n "$others" ]; then
+              push=no
+              echo "::warning file=.github/workflows/sync.yml::$branch has commits this workflow did not make and $TARGET_BRANCH has moved since; left as is — rebase it by hand."
+            fi
+          fi
+          if [ "$push" = yes ]; then
+            origin_git push -q --force-with-lease="refs/heads/$branch:$remote_tip" origin "$commit:refs/heads/$branch"
+            echo "Pushed the merge of upstream $short to $branch."
+          fi
 
+          files=$(git diff --name-only "$target_tip...$upstream_tip" -- | grep -c '' || true)
+          commits=$(git rev-list --count "$target_tip..$upstream_tip")
+          sensitive=""
+          for p in .gitattributes .github package.json pnpm-lock.yaml; do
+            if ! git diff --quiet "$target_tip" "$commit" -- "$p"; then sensitive="$sensitive \`$p\`"; fi
+          done
           {
-            echo "<!-- upstream-sync-blocked -->"
+            echo "Merges \`jason5ng32/MyIP\` \`$UPSTREAM_BRANCH\` at \`$upstream_tip\` into \`$TARGET_BRANCH\`. The merge is clean; nothing has been pushed to \`$TARGET_BRANCH\` — this PR is the review."
             echo
-            echo "The scheduled merge of \`jason5ng32/MyIP\` \`$UPSTREAM_BRANCH\` (\`$short\`) into \`$TARGET_BRANCH\` conflicts in **$count** file(s), so it was not landed and nothing was pushed."
+            echo "- $commits upstream commit(s) not yet in \`$TARGET_BRANCH\`, $files file(s) changed upstream since the merge base."
+            if [ -n "$sensitive" ]; then
+              echo "- Touches paths that change how the repo builds or merges:$sensitive. Review those first."
+            fi
+            echo
+            echo "**CI has not run on this PR.** It was opened with the workflow's \`GITHUB_TOKEN\`, and GitHub starts no workflows for that token's pushes or PRs. To run Test + Build, close and reopen this PR, or push a commit to \`$branch\`, or locally:"
             echo
             echo '```'
-            printf '%s\n' "$conflicts"
+            echo "git fetch origin $branch && git checkout FETCH_HEAD"
+            echo "pnpm install --frozen-lockfile && pnpm check"
             echo '```'
             echo
-            echo "Resolve by hand — this fork keeps its own branding, docs, locale packs and shared modules, which is a call the schedule cannot make:"
+            echo "Merge with a merge commit, not squash or rebase: the next sync recognises upstream as merged only if \`$upstream_tip\` is an ancestor of \`$TARGET_BRANCH\`."
             echo
-            echo '```'
-            echo "git fetch $UPSTREAM_URL $UPSTREAM_BRANCH"
-            echo "git checkout -b sync/$short $TARGET_BRANCH"
-            echo "git merge $upstream_tip   # resolve, commit, then push and open a PR into $TARGET_BRANCH"
-            echo '```'
-          } > /tmp/conflicts.md
+            echo "The nightly sync keeps this PR current while upstream stays at \`$short\`, and closes it once a newer upstream supersedes it or \`$TARGET_BRANCH\` already carries it."
+          } > "$work/pr.md"
 
-          title="Upstream sync is blocked by merge conflicts"
-
-          # Matched on the exact title through the issues list, not the search
-          # index: a search that has not caught up with last night's write would
-          # file a second issue for the same conflict every night. GitHub answers
-          # this endpoint with pull requests too, so `.pull_request` is excluded.
-          existing=$(gh api --paginate \
-            "repos/$GITHUB_REPOSITORY/issues?state=open&per_page=100" \
-            --jq ".[] | select(.title == \"$title\" and .pull_request == null) | .number" \
-            | head -1 || true)
-          if [ -n "$existing" ]; then
-            # One issue, kept current: a new comment per day would bury the list.
-            gh issue edit "$existing" --title "$title" --body-file /tmp/conflicts.md
-            echo "::warning file=.github/workflows/sync.yml::Upstream $short still cannot merge into $TARGET_BRANCH ($count conflicting files); issue #$existing updated."
+          prs=$(sync_prs)
+          pr=$(awk -v b="$branch" '$2 == b { print $1; exit }' <<< "$prs")
+          if [ -n "$pr" ]; then
+            gh pr edit "$pr" --body-file "$work/pr.md"
+            echo "Sync PR #$pr kept current." | tee -a "$GITHUB_STEP_SUMMARY"
           else
-            gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body-file /tmp/conflicts.md
-            echo "::warning file=.github/workflows/sync.yml::Upstream $short cannot merge into $TARGET_BRANCH ($count conflicting files); filed as a new issue."
+            gh pr create --base "$TARGET_BRANCH" --head "$branch" \
+              --title "Merge upstream $UPSTREAM_BRANCH ($short) into $TARGET_BRANCH" --body-file "$work/pr.md"
+            echo "Opened a sync PR from $branch into $TARGET_BRANCH." | tee -a "$GITHUB_STEP_SUMMARY"
           fi
+          close_sync_prs "$branch" "Superseded: upstream $UPSTREAM_BRANCH moved on to $short, now in the sync PR from $branch."
+          close_tracking_issue "Upstream $UPSTREAM_BRANCH ($short) now merges cleanly; it is in the sync PR from $branch."
 
-          echo "Conflicted merge filed, dev left untouched." | tee -a "$GITHUB_STEP_SUMMARY"
-
-      # Genuine automation failure: fetch, merge bookkeeping, push or auth. A
-      # conflicted merge never reaches this step — it is the issue above.
+      # Genuine automation failure. A conflict, or a clean merge waiting on a
+      # PR, never reaches this step.
       - name: Sync check
         if: failure()
         run: |
-          echo "::error::The upstream sync did not run (not a merge conflict — those are filed as an issue). Check the fetch of jason5ng32/MyIP, this workflow's contents/issues permissions, and whether dev has moved out from under the merge base. Re-run manually from the Actions tab."
+          echo "::error::The upstream sync did not run (not a merge conflict — those are filed as an issue). Check the fetch of jason5ng32/MyIP, git merge-tree, the push of the sync/upstream-* branch (rejected if it moved during the run), and this workflow's contents/pull-requests/issues permissions. Re-run manually from the Actions tab."
           exit 1
