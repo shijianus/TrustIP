@@ -11,7 +11,7 @@
   <header class="sticky top-0 z-40 border-b bg-background/80 supports-[backdrop-filter:blur(0px)]:bg-background/60 backdrop-blur pt-[env(safe-area-inset-top)]">
     <div class="mx-auto flex w-full max-w-[1600px] items-center gap-2 px-4 h-14">
       <RouterLink to="/"
-        class="inline-flex items-center gap-1.5 rounded-md px-1 py-1 text-lg font-semibold text-foreground no-underline hover:opacity-80 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
+        class="jn-hit inline-flex items-center gap-1.5 rounded-md px-1 py-1 text-lg font-semibold text-foreground no-underline hover:opacity-80 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
         aria-label="TrustMy.IP">
         <BrandWordmark />
       </RouterLink>
