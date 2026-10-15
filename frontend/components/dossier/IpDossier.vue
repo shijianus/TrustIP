@@ -411,6 +411,7 @@ import { RouterLink } from 'vue-router';
 import { Icon } from '@iconify/vue';
 import { ArrowUpRight, Globe2, Activity, Radar, Gauge, Image as ImageIcon } from '@lucide/vue';
 import { useMainStore } from '@/store.js';
+import { resolveSelfAddress } from '@/utils/self-address.js';
 import { isValidIP } from '@/utils/valid-ip.js';
 import { formatIsoDate } from '@/utils/time-utils.js';
 import { fetchWithTimeout } from '@/utils/fetch-with-timeout.js';
@@ -704,7 +705,19 @@ watch(() => [route.params.ip, route.query.q], ([param, query]) => {
     load(next);
 });
 
-onMounted(() => { if (target.value) load(target.value); });
+// Bare `/ip` asks about the visitor: find their public address the way the IP
+// cards do and move to its shareable `/ip/<addr>` address. If no echo answers,
+// the page stays on its input hint.
+onMounted(async () => {
+    if (target.value) {
+        load(target.value);
+        return;
+    }
+    const self = await resolveSelfAddress(store.allIPs);
+    if (self && !target.value && !route.params.ip && !route.query.q) {
+        router.replace(`/ip/${encodeURIComponent(self)}`);
+    }
+});
 
 // `/api/configs` lands after mount, so `served` can flip once the boot request
 // returns. Without this a visitor who opens the page before configs arrive keeps
