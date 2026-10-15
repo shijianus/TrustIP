@@ -13,6 +13,13 @@ export const badgeVariants = cva(
         destructive: 'border-transparent bg-destructive text-destructive-foreground shadow',
         outline: 'text-foreground',
         success: 'border-transparent bg-success text-success-foreground shadow',
+        // Soft status tints — the -soft / -soft-fg pairs clear 4.5:1 in both
+        // themes. Pair with an icon (or use ui/status-pill) so the state is
+        // never carried by colour alone.
+        'success-soft': 'border-transparent bg-success-soft text-success-soft-fg',
+        'warning-soft': 'border-transparent bg-warning-soft text-warning-soft-fg',
+        'info-soft': 'border-transparent bg-info-soft text-info-soft-fg',
+        'destructive-soft': 'border-transparent bg-destructive-soft text-destructive-soft-fg',
       },
     },
     defaultVariants: { variant: 'default' },

@@ -390,6 +390,13 @@
       "tools": "Tools"
     }
   },
+  "uikit": {
+    "retry": "Try again",
+    "loading": "Loading…",
+    "loadFailedTitle": "This page couldn't load",
+    "loadFailedBody": "A part of the page failed to download — usually a dropped connection or a new version just deployed. Trying again fetches it fresh.",
+    "emptyTitle": "Nothing here yet"
+  },
   "securitychecklist": {
     "Title": "Security Checklist",
     "Note": "This is a very comprehensive cybersecurity checklist covering aspects such as password security, browsing security, and mobile device security. In the current environment, information leaks can lead to significant losses, thus it is necessary to ensure that we protect our privacy and enhance the security of our access while connected to the internet.",

@@ -390,6 +390,13 @@
       "tools": "Ferramentas"
     }
   },
+  "uikit": {
+    "retry": "Tentar de novo",
+    "loading": "Carregando…",
+    "loadFailedTitle": "Não foi possível carregar esta página",
+    "loadFailedBody": "Uma parte da página não foi baixada — geralmente uma conexão interrompida ou uma nova versão recém-publicada. Tentar de novo a busca outra vez.",
+    "emptyTitle": "Nada aqui ainda"
+  },
   "securitychecklist": {
     "Title": "Checklist de segurança",
     "Note": "Esta é uma checklist abrangente de cibersegurança, cobrindo aspectos como segurança de senhas, segurança de navegação e segurança de dispositivos móveis. No ambiente atual, vazamentos de informações podem causar perdas significativas; portanto, é necessário garantir que protegemos nossa privacidade e reforçamos a segurança do nosso acesso enquanto estamos conectados à internet.",

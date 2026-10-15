@@ -390,6 +390,13 @@
       "tools": "Outils"
     }
   },
+  "uikit": {
+    "retry": "Réessayer",
+    "loading": "Chargement…",
+    "loadFailedTitle": "Impossible de charger cette page",
+    "loadFailedBody": "Une partie de la page n'a pas pu être téléchargée — souvent une connexion interrompue ou une nouvelle version tout juste déployée. Réessayer la récupère à nouveau.",
+    "emptyTitle": "Rien à afficher pour l'instant"
+  },
   "securitychecklist": {
     "Title": "Liste de vérification de sécurité",
     "Note": "Ceci est une liste de vérification de cybersécurité très complète, couvrant des aspects tels que la sécurité des mots de passe, la sécurité de navigation, et la sécurité des dispositifs mobiles. Dans l'environnement actuel, une fuite d'informations peut entraîner des pertes significatives, il est donc nécessaire de s'assurer que nous protégeons notre vie privée et augmentons la sécurité de nos accès lors de la connexion à Internet.",
