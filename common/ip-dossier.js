@@ -33,6 +33,7 @@ import { parseIp, formatIp, blockContaining } from './ip-math.js';
 import { isIPv6 } from './valid-ip.js';
 import { rdapIp } from './rdap.js';
 import { normalizeLang } from './lang-param.js';
+import getCountryName, { countryCodeFromName } from './country-name.js';
 import logger from './logger.js';
 
 // Second-hop breadth. Two upstreams deep is enough to show the shape of a
@@ -70,18 +71,61 @@ const normaliseIpApi = (body) => (body?.status !== 'success' ? null : ({
     lon: num(body.lon),
 }));
 
+// ipinfo.io's keyless `/json` body: `country` is the code, `loc` is "lat,lon".
+export const normaliseIpinfo = (body) => {
+    const code = clean(body?.country);
+    if (!code || body?.bogon) return null;
+    const [lat, lon] = String(body.loc || '').split(',').map((v) => Number.parseFloat(v));
+    return {
+        country: getCountryName(code, 'en') || code,
+        country_code: code,
+        region: clean(body.region),
+        city: clean(body.city),
+        lat: Number.isFinite(lat) ? lat : null,
+        lon: Number.isFinite(lon) ? lon : null,
+    };
+};
+
+// api.ipapi.is's keyless free tier: a flat body with an English country name.
+export const normaliseIpapiIsFree = (body) => {
+    const name = clean(body?.country);
+    if (!name || body?.is_bogon) return null;
+    return {
+        country: name,
+        country_code: countryCodeFromName(name),
+        region: clean(body.region),
+        city: clean(body.city),
+        lat: num(body.lat),
+        lon: num(body.lon),
+    };
+};
+
 // Additional geolocation sources. IP.SB is not among them: the trust evidence
 // already carries its answer, and asking twice would double the requests to one
 // upstream for nothing. ip-api.com is a genuinely independent opinion that
-// answers in the visitor's language; MaxMind answers from a local file when a
-// database has been installed. A bare deployment therefore compares two
-// sources, a configured one three.
+// answers in the visitor's language; ipinfo.io and api.ipapi.is are two more,
+// read through their keyless tiers (one call each per uncached address — the
+// route's 24h cache is what keeps that inside their free quotas); MaxMind answers
+// from a local file when a database has been installed. A bare deployment
+// therefore compares four sources, a configured one five.
 const GEO_SOURCES = [
     {
         id: 'ipapicom',
         label: 'IP-API.com',
         url: (ip, lang) => `http://ip-api.com/json/${ip}?fields=status,country,countryCode,regionName,city,lat,lon&lang=${encodeURIComponent(normalizeLang(lang))}`,
         normalise: normaliseIpApi,
+    },
+    {
+        id: 'ipinfo',
+        label: 'IPinfo.io',
+        url: (ip) => `https://ipinfo.io/${ip}/json`,
+        normalise: normaliseIpinfo,
+    },
+    {
+        id: 'ipapiis',
+        label: 'IPAPI.is',
+        url: (ip) => `https://api.ipapi.is?q=${ip}`,
+        normalise: normaliseIpapiIsFree,
     },
 ];
 

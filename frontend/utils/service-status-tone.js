@@ -87,3 +87,9 @@ export function incidentStatusTone(status) {
             return 'wait';
     }
 }
+
+// Board ordering and per-category tally — the same pure functions the back end
+// owns, re-exported so the cards and the overview can never disagree on which
+// provider is pinned on top.
+export { orderByIndicator, indicatorRank, categoryTally } from '../../common/service-status-transform.js';
+export { STATUS_CATEGORIES } from '../../common/service-status-providers.js';

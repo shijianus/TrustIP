@@ -176,6 +176,7 @@ import { parseTrace } from '@/utils/parse-trace.js';
 import { isValidIP } from '@/utils/valid-ip.js';
 import { nonCountryLoc } from '@/utils/ai-service-regions.js';
 import { fetchWithTimeout } from '@/utils/fetch-with-timeout.js';
+import { CF_DESTINATIONS, CF_PRIMARY_HOST } from '@/data/cf-destinations.js';
 import { formatIsoDate } from '@/utils/time-utils.js';
 import getCountryName from '@/data/country-name.js';
 
@@ -192,20 +193,8 @@ const { t, locale } = useI18n();
 // The row the detail panel reads. `www.cloudflare.com` is the one destination here
 // that is Cloudflare's own site answering about itself, which is why it carries the
 // protocol fields rather than only an echo.
-const PRIMARY_HOST = 'www.cloudflare.com';
-
-// Cloudflare-fronted destinations a visitor here plausibly cares about. The point of
-// the list is not "is the site up" but "is the edge that serves you the same edge for
-// all of them" — a split tunnel that carries ChatGPT over a different PoP than the
-// rest of the web is a routing fact, and the PoP code is where it shows.
-const CF_DESTINATIONS = [
-  { host: 'www.cloudflare.com', labelKey: 'cfchk.Site.cf' },
-  { host: 'speed.cloudflare.com', labelKey: 'cfchk.Site.speed' },
-  { host: 'chatgpt.com', labelKey: 'cfchk.Site.chatgpt' },
-  { host: 'claude.ai', labelKey: 'cfchk.Site.claude' },
-  { host: 'discord.com', labelKey: 'cfchk.Site.discord' },
-  { host: 'github.com', labelKey: 'cfchk.Site.github' },
-];
+// The destination list (and why each host is on it) lives in data/cf-destinations.js.
+const PRIMARY_HOST = CF_PRIMARY_HOST;
 
 const TRACE_TIMEOUT_MS = 6000;
 const rows = ref(CF_DESTINATIONS.map((item) => ({ ...item, state: 'pending', ms: null, colo: null, http: null, tls: null })));

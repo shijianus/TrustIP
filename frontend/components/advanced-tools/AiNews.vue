@@ -1,15 +1,72 @@
 <template>
-  <!-- What happened to the services this site measures, newest first.
-       The one thing to read here is what it is *not*: this is not an editorial feed.
-       Every row is an incident a vendor published about itself on its own status
-       page, which is the only AI-industry "news" this build can obtain without a key
-       and without inventing a source. Editorial coverage is declared as a gap below
-       rather than filled with something dressed up as news. -->
+  <!-- Two lists, and the difference between them is the point.
+       First, headlines: what AI vendors and tech outlets published in their own
+       RSS / Atom feeds, read server-side (/api/ai-news) because a browser cannot
+       read a feed across origins. Every row links to the publisher's page; the
+       summary is the feed's own first lines, never something this build wrote.
+       Second, incidents: what the services this site measures said about their own
+       outages on their status pages. -->
   <div class="ai-news-section my-4 space-y-4">
     <p class="text-sm text-muted-foreground leading-relaxed">{{ t('ainews.Note') }}</p>
 
+    <!-- ── Headlines ── -->
+    <div v-if="news.items.length" class="space-y-3">
+      <SectionTitle :title="t('ainews.EditorialTitle')">
+        <template #aside>
+          <span v-if="news.updatedAt" class="text-xs font-normal text-muted-foreground">
+            {{ t('ainews.Updated', { time: formatDate(news.updatedAt) }) }}
+          </span>
+        </template>
+      </SectionTitle>
+      <ToggleGroup
+        :model-value="newsTag"
+        type="single"
+        variant="outline"
+        :spacing="2"
+        class="w-full flex-wrap justify-start"
+        @update:model-value="(v) => v && (newsTag = v)"
+      >
+        <ToggleGroupItem value="all" :class="tagClass">{{ t('ainews.TagAll') }}</ToggleGroupItem>
+        <ToggleGroupItem v-for="row in news.tags" :key="row.tag" :value="row.tag" :class="tagClass">
+          {{ row.tag }}
+          <span class="ms-1 jn-nums text-xs font-normal text-muted-foreground">{{ row.count }}</span>
+        </ToggleGroupItem>
+      </ToggleGroup>
+      <div class="jn-card rounded-[var(--radius)] overflow-hidden">
+        <ul class="divide-y">
+          <li v-for="item in visibleNews" :key="item.id" class="px-4 py-3">
+            <p class="text-sm font-medium leading-relaxed">
+              <a :href="item.link" target="_blank" rel="noopener noreferrer"
+                class="underline-offset-2 hover:underline">{{ item.title }}</a>
+            </p>
+            <p v-if="item.summary" class="mt-1 text-sm leading-relaxed text-muted-foreground line-clamp-2">{{ item.summary }}</p>
+            <div class="mt-1.5 flex flex-wrap items-center gap-2">
+              <span class="jn-nums text-xs font-normal text-muted-foreground">{{ formatDay(item.publishedAt) }}</span>
+              <span class="rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold text-muted-foreground"
+                :title="item.via ? t('ainews.Via', { via: item.via }) : null">{{ item.sourceName }}</span>
+              <span v-for="tagName in item.tags" :key="tagName"
+                class="rounded-full border px-2 py-0.5 text-xs text-muted-foreground">{{ tagName }}</span>
+            </div>
+          </li>
+        </ul>
+      </div>
+      <p class="text-xs font-normal text-muted-foreground leading-relaxed">
+        {{ t('ainews.Sources', { list: sourceList }) }}
+        <template v-if="failedSources">· {{ t('ainews.SourcesFailed', { list: failedSources }) }}</template>
+      </p>
+    </div>
+    <CapabilitySlot
+      v-else-if="!newsLoading"
+      :title="t('ainews.EditorialTitle')"
+      state="placeholder"
+      :note="t('ainews.EditorialNote')"
+      :needs="t('ainews.EditorialNeeds')"
+    />
+
+    <!-- ── Vendor incidents ── -->
+    <SectionTitle :title="t('ainews.IncidentsTitle')" />
     <div class="flex flex-wrap items-center gap-3">
-      <Button variant="action" :disabled="loading" @click="load">
+      <Button variant="action" :disabled="loading || newsLoading" @click="() => { load(); loadNews(); }">
         <Spinner v-if="loading" class="size-4" />
         {{ loading ? t('ainews.Loading') : t('ainews.Refresh') }}
       </Button>
@@ -57,12 +114,12 @@
                 <TriangleAlert v-for="n in impactOf(item)" :key="n" class="size-3 me-0.5" />
               </span>
               <span class="ms-auto jn-nums text-xs font-normal text-muted-foreground">
-                {{ formatDate(item.created_at) }}
+                {{ formatDate(item.startedAt) }}
               </span>
             </div>
             <p class="mt-1.5 text-sm leading-relaxed">
               <a
-                :href="item.page_url || item.providerPage"
+                :href="item.url || item.providerPage"
                 target="_blank"
                 rel="noopener noreferrer"
                 class="underline-offset-2 hover:underline"
@@ -89,36 +146,30 @@
       </div>
     </template>
 
-    <CapabilitySlot
-      :title="t('ainews.EditorialTitle')"
-      state="placeholder"
-      :note="t('ainews.EditorialNote')"
-      :needs="t('ainews.EditorialNeeds')"
-    />
-
     <p class="text-xs font-normal text-muted-foreground leading-relaxed">{{ t('ainews.Caveat') }}</p>
   </div>
 </template>
 
 <script setup>
-// The AI news surface, assembled from the status pages this deployment already
-// polls.
+// The AI news surface: publisher headlines from `/api/ai-news` (the feeds and
+// their parser live in common/ai-news.js), then the incidents from the status
+// pages this deployment already polls.
 //
 // Two snapshot-read endpoints, both already built for the Service Status board:
 // `/api/service-status` returns every provider's light, and `/api/service-status/
 // detail` returns one provider's incidents. Neither reaches upstream on a request —
-// the back end refreshes on its own five-minute schedule — so pulling all sixteen
-// details from here is a memory read per provider, not sixteen vendor hits.
+// the back end refreshes on its own five-minute schedule — so pulling every
+// provider's detail from here is a memory read each, not a vendor hit each.
 //
 // Deliberately absent: any story this build wrote itself. A row exists only because
-// a vendor published it, and the row links to the page it came from.
+// a publisher or vendor published it, and the row links to the page it came from.
 
 import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { TriangleAlert } from '@lucide/vue';
 
 import { fetchWithTimeout } from '@/utils/fetch-with-timeout.js';
-import { unixToDateTime } from '@/utils/time-utils.js';
+import { unixToDateTime, formatIsoDate } from '@/utils/time-utils.js';
 import {
   indicatorToTone, incidentStatusTone, impactLevel,
 } from '@/utils/service-status-tone.js';
@@ -133,14 +184,10 @@ import CapabilitySlot from '@/components/widgets/CapabilitySlot.vue';
 
 const { t, locale } = useI18n();
 
-// The categories the reference site's tag row carries, mapped onto the providers
-// this build actually polls. A tag is never shown for a category with nothing in it.
-const CATEGORY_BY_PROVIDER = {
-  claude: 'ai', chatgpt: 'ai', cursor: 'ai', groq: 'ai', elevenlabs: 'ai',
-  cloudflare: 'cloud', vercel: 'cloud', netlify: 'cloud', render: 'cloud', supabase: 'cloud',
-  github: 'dev', notion: 'work', figma: 'work', linear: 'work',
-  discord: 'social', stripe: 'pay',
-};
+// A provider's facet comes from the overview (`category`, set in
+// common/service-status-providers.js). A tag is never shown for a category with
+// nothing in it.
+const categoryOf = (providerId) => providers.value.find((p) => p.id === providerId)?.category || null;
 
 const tagClass = 'group h-7 rounded-full px-2.5 text-xs cursor-pointer';
 
@@ -150,6 +197,39 @@ const updatedAt = ref(null);
 const providers = ref([]);
 const incidents = ref([]);
 const tag = ref('all');
+
+// Publisher headlines. A failed read leaves the list empty and the slot below
+// states the gap; it never blocks the incidents list.
+const newsLoading = ref(true);
+const news = ref({ updatedAt: null, items: [], tags: [], sources: [] });
+const newsTag = ref('all');
+
+const loadNews = async () => {
+  newsLoading.value = true;
+  try {
+    const res = await fetchWithTimeout('/api/ai-news', { timeoutMs: 30000 });
+    if (!res.ok) throw new Error(`status ${res.status}`);
+    const body = await res.json();
+    news.value = {
+      updatedAt: body.updatedAt || null,
+      items: Array.isArray(body.items) ? body.items : [],
+      tags: Array.isArray(body.tags) ? body.tags : [],
+      sources: Array.isArray(body.sources) ? body.sources : [],
+    };
+  } catch (err) {
+    console.warn('ai news feeds unavailable', err);
+    news.value = { updatedAt: null, items: [], tags: [], sources: [] };
+  } finally {
+    newsLoading.value = false;
+  }
+};
+
+const visibleNews = computed(() => (newsTag.value === 'all'
+  ? news.value.items
+  : news.value.items.filter((item) => item.tags?.includes(newsTag.value))));
+const sourceList = computed(() => news.value.sources.filter((s) => s.ok)
+  .map((s) => (s.via ? `${s.name} (${t('ainews.Via', { via: s.via })})` : s.name)).join(' · '));
+const failedSources = computed(() => news.value.sources.filter((s) => !s.ok).map((s) => s.name).join(' · '));
 
 const load = async () => {
   loading.value = true;
@@ -192,12 +272,15 @@ const load = async () => {
   }
 };
 
-onMounted(load);
+onMounted(() => {
+  load();
+  loadNews();
+});
 
 const categories = computed(() => {
   const counts = new Map();
   for (const provider of providers.value) {
-    const category = CATEGORY_BY_PROVIDER[provider.id];
+    const { category } = provider;
     if (!category) continue;
     counts.set(category, (counts.get(category) || 0) + 1);
   }
@@ -207,11 +290,11 @@ const categories = computed(() => {
 });
 
 const sortedIncidents = computed(() => [...incidents.value]
-  .sort((a, b) => Date.parse(b.created_at ?? '') - Date.parse(a.created_at ?? '')));
+  .sort((a, b) => (Date.parse(b.startedAt ?? '') || 0) - (Date.parse(a.startedAt ?? '') || 0)));
 
 const visible = computed(() => (tag.value === 'all'
   ? sortedIncidents.value
-  : sortedIncidents.value.filter((item) => CATEGORY_BY_PROVIDER[item.providerId] === tag.value)));
+  : sortedIncidents.value.filter((item) => categoryOf(item.providerId) === tag.value)));
 
 const healthyCount = computed(() => providers.value.filter((p) => p.indicator === 'none').length);
 
@@ -238,4 +321,5 @@ const indicatorText = (indicator) => indicatorLabel(indicator || 'unknown');
 const indicatorTone = (indicator) => indicatorToTone(indicator);
 
 const formatDate = (iso) => unixToDateTime(Date.parse(iso ?? ''), locale.value);
+const formatDay = (iso) => formatIsoDate(iso ? String(iso).slice(0, 10) : '', locale.value);
 </script>

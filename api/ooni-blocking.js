@@ -18,6 +18,30 @@ import logger from '../common/logger.js';
 
 const OONI_AGGREGATION_URL = 'https://api.ooni.io/api/v1/aggregation';
 
+// OONI builds a 30-day aggregation on demand: 3s for a quiet domain, 15–50s for
+// a popular one (google.com ≈ 15s, twitter.com ≈ 49s measured from a US vantage),
+// so the shared 8s upstream default turned every popular domain into a 500. The
+// browser's request has no timeout of its own, so the bound that matters is this.
+export const OONI_TIMEOUT_MS = 55000;
+
+// The answer is a function of (domain, UTC day), and computing it costs OONI
+// tens of seconds, so it is held in process for the day it describes — the edge
+// cache does the same, but a self-hosted deployment has no edge. Concurrent asks
+// for the same key share one upstream round trip. Bounded: a scanner walking
+// domains evicts the oldest entry rather than growing the map.
+const ANSWER_CACHE_MAX = 500;
+const answers = new Map();
+
+export const resetOoniCache = () => answers.clear();
+
+const remember = (key, promise) => {
+    if (answers.size >= ANSWER_CACHE_MAX) answers.delete(answers.keys().next().value);
+    answers.set(key, promise);
+    // A failure is not an answer: drop it so the next visitor asks again.
+    promise.catch(() => { if (answers.get(key) === promise) answers.delete(key); });
+    return promise;
+};
+
 const utcDay = (date) => date.toISOString().slice(0, 10);
 
 const fetchAggregationOnce = async (hostname, since, until) => {
@@ -29,7 +53,7 @@ const fetchAggregationOnce = async (hostname, since, until) => {
         axis_x: 'probe_cc',
         axis_y: 'blocking_type',
     });
-    const response = await fetchUpstream(`${OONI_AGGREGATION_URL}?${params}`);
+    const response = await fetchUpstream(`${OONI_AGGREGATION_URL}?${params}`, { timeoutMs: OONI_TIMEOUT_MS });
     if (!response.ok) {
         throw new Error(`OONI aggregation responded with status ${response.status}`);
     }
@@ -64,7 +88,10 @@ export default async (req, res) => {
     const since = utcDay(new Date(now.getTime() - OONI_WINDOW_DAYS * 24 * 60 * 60 * 1000));
 
     try {
-        const settled = await Promise.allSettled(variants.map((v) => fetchAggregation(v, since, until)));
+        const settled = await Promise.allSettled(variants.map((v) => {
+            const key = `${v}|${since}|${until}`;
+            return answers.get(key) ?? remember(key, fetchAggregation(v, since, until));
+        }));
         const fulfilled = settled.filter((s) => s.status === 'fulfilled').map((s) => s.value);
         if (fulfilled.length === 0) {
             throw settled[0].reason;

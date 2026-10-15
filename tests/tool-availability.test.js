@@ -57,13 +57,16 @@ describe('isToolAvailable', () => {
 });
 
 describe('registry gates (data/tools.js)', () => {
-  it('ASN Profile is gated on the Cloudflare Radar key only', () => {
+  // Its registry, CAIDA rank and relationship sections need no key, so the tool
+  // follows whether the route exists (Express: yes, edge function: no) rather
+  // than whether a Radar key is set.
+  it('ASN Profile is gated on the route being served, not on the Radar key', () => {
     const asn = TOOL_BY_SLUG.get('asn');
     assert.ok(asn, 'asn tool is registered');
-    assert.equal(asn.requiresConfig, 'cloudFlare');
+    assert.equal(asn.requiresConfig, 'asnProfile');
     assert.equal(asn.requiresOriginalSite, undefined);
-    assert.equal(isToolAvailable(asn, { cloudFlare: false, originalSite: true }), false);
-    assert.equal(isToolAvailable(asn, { cloudFlare: true, originalSite: false }), true);
+    assert.equal(isToolAvailable(asn, { asnProfile: true, cloudFlare: false }), true);
+    assert.equal(isToolAvailable(asn, { asnProfile: false, cloudFlare: true }), false);
   });
 
   it('every requiresConfig is a non-empty string', () => {

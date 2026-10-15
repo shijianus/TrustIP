@@ -51,6 +51,9 @@ export default (headers) => {
         reportSharing: false,
         maxmind: false,
         ipCard: false,
+        // The keyless geolocation routes (ipinfo / ipapiis / ip2location) are
+        // Express-only, so their cards stay keyed here.
+        keylessGeo: false,
         // Not a credential — a route table. `trustscore` and `dossier` are not in
         // handler.ts, and cannot be ported as-is: the blocklist pass speaks raw DNS
         // over UDP, and CAIDA's AS maps and MaxMind's databases are files this
@@ -60,6 +63,8 @@ export default (headers) => {
         // not served rather than call a route that answers 404 and show a failure.
         trust: false,
         dossier: false,
+        // /api/asn-profile is Express-only (it reads the CAIDA files on disk).
+        asnProfile: false,
     }, { cacheSeconds: 60 * 60 });
     response.headers.set('Vary', 'Referer');
     return response;

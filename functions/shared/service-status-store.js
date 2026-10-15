@@ -89,7 +89,11 @@ export const getServiceStatusOverview = async () => {
     const current = await getSnapshot();
     return {
         updatedAt: current.updatedAt,
-        providers: current.providers.map(({ id, name, page, indicator }) => ({ id, name, page, indicator })),
+        providers: current.providers.map(({
+            id, name, page, indicator, category, lastIncidentAt,
+        }) => ({
+            id, name, page, indicator, category: category ?? null, lastIncidentAt: lastIncidentAt ?? null,
+        })),
     };
 };
 

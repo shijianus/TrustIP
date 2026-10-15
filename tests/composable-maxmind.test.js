@@ -32,7 +32,7 @@ globalThis.document = {
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-const { dedupedLookup } = await import('../frontend/composables/use-maxmind.js');
+const { dedupedLookup, pickLookupSource } = await import('../frontend/composables/use-maxmind.js');
 
 describe('dedupedLookup — in-flight sharing', () => {
   it('concurrent calls with the same key share one doLookup run', async () => {
@@ -104,5 +104,27 @@ describe('dedupedLookup — result caching', () => {
     await assert.rejects(() => dedupedLookup('reject-key', doLookup), /boom/);
     assert.deepEqual(await dedupedLookup('reject-key', doLookup), { asn: 'AS64502' });
     assert.equal(calls, 2);
+  });
+});
+
+describe('pickLookupSource — a database-less deployment still enriches addresses', () => {
+  const dbs = (enabled) => [
+    { id: 2, text: 'IP-API.com', enabled: enabled.includes(2) },
+    { id: 5, text: 'IP.sb', enabled: enabled.includes(5) },
+    { id: 6, text: 'MaxMind', enabled: enabled.includes(6) },
+  ];
+
+  it('uses MaxMind when its database is installed', () => {
+    assert.equal(pickLookupSource(dbs([2, 5, 6])).text, 'MaxMind');
+  });
+
+  it('falls back to IP.sb, then IP-API.com, when MaxMind is off', () => {
+    assert.equal(pickLookupSource(dbs([2, 5])).text, 'IP.sb');
+    assert.equal(pickLookupSource(dbs([2])).text, 'IP-API.com');
+  });
+
+  it('keeps MaxMind (old behaviour) when nothing is enabled yet, null for an empty list', () => {
+    assert.equal(pickLookupSource(dbs([])).text, 'MaxMind');
+    assert.equal(pickLookupSource([]), null);
   });
 });

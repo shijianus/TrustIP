@@ -6,13 +6,15 @@
 // - url   template string, {{ip}} and {{lang}} will be replaced by buildDbUrl()
 // - enabled   availability, derived from /api/configs (runtime failures never touch it)
 // - configKey /api/configs flag gating this source; absent = key-free, always available
+// - keyless   the vendor also answers without the key (a free tier the handler
+//             falls back to), so `/api/configs`' `keylessGeo` lists it as well
 
 export const IP_DATABASES = [
   { id: 0, text: 'IPCheck.ing', url: '/api/ipchecking?ip={{ip}}&lang={{lang}}', enabled: true, configKey: 'ipChecking' },
-  { id: 1, text: 'IPinfo.io', url: '/api/ipinfo?ip={{ip}}', enabled: true, configKey: 'ipInfo' },
+  { id: 1, text: 'IPinfo.io', url: '/api/ipinfo?ip={{ip}}', enabled: true, configKey: 'ipInfo', keyless: true },
   { id: 2, text: 'IP-API.com', url: '/api/ipapicom?ip={{ip}}&lang={{lang}}', enabled: true },
-  { id: 3, text: 'IPAPI.is', url: '/api/ipapiis?ip={{ip}}', enabled: true, configKey: 'ipapiis' },
-  { id: 4, text: 'IP2Location.io', url: '/api/ip2location?ip={{ip}}', enabled: true, configKey: 'ip2location' },
+  { id: 3, text: 'IPAPI.is', url: '/api/ipapiis?ip={{ip}}', enabled: true, configKey: 'ipapiis', keyless: true },
+  { id: 4, text: 'IP2Location.io', url: '/api/ip2location?ip={{ip}}', enabled: true, configKey: 'ip2location', keyless: true },
   { id: 5, text: 'IP.sb', url: '/api/ipsb?ip={{ip}}', enabled: true },
   { id: 6, text: 'MaxMind', url: '/api/maxmind?ip={{ip}}&lang={{lang}}', enabled: true, configKey: 'maxmind' },
 ];
@@ -35,12 +37,15 @@ export function buildDbUrl(db, ip, lang) {
 
 /**
  * Pure function: derive availability from /api/configs — keyed sources follow
- * their flag, key-free sources stay enabled. Returns a fresh array.
+ * their flag (or `keylessGeo`, for a source whose vendor has a keyless tier),
+ * key-free sources stay enabled. Returns a fresh array.
  */
 export const applyConfigAvailability = (dbs, configs) =>
   dbs.map((db) => ({
     ...db,
-    enabled: db.configKey ? !!configs?.[db.configKey] : true,
+    enabled: db.configKey
+      ? !!configs?.[db.configKey] || (db.keyless === true && configs?.keylessGeo === true)
+      : true,
   }));
 
 /**

@@ -1623,6 +1623,15 @@
       "in_progress": "En cours",
       "verifying": "Vérification",
       "completed": "Terminé"
+    },
+    "FaultSummary": "{n} services signalent une panne",
+    "AllClearSummary": "Les {n} services fonctionnent",
+    "LastIncident": "Dernier incident {time}",
+    "category": {
+      "ai": "IA",
+      "cloud": "Cloud",
+      "dev": "Développement",
+      "social": "Social"
     }
   },
   "connectivity": {
@@ -2465,7 +2474,10 @@
       "chatgpt": "ChatGPT",
       "claude": "Claude",
       "discord": "Discord",
-      "github": "GitHub"
+      "github": "GitHub",
+      "warp": "Réseau WARP / DNS public",
+      "cdnjs": "CDN de ressources statiques",
+      "workers": "Plateforme Workers"
     },
     "warp": {
       "on": "WARP activé",
@@ -2483,7 +2495,7 @@
   },
   "ainews": {
     "Title": "Actualités IA",
-    "Note": "Chaque ligne ci-dessous est un incident qu'un éditeur a publié sur son propre service. Cette version ne lit que ces pages d'état.",
+    "Note": "D'abord les titres que les éditeurs d'IA et les médias tech publient dans leurs propres flux RSS / Atom, chacun renvoyant à l'original. En dessous, les incidents que les éditeurs publient sur leurs propres services.",
     "Loading": "Chargement…",
     "Refresh": "Rafraîchir",
     "Updated": "Instantané du {time}",
@@ -2500,10 +2512,14 @@
     "QuietTitle": "Rien à signaler",
     "QuietChip": "{n} services nominaux",
     "QuietNote": "Aucun éditeur de cette liste n'a publié d'incident encore ouvert. Les voyants ci-dessous viennent de la page d'état de chaque fournisseur, telle que ce déploiement l'a lue pour la dernière fois.",
-    "EditorialTitle": "Couverture éditoriale",
-    "EditorialNote": "Sorties de modèles, changements de tarifs et actualités des entreprises ne passent pas par une page d'état, et cette version ne lit aucune autre source de contenu.",
-    "EditorialNeeds": "Une source de contenu autorisant sa rediffusion, et une route serveur capable de la récupérer — un navigateur ne lit pas un flux RSS en cross-origin.",
-    "Caveat": "Un incident est le récit qu'un éditeur fait de sa propre panne. Il dit ce que l'éditeur a constaté, pas ce qui s'est passé."
+    "EditorialTitle": "Titres",
+    "EditorialNote": "Aucun flux d'éditeur n'a pu être lu cette fois, il n'y a donc aucun titre à afficher.",
+    "EditorialNeeds": "Un accès HTTPS sortant du serveur de ce déploiement vers les flux des éditeurs (openai.com, github.com, blog.google…) — un navigateur ne lit pas un flux RSS en cross-origin.",
+    "Caveat": "Un incident est le récit qu'un éditeur fait de sa propre panne. Il dit ce que l'éditeur a constaté, pas ce qui s'est passé.",
+    "IncidentsTitle": "Incidents des éditeurs",
+    "Sources": "Sources : {list}",
+    "SourcesFailed": "illisibles pour l'instant : {list}",
+    "Via": "via {via}"
   },
   "aiService": {
     "Note": "Ce que {name} voit comme votre adresse, la confiance que les registres publics lui accordent, et ce qui quitte cette machine avec elle.",

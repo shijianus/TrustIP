@@ -1623,6 +1623,15 @@
       "in_progress": "进行中",
       "verifying": "验证中",
       "completed": "已完成"
+    },
+    "FaultSummary": "{n} 个服务出现故障",
+    "AllClearSummary": "{n} 个服务全部正常",
+    "LastIncident": "上次故障：{time}",
+    "category": {
+      "ai": "AI",
+      "cloud": "云服务",
+      "dev": "开发",
+      "social": "社区"
     }
   },
   "connectivity": {
@@ -2465,7 +2474,10 @@
       "chatgpt": "ChatGPT",
       "claude": "Claude",
       "discord": "Discord",
-      "github": "GitHub"
+      "github": "GitHub",
+      "warp": "WARP 与公共 DNS 网络",
+      "cdnjs": "静态资源 CDN",
+      "workers": "Workers 平台"
     },
     "warp": {
       "on": "WARP 已开启",
@@ -2483,7 +2495,7 @@
   },
   "ainews": {
     "Title": "AI 资讯",
-    "Note": "下面每一行都是厂商就自家服务发布的故障事件；本构建只读这些状态页，不读其他内容源。",
+    "Note": "上方是 AI 厂商与科技媒体在自家 RSS / Atom 订阅源发布的标题，点击直达原文；下方是厂商就自家服务发布的故障事件。",
     "Loading": "加载中…",
     "Refresh": "刷新",
     "Updated": "快照 {time}",
@@ -2500,10 +2512,14 @@
     "QuietTitle": "近期无事件",
     "QuietChip": "{n} 个服务正常",
     "QuietNote": "这份名单里没有厂商发布仍未结束的事件。下面每个灯色都取自该厂商自己的状态页，以本部署最后一次读取为准。",
-    "EditorialTitle": "编辑类资讯",
-    "EditorialNote": "模型发布、价格调整与公司动态不会出现在状态页上，而本构建不读取任何其它内容源。",
-    "EditorialNeeds": "需要一个获准转载的内容源，以及一条能抓取它的服务端路径——浏览器无法跨域读取 RSS。",
-    "Caveat": "事件记录是厂商对自己故障的陈述，说明的是它观察到了什么，而不是实际发生了什么。"
+    "EditorialTitle": "资讯标题",
+    "EditorialNote": "这次未能读取任何发布方的订阅源，所以这里没有可列出的标题。",
+    "EditorialNeeds": "需要本部署的服务端能以 HTTPS 访问发布方的订阅源（openai.com、github.com、blog.google 等）——浏览器无法跨域读取 RSS。",
+    "Caveat": "事件记录是厂商对自己故障的陈述，说明的是它观察到了什么，而不是实际发生了什么。",
+    "IncidentsTitle": "厂商故障事件",
+    "Sources": "来源：{list}",
+    "SourcesFailed": "暂时无法读取：{list}",
+    "Via": "经 {via}"
   },
   "aiService": {
     "Note": "{name} 看到的你的地址、公开注册机构对这一地址的信任程度，以及与它一同离开这台机器的其他信息。",

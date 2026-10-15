@@ -1,17 +1,19 @@
 // /api/ip2location — geolocation source handler backed by api.ip2location.io.
-// Picks a random API key and normalizes the response into the canonical
-// geo shape via the shared makeGeoHandler factory. The upstream requires a
-// key, so the route is declared key-mandatory: an unconfigured deployment gets
-// "API key is missing" and the source card stays hidden (`configs.ip2location`).
+// With IP2LOCATION_API_KEY it picks a random key; without one it asks the same
+// endpoint keyless, which the vendor serves at 1,000 lookups per day per server
+// with the same body. Either way the response is normalized into the canonical
+// geo shape via the shared makeGeoHandler factory.
 
 import { makeGeoHandler } from '../common/geo-handler.js';
 
 function buildUrl(req) {
     const ipAddress = req.query.ip;
 
-    const keys = (process.env.IP2LOCATION_API_KEY || '').split(',');
-    const key = keys[Math.floor(Math.random() * keys.length)];
-    return `https://api.ip2location.io/?ip=${ipAddress}&key=${key}`;
+    const keys = (process.env.IP2LOCATION_API_KEY || '').split(',').map((k) => k.trim()).filter(Boolean);
+    const key = keys.length ? keys[Math.floor(Math.random() * keys.length)] : null;
+    return key
+        ? `https://api.ip2location.io/?ip=${ipAddress}&key=${key}`
+        : `https://api.ip2location.io/?ip=${ipAddress}`;
 }
 
 function modifyJsonForIPAPI(json) {
@@ -36,5 +38,4 @@ export default makeGeoHandler({
     name: 'ip2location-io',
     buildUrl,
     normalize: modifyJsonForIPAPI,
-    requiredEnv: 'IP2LOCATION_API_KEY',
 });
