@@ -55,9 +55,20 @@ function isValidDomain(domain) {
 // The bounds are the real allocation space: AS0 and AS4294967295 are reserved, so
 // anything outside 1–4294967294 is read as "this is not an ASN", not as a lookup
 // that failed — no registry object exists to be found.
+//
+// The query arrives straight from `?q=`, so the parse is linear in its length:
+// surrounding whitespace goes through `trim()` (same character set as `\s`), and
+// anything longer than `MAX_ASN_QUERY_LENGTH` is not an ASN however it is spaced.
+// The pattern then holds a single `\s*`, between a prefix and digits it cannot
+// match — adjacent `\s*` runs around an optional group backtrack quadratically
+// on a long run of spaces that ends in a non-digit.
+const MAX_ASN_QUERY_LENGTH = 64;
+
 function parseAsnQuery(text) {
     if (typeof text !== 'string') return null;
-    const match = /^\s*(?:as)?\s*(\d{1,10})\s*$/i.exec(text);
+    const trimmed = text.trim();
+    if (trimmed.length > MAX_ASN_QUERY_LENGTH) return null;
+    const match = /^(?:as)?\s*(\d{1,10})$/i.exec(trimmed);
     if (!match) return null;
     const asn = Number(match[1]);
     return asn >= 1 && asn <= 4294967294 ? asn : null;
