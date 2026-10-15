@@ -32,7 +32,7 @@ import {
     PROBE_TONES,
     probeTone,
 } from '../common/latency-probes.js';
-import { parseTrace, mergeEgressIps } from '../frontend/composables/use-site-split.js';
+import { parseTrace, mergeEgressIps, ownAddressOf } from '../frontend/composables/use-site-split.js';
 
 const KINDS = ['international', 'country', 'world'];
 const METHODS = ['auto', 'ping'];
@@ -402,5 +402,25 @@ describe('the frontend must not be able to read the reasoning', () => {
             assert.ok(!existsSync(new URL(`../frontend/utils/${name}.js`, import.meta.url)),
                 `frontend/utils/${name}.js re-exports a server-only module`);
         }
+    });
+});
+
+describe('ownAddressOf', () => {
+    it('skips a failed card\'s error text and falls back to the IPv6 exit', () => {
+        const cards = [
+            { ip: 'Fetch Failed or No IPv4 Address' },
+            { ip: '2001:4860:4860::8888' },
+            { ip: '' },
+        ];
+        assert.equal(ownAddressOf(cards), '2001:4860:4860::8888');
+    });
+
+    it('prefers a public IPv4 and ignores reserved space', () => {
+        assert.equal(ownAddressOf([{ ip: '2001:4860:4860::8888' }, { ip: '192.168.1.2' }, { ip: '8.8.8.8' }]), '8.8.8.8');
+    });
+
+    it('answers null when no card holds a usable address', () => {
+        assert.equal(ownAddressOf([{ ip: 'Fetch Failed or No IPv6 Address' }, { ip: '10.0.0.1' }]), null);
+        assert.equal(ownAddressOf([]), null);
     });
 });
