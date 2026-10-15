@@ -165,6 +165,18 @@ probes (`isMaxMindReady`, `isAsRelLoaded`, …) in `backend-server.js`. Answers
 assembled from parts don't gate: an ASN Profile section whose data is still
 loading (`isStillLoading`) answers `error`, leaving the others to answer.
 
+### Per-route rate limits
+
+Limiters live in `backend-server.js`, built by `common/route-limiter.js`, which
+keys every one on the address `common/client-ip.js` resolved (IPv6 by /56). The
+global limiter is opt-in (`SECURITY_RATE_LIMIT`), so a route that spends a vendor
+key, a third party's fair-use allowance, a Cloudflare KV write or a fan-out gets
+its own budget — `perMinute(n)`, or a named `limiter({...})` where the window is
+not a minute — mounted after its validation guard and before `cacheable`, so a
+429 stays `no-store`. Every `perMinute` / `limiter` call is an independent
+bucket. `tests/route-limits.test.js` lists the metered routes and fails when one
+loses its limiter; a new metered route joins that list.
+
 ### Private-API header pass-through (intentional exception)
 
 Handlers proxying the upstream project's private IPCheck.ing API
