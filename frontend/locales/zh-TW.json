@@ -2474,7 +2474,10 @@
       "chatgpt": "ChatGPT",
       "claude": "Claude",
       "discord": "Discord",
-      "github": "GitHub"
+      "github": "GitHub",
+      "warp": "WARP 與公共 DNS 網路",
+      "cdnjs": "靜態資源 CDN",
+      "workers": "Workers 平台"
     },
     "warp": {
       "on": "WARP 已開啟",
