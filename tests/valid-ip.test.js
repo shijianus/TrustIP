@@ -209,6 +209,7 @@ describe('parseAsnQuery', () => {
     // neither an IP nor a domain, so accepting it costs nothing in ambiguity.
     ['15169', 15169],
     [' AS 9268 ', 9268],
+    ['\tas  13335\n', 13335],
     ['AS000001', 1],
     ['4294967294', 4294967294],
   ];
@@ -233,6 +234,23 @@ describe('parseAsnQuery', () => {
   // `as?` is "a" plus an optional "s", not an optional "as". Writing the prefix
   // that way makes every bare number fail to parse while `AS15169` still works —
   // which is exactly the silent half-break this pins.
+  // The query is `?q=` verbatim: a long whitespace run ending in a non-digit used
+  // to cost quadratic backtracking (16 000 spaces held the event loop ~430 ms).
+  it('rejects a 100k-space query in linear time on every copy', () => {
+    for (const parse of [parseCommonAsn, parseFrontendAsn, parseEdgeAsn]) {
+      for (const input of [' '.repeat(100_000) + 'x', 'AS' + ' '.repeat(100_000) + 'x', ' '.repeat(100_000)]) {
+        const started = performance.now();
+        assert.equal(parse(input), null);
+        assert.ok(performance.now() - started < 50, `took ${(performance.now() - started).toFixed(1)} ms`);
+      }
+    }
+  });
+
+  it('reads padding as padding but refuses an over-long query', () => {
+    assert.equal(parseCommonAsn(' '.repeat(100_000) + 'AS15169' + ' '.repeat(100_000)), 15169);
+    assert.equal(parseCommonAsn('AS' + ' '.repeat(60) + '15169'), null);
+  });
+
   it('does not require the prefix to be spelled at all', () => {
     assert.equal(parseCommonAsn('15169'), 15169);
     assert.equal(parseCommonAsn('AS15169'), parseCommonAsn('15169'));

@@ -32,6 +32,51 @@ function domainHasWhoisText(result) {
 const isNoRecord = (error) => error instanceof RdapNotFound
     || String(error?.message || '').startsWith('No RDAP endpoint for ');
 
+// Port-43 servers answer a refusal or a miss with text, not a status, and whoiser
+// hands that text back as if it were a record: `{"whois.nic.io": {…, text:
+// ["Malformed request.", …]}}` is a 200 to every layer above it. A reply that
+// names no registration (no status, no name server, no registry field) and opens
+// with one of these lines is a miss or a refusal, never data to show or cache.
+const NO_MATCH_LINE = /^(?:no match\b|no matching record|not found\b|no entries found|no data found|no object found|object does not exist|the queried object does not exist|domain not found|no such domain|nothing found|status:\s*(?:free|available)\b|error:101\b|.*\breturned 0 objects)/i;
+const REGISTRY_ERROR_LINE = /^(?:malformed (?:request|query)|invalid (?:request|query|domain name|input)|wrong query|error\b|(?:query )?rate limit|quota exceeded|too many (?:requests|queries|connections)|(?:your )?connection limit exceeded|access denied|requests? limit|limit exceeded|service unavailable|temporarily unavailable)/i;
+// Field names that only a real registration carries — IP (RIR) and domain
+// (registry / registrar) alike; anything else whoiser parses out of a refusal
+// is boilerplate (`>>> Last update of WHOIS database`, notices, terms).
+const RECORD_FIELD = /domain|registr|creat|expir|updated date|netrange|inet6?num|cidr|^range$|^route|netname|^asn$|organi[sz]ation|orgname|nic-hdl/i;
+
+const namesARegistration = (entry) => Object.entries(entry).some(([key, value]) => {
+    if (key === 'text' || key === '__raw' || key.startsWith('>>>')) return false;
+    if (Array.isArray(value)) return value.length > 0;
+    return RECORD_FIELD.test(key) && typeof value === 'string' && value.trim() !== '';
+});
+
+// Classifies a whoiser reply as 'no-match', 'error', or null when it is a record
+// or a shape this does not recognise (shown as before). whoiser.ip() returns the
+// RIR's reply itself; whoiser.domain() keys replies by server, and the first is
+// the registry it asked before following any referral. RIR replies wrap the
+// verdict in `%` comments (`%ERROR:101: no entries found`), so the markers go
+// before the patterns run over the opening lines.
+const hasRaw = (v) => v && typeof v === 'object' && typeof v.__raw === 'string' && v.__raw.length > 0;
+
+export const registryReplyFault = (result) => {
+    if (!result || typeof result !== 'object') return null;
+    const entry = hasRaw(result) ? result : Object.values(result).find(hasRaw);
+    if (!entry || namesARegistration(entry)) return null;
+    const lines = entry.__raw.split('\n')
+        .map((line) => line.trim().replace(/^[%#]+\s*/, ''))
+        .filter((line) => line && !line.startsWith('>>>'))
+        .slice(0, 8);
+    if (lines.some((line) => NO_MATCH_LINE.test(line))) return 'no-match';
+    if (lines.some((line) => REGISTRY_ERROR_LINE.test(line))) return 'error';
+    return null;
+};
+
+// A failed or refused upstream is the registry's problem, not this server's:
+// 502, and the reason stays in the log — the page renders any 5xx as "the lookup
+// broke" and never shows the text. Error responses go out `no-store` (the
+// global /api default; cacheable() only stamps a 2xx).
+const upstreamFailed = (res) => res.status(502).json({ error: 'Upstream request failed' });
+
 export default async (req, res) => {
     const query = req.query.q;
     // typeof check also rejects the array form (?q=a&q=b) express produces.
@@ -63,10 +108,16 @@ export default async (req, res) => {
         }
         try {
             const ipinfo = await whoiser.ip(query, { timeout: 5000, follow: 1, raw: true });
+            const fault = registryReplyFault(ipinfo);
+            if (fault === 'no-match') return res.status(404).json({ error: `IP not found: ${query}` });
+            if (fault === 'error') {
+                logger.warn({ query }, 'whois: registry refused the IP query');
+                return upstreamFailed(res);
+            }
             return res.json(ipinfo);
         } catch (e) {
             logger.error({ err: e, query }, 'Failed to get IP info');
-            return res.status(500).json({ error: 'Upstream request failed' });
+            return upstreamFailed(res);
         }
     }
 
@@ -78,9 +129,9 @@ export default async (req, res) => {
         try {
             return res.json(await rdapAsnRecord(asn));
         } catch (e) {
-            if (isNoRecord(e)) return res.status(404).json({ error: e.message });
+            if (isNoRecord(e)) return res.status(404).json({ error: `AS${asn} not found` });
             logger.error({ err: e, query }, 'Failed to get AS record');
-            return res.status(500).json({ error: e.message });
+            return upstreamFailed(res);
         }
     }
 
@@ -99,19 +150,27 @@ export default async (req, res) => {
         // fails too.
     }
 
-    if (domainHasWhoisText(domaininfo)) {
+    // The registry's own "no match" is authoritative; its refusal is not an
+    // answer at all, so RDAP gets the question — and if RDAP cannot answer either,
+    // the result is an upstream failure rather than "no record".
+    const fault = domainHasWhoisText(domaininfo) ? registryReplyFault(domaininfo) : null;
+    if (fault === 'no-match') {
+        return res.status(404).json({ error: `Domain not found: ${query}` });
+    }
+    if (domainHasWhoisText(domaininfo) && fault === null) {
         return res.json(domaininfo);
     }
+    if (fault === 'error') logger.warn({ query }, 'whois: registry refused the domain query, trying RDAP');
 
     try {
         const rdap = await rdapDomain(query);
         return res.json(rdap);
     } catch (e) {
-        if (isNoRecord(e)) {
+        if (e instanceof RdapNotFound || (fault === null && isNoRecord(e))) {
             logger.warn({ query }, 'whois: no registry record for this name');
-            return res.status(404).json({ error: e.message });
+            return res.status(404).json({ error: `Domain not found: ${query}` });
         }
         logger.error({ err: e, query }, 'Failed to get RDAP info');
-        return res.status(500).json({ error: 'Upstream request failed' });
+        return upstreamFailed(res);
     }
 };
