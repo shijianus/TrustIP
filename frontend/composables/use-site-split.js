@@ -34,6 +34,7 @@ import { isUsablePublicIP } from '../utils/valid-ip.js';
 import { onAppEvent } from '../utils/app-events.js';
 import { probeTone } from '../utils/latency-probes.js';
 import { classifyEgress } from '../utils/egress-attribution.js';
+import { summarizeSteps } from './use-test-log.js';
 import {
     readClock, readLanguages, readKeyboard, readOperatingSystem,
     geoSliceFromCards, networkSlice,
@@ -159,7 +160,30 @@ const pooled = async (items, worker, onDone, limit) => {
     await Promise.all(runners);
 };
 
-export function useSiteSplit({ geoLookup, ownGeolocations, knownExits, leaks } = {}) {
+// One table row as a test-process log step (composables/use-test-log.js): what was
+// asked of the destination, how long it took, and what it said.
+export const splitRowStep = (row, ms) => {
+    if (row.measured === 'trace') {
+        return {
+            kind: 'trace', target: row.host, endpoint: `https://${row.host}${TRACE_PATH}`,
+            protocol: 'HTTPS GET', durationMs: ms, result: 'ok',
+            value: [row.ip, row.loc, row.colo].filter(Boolean).join(' · '),
+        };
+    }
+    const samples = row.dots?.length || 0;
+    const good = (row.dots || []).filter((d) => d.ok).length;
+    return {
+        kind: 'latency', target: row.host, endpoint: `https://${row.host}/`,
+        protocol: `HTTPS GET (no-cors) ×${samples}`, durationMs: ms,
+        result: !samples ? 'skip' : (row.reachable ? 'ok' : 'fail'),
+        value: row.ms != null ? `${Math.round(row.ms)} ms (${good}/${samples})` : `0/${samples}`,
+        note: row.method === 'ping' ? null : 'no /cdn-cgi/trace answer — timed the connection instead',
+    };
+};
+
+// `log` (optional) is a `useTestLog()` handle: the run, the work-order request and
+// every destination's measurement are recorded there for the visitor to read.
+export function useSiteSplit({ geoLookup, ownGeolocations, knownExits, leaks, log } = {}) {
     // Rows are replaced wholesale rather than mutated: dozens of objects the table
     // re-reads on every answer is the kind of deep reactivity that makes a page
     // stutter while it loads.
@@ -251,6 +275,7 @@ export function useSiteSplit({ geoLookup, ownGeolocations, knownExits, leaks } =
     // else — no ranking, no weights — because the reasoning is not this file's
     // business and must not end up in the bundle.
     const requestPlan = async () => {
+        const step = log?.open({ kind: 'plan', endpoint: '/api/split', protocol: 'HTTPS POST' });
         try {
             const res = await fetchWithTimeout('/api/split', {
                 method: 'POST',
@@ -263,8 +288,10 @@ export function useSiteSplit({ geoLookup, ownGeolocations, knownExits, leaks } =
             const plan = await res.json();
             if (!Array.isArray(plan.rows) || !plan.rows.length) throw new Error('empty plan');
             planFailed.value = false;
+            step?.end({ result: 'ok', value: `${plan.rows.length} rows` });
             return plan.rows;
-        } catch {
+        } catch (error) {
+            step?.end({ result: 'fail', error });
             // Nothing to probe. The catalog is not mirrored here — a local copy
             // would be the whole destination list, sitting in a published bundle —
             // so the honest answer is an empty table that says why.
@@ -368,7 +395,13 @@ export function useSiteSplit({ geoLookup, ownGeolocations, knownExits, leaks } =
         if (!todo.length) return;
         running.value = true;
 
-        await pooled(todo, measureRow, (result) => {
+        const timedRow = async (row) => {
+            const started = performance.now();
+            const result = await measureRow(row);
+            if (!cancelled && result.state !== PENDING) log?.add(splitRowStep(result, performance.now() - started));
+            return result;
+        };
+        await pooled(todo, timedRow, (result) => {
             if (cancelled) return;
             const at = current.findIndex((row) => row.host === result.host);
             if (at < 0) return;
@@ -406,6 +439,12 @@ export function useSiteSplit({ geoLookup, ownGeolocations, knownExits, leaks } =
             await runPlan(planRows);
         } finally {
             waving = false;
+            // Every finished wave re-judges the whole table: a re-plan adds rows.
+            if (log && !cancelled) {
+                log.finish(planFailed.value
+                    ? { verdict: 'fail', reason: 'planFailed', params: {} }
+                    : summarizeSteps(log.record.value?.steps || [], { kinds: ['trace', 'latency'] }));
+            }
         }
         if (replanQueued && !cancelled) {
             replanQueued = false;
@@ -427,6 +466,7 @@ export function useSiteSplit({ geoLookup, ownGeolocations, knownExits, leaks } =
         startedOnce = true;
         cancelled = false;
         done.value = false;
+        log?.begin({ concurrency: CONCURRENCY, samples: WORLD_SAMPLES });
         running.value = true;
         allowReplan = false;
 

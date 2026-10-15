@@ -150,6 +150,8 @@
     </div>
 
     <p class="text-xs font-normal text-muted-foreground leading-relaxed">{{ t('cfchk.Caveat') }}</p>
+
+    <TestRunLog :log="testLog" />
   </div>
 </template>
 
@@ -186,6 +188,8 @@ import KeyRow from '@/components/widgets/KeyRow.vue';
 import VerdictChip from '@/components/widgets/VerdictChip.vue';
 import ScoreMeter from '@/components/widgets/ScoreMeter.vue';
 import CapabilitySlot from '@/components/widgets/CapabilitySlot.vue';
+import TestRunLog from '@/components/widgets/TestRunLog.vue';
+import { useTestLog, summarizeSteps, traceOutcome } from '@/composables/use-test-log.js';
 
 const { t, locale } = useI18n();
 
@@ -264,13 +268,26 @@ const traceTime = computed(() => {
   return formatIsoDate(new Date(seconds * 1000).toISOString(), locale.value);
 });
 
+// Test-process log: each destination's trace echo (endpoint, round trip, the
+// address / country / PoP it named) and the trust lookup of the primary address.
+const testLog = useTestLog('cloudflare');
+
 const measure = async () => {
   running.value = true;
   primaryState.value = 'loading';
   trustState.value = 'idle';
   trust.value = null;
+  testLog.begin({ destinations: CF_DESTINATIONS.length });
   try {
-    const settled = await Promise.allSettled(CF_DESTINATIONS.map((item) => echoOnce(item.host)));
+    const settled = await Promise.allSettled(CF_DESTINATIONS.map((item) => testLog.timed(
+      { kind: 'trace', target: item.host, endpoint: `https://${item.host}/cdn-cgi/trace`, protocol: 'HTTPS GET' },
+      () => echoOnce(item.host),
+      (answer) => {
+        const outcome = traceOutcome(answer);
+        if (outcome.result === 'ok') outcome.value = [outcome.value, answer.http, answer.tls].filter(Boolean).join(' · ');
+        return outcome;
+      },
+    )));
     const answers = CF_DESTINATIONS.map((item, i) => (
       settled[i].status === 'fulfilled' ? settled[i].value : { state: 'blocked' }
     ));
@@ -282,12 +299,21 @@ const measure = async () => {
 
     if (primary.value && isValidIP(primary.value.ip)) {
       trustState.value = 'loading';
-      const score = await readTrust(primary.value.ip);
+      const score = await testLog.timed(
+        { kind: 'trust', target: primary.value.ip, endpoint: `/api/trustscore?ip=${primary.value.ip}`, protocol: 'HTTPS GET' },
+        () => readTrust(primary.value.ip),
+        (body) => (body ? { result: 'ok', value: `score ${body.score ?? '—'} · band ${body.band ?? '—'}` } : { result: 'fail', error: 'no score' }),
+      );
       trust.value = score;
       trustState.value = score ? 'ready' : 'failed';
     }
   } finally {
     running.value = false;
+    // Verdict on the echoes alone; distinct PoPs are named so a split edge shows.
+    const colos = [...new Set(rows.value.filter((row) => row.state === 'answered').map((row) => row.colo).filter(Boolean))];
+    const verdict = summarizeSteps(testLog.record.value?.steps || [], { kinds: ['trace'] });
+    testLog.setMeta({ colos: colos.join(', ') || '—' });
+    testLog.finish(verdict);
   }
 };
 

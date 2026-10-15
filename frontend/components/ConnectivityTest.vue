@@ -148,6 +148,8 @@
     <!-- Add / import / manage-lists dialog -->
     <ConnectivityAddDialog v-model:open="addDialogOpen" :initial-tab="dialogTab" :active-list-id="activeListId" />
 
+    <TestRunLog :log="testLog" />
+
     <!-- Section banner slot (data-driven; see InfoBanner.vue) -->
     <InfoBanner section="connectivity" :settled="hasEverSettled" />
   </section>
@@ -171,6 +173,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import ConnectivityAddDialog from '@/components/widgets/ConnectivityAddDialog.vue';
 import InfoBanner from '@/components/widgets/InfoBanner.vue';
+import TestRunLog from '@/components/widgets/TestRunLog.vue';
+import { useTestLog, summarizeSteps } from '@/composables/use-test-log.js';
 import { useStatusTone, ipFieldTone } from '@/composables/use-status-tone.js';
 import {
   Check, ChevronDown, Play, Frown, Meh, Plus, RotateCw, Settings2, Smile, X,
@@ -363,9 +367,28 @@ const statusFaceIcon = (test) => {
 // results land after the next tick starts.
 let runSeq = 0;
 
+// Test-process log: one step per timed request (every round in multi mode), the
+// verdict per target on its best round — the same best-of-N the cards show.
+const testLog = useTestLog('connectivity');
+let roundNo = 0;
+const finishLog = () => {
+  const judged = connectivityTests.filter((test) => test.statusCode !== undefined);
+  testLog.finish(summarizeSteps(judged.map((test) => ({
+    kind: 'http',
+    result: test.statusCode === CONNECTIVITY_STATUS.OK ? 'ok' : 'fail',
+  }))));
+};
+
 const checkConnectivityHandler = async (test, onTestComplete = () => { }, isManualRun) => {
   manualRun.value = isManualRun;
   const runId = runSeq;
+  const logStep = testLog.open({
+    kind: 'http',
+    target: test.name,
+    endpoint: test.url,
+    protocol: 'HTTPS GET (no-cors)',
+    note: roundNo ? t('testlog.note.round', { n: roundNo }) : null,
+  });
   // Only multi-cycle passes feed the dot history; per-card refreshes skip it.
   const recordRound = multipleTests.value && !isManualRun;
   const controller = new AbortController();
@@ -380,10 +403,12 @@ const checkConnectivityHandler = async (test, onTestComplete = () => { }, isManu
     });
     clearTimeout(timeoutId);
     if (runId !== runSeq) {
+      logStep.end({ result: 'skip', error: 'superseded' });
       onTestComplete(true);
       return;
     }
     const testTime = Math.round(performance.now() - beginTime);
+    logStep.end({ result: 'ok', value: `${testTime} ms` });
     test.status = t('connectivity.StatusAvailable');
     // Locale-free twin of the localized status label, consumed by the report
     // builder (utils/report-builders.js) — the label itself can't be mapped
@@ -393,12 +418,18 @@ const checkConnectivityHandler = async (test, onTestComplete = () => { }, isManu
     test.time = recordRound ? test.mintime : testTime;
     if (recordRound) test.roundResults.push({ tone: testTime < 200 ? 'ok-fast' : 'ok-slow', time: testTime });
     onTestComplete(true);
-  } catch {
+  } catch (error) {
     clearTimeout(timeoutId);
     if (runId !== runSeq) {
+      logStep.end({ result: 'skip', error: 'superseded' });
       onTestComplete(false);
       return;
     }
+    // An abort here is our own 3.6 s timer; anything else is the browser refusing
+    // the connection (it never says why under no-cors).
+    logStep.end(controller.signal.aborted
+      ? { result: 'timeout', error: 'timeout 3600 ms' }
+      : { result: 'fail', error });
     // Best-of-N: in multi mode a later failure doesn't downgrade a card
     // that already succeeded (mintime > 0). The dot row still records the
     // real 'fail' — it's per-round history, separate from the face/text.
@@ -577,6 +608,13 @@ const handelCheckStart = async (trigger = 'boot') => {
   const isAuto = trigger === 'boot';
   const showToast = trigger !== 'refresh';
   const resetCards = trigger !== 'boot';
+  roundNo = 1;
+  testLog.begin({
+    list: activeList.value ? listName(activeList.value) : '',
+    targets: connectivityTests.length,
+    rounds: multi ? totalRounds.value : 1,
+    trigger,
+  });
   // Fresh multi cycle: stop any round loop still ticking and zero its
   // bookkeeping so the dot rows and the best-of-N aggregate restart cleanly.
   if (multi) {
@@ -598,6 +636,7 @@ const handelCheckStart = async (trigger = 'boot') => {
     if (intervalId.value !== null) clearInterval(intervalId.value);
     intervalId.value = setInterval(async () => {
       if (counter.value < maxCounts.value && !manualRun.value) {
+        roundNo = counter.value + 2;
         await checkAllConnectivity(false, false, false);
         counter.value++;
         if (counter.value >= maxCounts.value) {
@@ -606,15 +645,18 @@ const handelCheckStart = async (trigger = 'boot') => {
           allRoundsDone.value = true;
           clearInterval(intervalId.value);
           intervalId.value = null;
+          finishLog();
         }
       } else {
         // User took over (card click) — stop and suppress the auto-toast.
         clearInterval(intervalId.value);
         intervalId.value = null;
+        finishLog();
       }
     }, 500);
   } else {
     allRoundsDone.value = true;
+    finishLog();
   }
 };
 

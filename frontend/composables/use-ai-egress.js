@@ -34,6 +34,7 @@
 import { computed, ref } from 'vue';
 
 import { fetchWithTimeout } from '../utils/fetch-with-timeout.js';
+import { summarizeSteps, traceOutcome } from './use-test-log.js';
 import { parseTrace } from '../utils/parse-trace.js';
 import { isValidIP } from '../utils/valid-ip.js';
 import {
@@ -192,7 +193,9 @@ export const judgeRow = (service, trace, controlIp) => {
  *   controlIp: import('vue').ComputedRef<string|null>, splitSeen: import('vue').ComputedRef<boolean>,
  *   run: () => Promise<void>}}
  */
-export const useAiEgress = () => {
+// `log` (optional) is a `useTestLog()` handle (composables/use-test-log.js): each
+// echo and each trust lookup is recorded there, and the run begins and finishes it.
+export const useAiEgress = ({ log } = {}) => {
     const CONTROL_INDEX = AI_EGRESS_ALL.findIndex((service) => service.host === EGRESS_CONTROL.host);
 
     const rows = ref(AI_EGRESS_ALL.map((service) => ({
@@ -223,7 +226,13 @@ export const useAiEgress = () => {
     ));
 
     const measure = async () => {
-        const pending = AI_EGRESS_ALL.map((service) => readTrace(service.host));
+        const pending = AI_EGRESS_ALL.map((service) => (log
+            ? log.timed(
+                { kind: 'trace', target: service.host, endpoint: `https://${service.host}${TRACE_PATH}`, protocol: 'HTTPS GET' },
+                () => readTrace(service.host),
+                traceOutcome,
+            )
+            : readTrace(service.host)));
         const traces = await Promise.allSettled(pending);
         const traced = AI_EGRESS_ALL.map((service, i) => (
             traces[i].status === 'fulfilled' ? traces[i].value : { state: EGRESS_STATE.blocked }
@@ -256,7 +265,13 @@ export const useAiEgress = () => {
         }));
         const scores = new Map();
         await Promise.allSettled(addresses.map(async (ip) => {
-            scores.set(ip, await readTrust(ip));
+            scores.set(ip, await (log
+                ? log.timed(
+                    { kind: 'trust', target: ip, endpoint: `/api/trustscore?ip=${ip}`, protocol: 'HTTPS GET' },
+                    () => readTrust(ip),
+                    (body) => (body ? { result: 'ok', value: `score ${body.score ?? '—'} · band ${body.band ?? '—'}` } : { result: 'fail', error: 'no score' }),
+                )
+                : readTrust(ip)));
         }));
         rows.value = rows.value.map((row) => {
             if (!row.ip) return { ...row, trustState: TRUST_STATE.idle };
@@ -274,10 +289,17 @@ export const useAiEgress = () => {
     const run = async () => {
         if (running.value) return;
         running.value = true;
+        log?.begin({ services: AI_EGRESS_ALL.map((service) => service.host).join(', '), control: EGRESS_CONTROL.host });
         try {
             await measure();
         } finally {
             running.value = false;
+            if (log) {
+                const verdict = summarizeSteps(log.record.value?.steps || [], { kinds: ['trace'] });
+                log.finish(splitSeen.value
+                    ? { verdict: 'partial', reason: 'aiSplit', params: { ...verdict.params, control: controlIp.value || '—' } }
+                    : verdict);
+            }
         }
     };
 

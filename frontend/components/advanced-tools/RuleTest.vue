@@ -77,6 +77,8 @@
                 {{ t('ruletest.RefreshAll') }}
             </Button>
         </div>
+
+        <TestRunLog :log="testLog" />
     </div>
 </template>
 
@@ -95,6 +97,8 @@ import { useMaxmind } from '@/composables/use-maxmind.js';
 import { Icon } from '@iconify/vue';
 import { EthernetPort, MapPin, RotateCw, Waypoints } from '@lucide/vue';
 import FitText from '@/components/widgets/FitText.vue';
+import TestRunLog from '@/components/widgets/TestRunLog.vue';
+import { useTestLog, summarizeSteps } from '@/composables/use-test-log.js';
 import { INLINE_TIERS } from '@/composables/use-fit-text.js';
 
 const { t } = useI18n();
@@ -135,11 +139,19 @@ const isFieldPending = (value) => isFieldPendingShared(value, {
 });
 
 
+// Test-process log: one trace echo per rule worker, its geo lookup, and a verdict
+// that says how many distinct exits the eight workers saw.
+const testLog = useTestLog('ruletest');
+
 const fetchTrace = async (id, url) => {
+    const step = testLog.open({ kind: 'trace', target: url, endpoint: `https://${url}/cdn-cgi/trace`, protocol: 'HTTPS GET' });
     try {
         const response = await fetch(`https://${url}/cdn-cgi/trace`);
         const data = await response.text();
         const { ip, loc: country = '' } = parseTrace(data);
+        step.end(ip
+            ? { result: 'ok', value: [ip, country].filter(Boolean).join(' · ') }
+            : { result: 'fail', error: `HTTP ${response.status}: no ip= line` });
         if (ip) {
             ruleTests.value[id].ip = ip;
             IPArray.value = [...IPArray.value, { ip, country }];
@@ -167,6 +179,7 @@ const fetchTrace = async (id, url) => {
             }
         }
     } catch (error) {
+        step.end({ result: 'fail', error });
         ruleTests.value[id].ip = t('ruletest.StatusError');
         ruleTests.value[id].country_code = '';
         ruleTests.value[id].country = t('ruletest.StatusError');
@@ -177,6 +190,7 @@ const fetchTrace = async (id, url) => {
 
 const checkAllRuleTest = async () => {
     finishAll.value = false;
+    testLog.begin({ workers: ruleTests.value.map((test) => test.url).join(', ') });
     ruleTests.value.forEach((test) => {
         test.ip = t('ruletest.StatusTesting');
         test.country = t('ruletest.StatusTesting');
@@ -194,6 +208,15 @@ const checkAllRuleTest = async () => {
                 processTest(index + 1);
                 if (index === testCount.value - 1) {
                     finishAll.value = true;
+                    const verdict = summarizeSteps(testLog.record.value?.steps || [], { kinds: ['trace'] });
+                    const exits = [...new Set((testLog.record.value?.steps || [])
+                        .filter((st) => st.kind === 'trace' && st.result === 'ok')
+                        .map((st) => String(st.value).split(' · ')[0]))];
+                    // Several distinct exits across the workers is the finding this
+                    // tool exists for (rule-based routing), not a failure.
+                    testLog.finish(exits.length > 1
+                        ? { verdict: verdict.verdict, reason: 'ruleSplit', params: { ...verdict.params, exits: exits.length, ips: exits.join(', ') } }
+                        : verdict);
                     // Achievement rule (CrossingTheWall) lives in data/achievement-rules.js;
                     // the report collector consumes the per-worker details (the
                     // builder recomputes its own unique count from valid IPs).

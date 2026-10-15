@@ -122,6 +122,8 @@
          every one of them also refuses traffic from datacenter addresses in a
          country it serves. -->
     <p class="text-xs font-normal text-muted-foreground leading-relaxed">{{ t('aiCheck.Caveat') }}</p>
+
+    <TestRunLog :log="testLog" />
   </div>
 </template>
 
@@ -148,10 +150,14 @@ import { Card, CardContent } from '@/components/ui/card';
 import Spinner from '@/components/ui/spinner/Spinner.vue';
 import VerdictChip from '@/components/widgets/VerdictChip.vue';
 import KeyRow from '@/components/widgets/KeyRow.vue';
+import TestRunLog from '@/components/widgets/TestRunLog.vue';
+import { useTestLog } from '@/composables/use-test-log.js';
 
 const { t } = useI18n();
 const store = useMainStore();
-const { rows, running, controlIp, splitSeen, run } = useAiEgress();
+// The run's test-process log: every echo and trust lookup, then the verdict.
+const testLog = useTestLog('aicheck');
+const { rows, running, controlIp, splitSeen, run } = useAiEgress({ log: testLog });
 
 const locale = computed(() => store.lang || 'en');
 
