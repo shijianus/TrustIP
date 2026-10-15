@@ -70,6 +70,7 @@ import { backendHost, hostPort } from './common/backend-host.js';
 import { exitOnBootFailure } from './common/boot-failure.js';
 import { limiter, perMinute, clientKey, getClientIp } from './common/route-limiter.js';
 import { securityHeaders } from './common/security-headers.js';
+import { cspMiddleware } from './common/csp.js';
 
 dotenv.config({ quiet: true });
 initUpstreamUserAgent();
@@ -429,7 +430,13 @@ if (process.env.VITE_SENTRY_DSN_FRONTEND) {
 // Set static file server
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-app.use(express.static(path.join(__dirname, './dist')));
+// The same dist/ frontend-server.js serves, reachable here on the API port
+// (a split deployment widens BACKEND_HOST), so its pages carry the same
+// Content-Security-Policy (common/csp.js) rather than none; /api answers skip it.
+const distDir = path.join(__dirname, './dist');
+const staticCsp = cspMiddleware({ indexPath: path.join(distDir, 'index.html'), env: process.env });
+app.use((req, res, next) => (req.path.startsWith('/api/') ? next() : staticCsp(req, res, next)));
+app.use(express.static(distDir));
 
 // Sentry error capture — the SDK itself is initialized (or not) by
 // sentry-instrument.js via `node --import`; this attaches the Express error
