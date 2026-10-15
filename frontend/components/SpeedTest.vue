@@ -171,6 +171,8 @@
       </CardContent>
     </Card>
 
+    <TestRunLog :log="testLog" />
+
     <!-- Section banner slot (data-driven; see InfoBanner.vue) -->
     <InfoBanner section="speedtest" :settled="hasEverSettled" />
   </section>
@@ -184,6 +186,8 @@ import { trackEvent } from '@/utils/analytics';
 import { emitAppEvent } from '@/utils/app-events.js';
 import { useAppCommand } from '@/composables/use-app-command.js';
 import { fetchWithTimeout } from '@/utils/fetch-with-timeout.js';
+import { useTestLog } from '@/composables/use-test-log.js';
+import TestRunLog from '@/components/widgets/TestRunLog.vue';
 import { isValidIP } from '@/utils/valid-ip.js';
 import { parseTrace } from '@/utils/parse-trace.js';
 import getCountryName from '@/data/country-name.js';
@@ -346,6 +350,23 @@ const connectionMethods = {
 
 let testEngine;
 let runId = 0;
+
+// Test-process log: the edge trace, then one step per engine phase (probe /
+// latency / download / upload against Cloudflare's speed endpoints), then the
+// summary the result card shows.
+const testLog = useTestLog('speedtest');
+const PHASE_ENDPOINTS = {
+  probe: 'https://speed.cloudflare.com/__down?bytes=0',
+  latency: 'https://speed.cloudflare.com/__down?bytes=0',
+  download: 'https://speed.cloudflare.com/__down',
+  upload: 'https://speed.cloudflare.com/__up',
+  packetLoss: 'TURN (not run)',
+};
+let phaseStep = null;
+const closePhase = (outcome = { result: 'ok' }) => {
+  phaseStep?.end(outcome);
+  phaseStep = null;
+};
 const engineMethods = {
   // Build a fresh engine. State reset is owned by speedTestController.
   reset() {
@@ -408,7 +429,11 @@ const engineMethods = {
 
 const loadConnection = async (currentRun) => {
   if (!state.connection.ip) {
+    const traceStep = testLog.open({ kind: 'trace', target: 'speed.cloudflare.com', endpoint: 'https://speed.cloudflare.com/cdn-cgi/trace', protocol: 'HTTPS GET' });
     const connectionData = await connectionMethods.getIPFromSpeedTest();
+    traceStep.end(connectionData
+      ? { result: 'ok', value: [connectionData.ip, connectionData.loc, connectionData.colo].filter(Boolean).join(' · ') }
+      : { result: 'fail', error: 'no trace answer' });
     if (connectionData && currentRun === runId) {
       Object.assign(state.connection, connectionData);
       // Feed the Globalping picker + IP history.
@@ -418,7 +443,11 @@ const loadConnection = async (currentRun) => {
 };
 
 const setupTestEngine = () => {
-  testEngine.onPhaseChange = (phase) => { state.speedTest.phase = phase; };
+  testEngine.onPhaseChange = (phase) => {
+    state.speedTest.phase = phase;
+    closePhase();
+    phaseStep = testLog.open({ kind: 'phase', target: phase, endpoint: PHASE_ENDPOINTS[phase] || null, protocol: 'HTTPS' });
+  };
   testEngine.onRunningChange = (running) => {
     state.speedTest.status = running ? 'running' : 'paused';
     // Show that startup is underway before the first measurement arrives.
@@ -437,6 +466,8 @@ const setupTestEngine = () => {
     const measured = (v) => Number.isFinite(v) && v > 0;
     const hasData = [summary.download, summary.upload, summary.latency].some(measured);
     if (state.speedTest.status === 'error' || !hasData) {
+      closePhase({ result: 'fail', error: 'no samples' });
+      testLog.finish({ verdict: 'fail', reason: 'speedError', params: {} });
       state.speedTest.status = 'error';
       testEngine.onRunningChange = () => {};
       testEngine.onResultsChange = () => {};
@@ -473,6 +504,20 @@ const setupTestEngine = () => {
     }
 
     testEngine = null;
+    closePhase();
+    testLog.add({
+      kind: 'summary', result: 'ok', target: 'Cloudflare',
+      value: `↓ ${state.speedTest.downloadSpeed} Mbps · ↑ ${state.speedTest.uploadSpeed} Mbps · ${state.speedTest.latency} ms · jitter ${state.speedTest.jitter} ms`,
+      raw: summary,
+    });
+    testLog.finish({
+      verdict: 'pass',
+      reason: 'speedDone',
+      params: {
+        down: state.speedTest.downloadSpeed, up: state.speedTest.uploadSpeed,
+        latency: state.speedTest.latency, jitter: state.speedTest.jitter,
+      },
+    });
     // Achievement rules for speed thresholds live in data/achievement-rules.js;
     // the report collector consumes the full result (unmeasured fields keep
     // their '-' placeholder — the builder drops non-numbers).
@@ -502,6 +547,7 @@ const setupTestEngine = () => {
     });
   };
   testEngine.onError = (e) => {
+    testLog.add({ kind: 'engine', result: typeof e === 'string' && e.includes('ICE') ? 'info' : 'fail', error: String(e) });
     if (typeof e === 'string' && !e.includes('ICE')) {
       state.speedTest.status = 'error';
     }
@@ -533,6 +579,8 @@ const speedTestController = async () => {
       hasScores: false, progress: 0, phase: 'probe',
     });
 
+    phaseStep = null;
+    testLog.begin({ server: 'speed.cloudflare.com', package: state.config?.package ? 'custom' : 'default' });
     testEngine = engineMethods.reset();
     if (!testEngine) { console.error('Failed to initialize test engine'); return; }
 

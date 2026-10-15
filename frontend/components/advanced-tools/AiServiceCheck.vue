@@ -187,6 +187,8 @@
     </div>
 
     <p class="text-xs font-normal text-muted-foreground leading-relaxed">{{ t('aiCheck.Caveat') }}</p>
+
+    <TestRunLog :log="testLog" />
   </div>
 </template>
 
@@ -236,6 +238,8 @@ import SectionTitle from '@/components/widgets/SectionTitle.vue';
 import KeyRow from '@/components/widgets/KeyRow.vue';
 import VerdictChip from '@/components/widgets/VerdictChip.vue';
 import CapabilitySlot from '@/components/widgets/CapabilitySlot.vue';
+import TestRunLog from '@/components/widgets/TestRunLog.vue';
+import { useTestLog, summarizeSteps, traceOutcome } from '@/composables/use-test-log.js';
 import TrustScorePanel from '@/components/ip-infos/TrustScorePanel.vue';
 
 const props = defineProps({
@@ -301,19 +305,29 @@ const dnsRows = ref([]);
 
 const settled = (result) => (result?.status === 'fulfilled' ? result.value : { state: EGRESS_STATE.blocked });
 
+// Test-process log: control + service echoes, the exit's geo lookup, the three DNS
+// witnesses and the quiet STUN pass — everything this page measured, in order.
+const testLog = useTestLog(`ai-${props.service || 'service'}`);
+const tracedStep = (host) => testLog.timed(
+    { kind: 'trace', target: host, endpoint: `https://${host}/cdn-cgi/trace`, protocol: 'HTTPS GET' },
+    () => readTrace(host),
+    traceOutcome,
+);
+
 const measure = async () => {
     const target = service.value;
     if (!target) return;
     running.value = true;
     exitGeo.value = null;
     geoState.value = 'idle';
+    testLog.begin({ service: target.id || props.service || '', control: EGRESS_CONTROL.host, hosts: probeHosts.value.join(', ') });
     try {
         const hosts = probeHosts.value;
         // The control first: every split marker on the page is measured against
         // its answer, and `judgeRow` withholds them all when it did not answer.
         const traces = await Promise.allSettled([
-            readTrace(EGRESS_CONTROL.host),
-            ...hosts.map((host) => readTrace(host)),
+            tracedStep(EGRESS_CONTROL.host),
+            ...hosts.map((host) => tracedStep(host)),
         ]);
         const control = settled(traces[0]);
         controlIp.value = control.state === EGRESS_STATE.answered ? control.ip : null;
@@ -322,18 +336,37 @@ const measure = async () => {
         judged.value = judgeRow(target, own, controlIp.value);
         reach.value = Object.fromEntries(hosts.map((host, i) => [host, settled(traces[i + 1])]));
 
-        if (judged.value.ip) exitGeo.value = await lookupGeo(judged.value.ip);
+        if (judged.value.ip) {
+            const ip = judged.value.ip;
+            exitGeo.value = await testLog.timed(
+                { kind: 'geo', target: ip, endpoint: `/api/ipsb?ip=${ip}`, protocol: 'HTTPS GET' },
+                () => lookupGeo(ip),
+                (geo) => (geo ? { result: 'ok', value: [geo.country_code, geo.country_name, geo.org].filter(Boolean).join(' · ') } : { result: 'fail', error: 'no geolocation answer (source unavailable or address unknown)' }),
+            );
+        }
 
-        const dnsAnswers = await Promise.allSettled(DNS_PROVIDERS.map((provider) => runWithRetry(provider)));
+        const dnsAnswers = await Promise.allSettled(DNS_PROVIDERS.map((provider) => testLog.timed(
+            { kind: 'dns', target: provider.name, endpoint: provider.endpoint || null, protocol: 'DNS → HTTPS GET' },
+            () => runWithRetry(provider),
+            (answer) => ({ result: 'ok', value: answer?.ip }),
+        )));
         dnsRows.value = DNS_PROVIDERS.map((provider, i) => ({
             id: provider.id,
             name: provider.name,
             ip: dnsAnswers[i].status === 'fulfilled' ? dnsAnswers[i].value?.ip || null : null,
         }));
 
+        const udp = testLog.open({ kind: 'stun', target: 'STUN ×4', protocol: 'UDP · STUN Binding (ICE)' });
         await runUdp();
+        udp.end(leaks.value.length
+            ? { result: 'ok', value: leaks.value.map((leak) => leak.ip).join(', ') }
+            : { result: 'fail', error: t('testlog.webrtc.NoReflexive') });
     } finally {
         running.value = false;
+        const verdict = summarizeSteps(testLog.record.value?.steps || [], { kinds: ['trace'] });
+        testLog.finish(judged.value.split === true
+            ? { verdict: 'partial', reason: 'aiSplit', params: { ...verdict.params, control: controlIp.value || '—' } }
+            : verdict);
     }
 };
 

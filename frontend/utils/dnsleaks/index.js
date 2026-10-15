@@ -68,10 +68,16 @@ export const runWithFallback = async (chain, runProvider = runWithRetry) => {
 
 // One cache per test run: pending, successful and exhausted probes all share
 // the same retry budget. A fresh runner makes refresh probe every provider anew.
-export const createDnsLeakRunner = (providers, slotCount) => {
+// `wrap(provider, run)` (optional) sees each provider's one real probe — the
+// test-process log times it there — and must return run()'s promise unchanged
+// in outcome.
+export const createDnsLeakRunner = (providers, slotCount, { wrap } = {}) => {
     const probes = new Map();
     const probe = (provider) => {
-        if (!probes.has(provider.id)) probes.set(provider.id, runWithRetry(provider));
+        if (!probes.has(provider.id)) {
+            const run = () => runWithRetry(provider);
+            probes.set(provider.id, wrap ? wrap(provider, run) : run());
+        }
         return probes.get(provider.id);
     };
     return (index) => runWithFallback(buildFallbackChain(index, providers, slotCount), probe);

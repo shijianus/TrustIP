@@ -33,6 +33,8 @@ const pickTopIp = (ipMap) => {
 export const ipleak = {
     id: 'ipleak',
     name: 'ipleak.net',
+    // What the test-process log names as this probe's endpoint (the label is random per run).
+    endpoint: 'https://<session>-1.ipleak.net/dnsdetection/',
     async run() {
         const host = `${generateSession()}${HOST_SUFFIX}`;
         const response = await fetchWithTimeout(`https://${host}/dnsdetection/`);

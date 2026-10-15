@@ -168,6 +168,74 @@
       <p class="mt-2 text-xs leading-relaxed text-muted-foreground">{{ t('webrtc.CandNote') }}</p>
     </div>
 
+    <!-- Per-server probe matrix: every candidate each STUN server produced, the way
+         a visitor compares against other leak-test sites (#, address, type, family,
+         location, status). The cards above keep their one-answer-per-server shape;
+         this is the evidence under them, and the test-process log below carries
+         the same rows with timing and raw lines. -->
+    <div v-if="probeRows.length || probeState === 'running'" class="mt-4 jn-card rounded-[var(--radius)] p-4"
+      data-webrtc-probe-matrix>
+      <SectionTitle :title="t('testlog.webrtc.MatrixTitle')">
+        <template #aside>
+          <span v-if="probeState === 'running'" class="text-xs text-muted-foreground">{{ t('webrtc.StatusTesting') }}</span>
+        </template>
+      </SectionTitle>
+      <!-- Narrow screens: one block per candidate, so a 40-character mDNS name
+           never squeezes the other columns into one letter per line. -->
+      <ul class="md:hidden rounded-md border divide-y text-sm">
+        <li v-for="(row, i) in probeRows" :key="`m-${row.server}-${i}`" class="p-2.5 min-w-0">
+          <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span class="font-mono text-xs text-muted-foreground">#{{ i + 1 }}</span>
+            <span class="font-medium">{{ row.server }}</span>
+            <span class="ms-auto"><VerdictChip :tone="row.tone" :label="row.status" /></span>
+          </div>
+          <p class="mt-1 text-xs text-muted-foreground">
+            <span class="font-mono">{{ row.type || '—' }}</span>
+            <template v-if="row.family"> · {{ t(`testlog.family.${row.family}`) }}</template>
+            <template v-if="row.protocol"> · {{ row.protocol }}</template>
+            <span class="block font-mono break-all">{{ row.url }}</span>
+          </p>
+          <p class="mt-1 font-mono text-xs break-all">{{ row.address || '—' }}</p>
+          <p v-if="row.location" class="mt-1 text-xs text-muted-foreground">{{ row.location }}</p>
+        </li>
+      </ul>
+      <div class="hidden md:block overflow-x-auto">
+        <table class="w-full border-collapse text-sm">
+          <thead>
+            <tr class="border-b text-start">
+              <th scope="col" class="py-2 pe-3 text-start text-xs font-medium uppercase tracking-wide text-muted-foreground">#</th>
+              <th scope="col" class="py-2 pe-3 text-start text-xs font-medium uppercase tracking-wide text-muted-foreground">{{ t('testlog.webrtc.ColServer') }}</th>
+              <th scope="col" class="py-2 pe-3 text-start text-xs font-medium uppercase tracking-wide text-muted-foreground">{{ t('webrtc.CandColAddress') }}</th>
+              <th scope="col" class="py-2 pe-3 text-start text-xs font-medium uppercase tracking-wide text-muted-foreground">{{ t('webrtc.CandColType') }}</th>
+              <th scope="col" class="py-2 pe-3 text-start text-xs font-medium uppercase tracking-wide text-muted-foreground">{{ t('testlog.webrtc.ColLocation') }}</th>
+              <th scope="col" class="py-2 text-start text-xs font-medium uppercase tracking-wide text-muted-foreground">{{ t('testlog.webrtc.ColStatus') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(row, i) in probeRows" :key="`${row.server}-${i}`" class="border-b last:border-0 align-top">
+              <td class="py-2 pe-3 font-mono text-xs text-muted-foreground">{{ i + 1 }}</td>
+              <td class="py-2 pe-3 text-xs">
+                <span class="font-medium">{{ row.server }}</span>
+                <span class="block font-mono text-muted-foreground break-all">{{ row.url }}</span>
+              </td>
+              <td class="py-2 pe-3"><span class="break-all font-mono text-xs">{{ row.address || '—' }}</span></td>
+              <td class="py-2 pe-3 text-xs whitespace-nowrap">
+                <span class="font-mono">{{ row.type || '—' }}</span>
+                <span v-if="row.family" class="block text-muted-foreground">{{ t(`testlog.family.${row.family}`) }}<template v-if="row.protocol"> · {{ row.protocol }}</template></span>
+              </td>
+              <td class="py-2 pe-3 text-xs">{{ row.location || '—' }}</td>
+              <td class="py-2">
+                <VerdictChip :tone="row.tone" :label="row.status" />
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="mt-2 text-xs leading-relaxed text-muted-foreground">{{ t('testlog.webrtc.MatrixNote') }}</p>
+    </div>
+
+    <TestRunLog :log="testLog" default-open />
+
     <!-- Section banner slot (data-driven; see InfoBanner.vue) -->
     <InfoBanner section="webrtc" :settled="hasEverSettled" />
   </section>
@@ -187,7 +255,11 @@ import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/component
 import { useStatusTone, ipFieldTone, isFieldPending as isFieldPendingShared } from '@/composables/use-status-tone.js';
 import { createMaskGate } from '@/composables/use-info-mask.js';
 import { useMaxmind } from '@/composables/use-maxmind.js';
-import { STUN_SERVERS, gatherStunCandidate, gatherAllCandidates, natTypeCodeOf } from '@/utils/webrtc-ice.js';
+import { STUN_SERVERS, gatherStunCandidate, gatherAllCandidates, natTypeCodeOf, probeServers } from '@/utils/webrtc-ice.js';
+import { cloudflareV4 } from '@/utils/getips/cloudflare-v4.js';
+import { cloudflareV6 } from '@/utils/getips/cloudflare-v6.js';
+import { useTestLog, describeCandidate, webrtcVerdict } from '@/composables/use-test-log.js';
+import TestRunLog from '@/components/widgets/TestRunLog.vue';
 import { isUsablePublicIP } from '@/utils/valid-ip.js';
 import { Play, MapPin, EthernetPort, Flower, Network, RotateCw, FileText, ChevronDown } from '@lucide/vue';
 import { Icon } from '@iconify/vue';
@@ -267,6 +339,128 @@ const candVerdict = computed(() => {
     ? t('webrtc.CandPublicSeen', { n: publicCount })
     : t('webrtc.CandPrivateOnly');
 });
+
+// ── Test-process log + probe matrix ───────────────────────────────────────────
+// Every server in the probe list gets one full gathering pass (all candidate types,
+// not only the first reflexive one), and HTTP is asked where it exits, so the
+// verdict can compare the two. The verdict rules live in use-test-log.js
+// (`webrtcVerdict`) where they are unit-tested.
+const testLog = useTestLog('webrtc');
+const probeRows = ref([]);
+const probeState = ref('idle');
+
+const familyLabel = (c) => c.family;
+
+const candidateStatus = (c) => {
+  if (c.type === 'srflx' || c.type === 'prflx') {
+    return c.public
+      ? { tone: 'warn', status: t('testlog.webrtc.StatusPublic') }
+      : { tone: 'info', status: t('testlog.webrtc.StatusPrivateReflexive') };
+  }
+  if (c.family === 'mdns') return { tone: 'ok', status: t('testlog.webrtc.StatusMdns') };
+  if (c.type === 'relay') return { tone: 'muted', status: t('testlog.webrtc.StatusRelay') };
+  return c.public
+    ? { tone: 'warn', status: t('testlog.webrtc.StatusPublic') }
+    : { tone: 'muted', status: t('testlog.webrtc.StatusLocal') };
+};
+
+// HTTP exit, both families, from the same Cloudflare echoes the IP cards use first.
+const probeEgress = async () => {
+  const ips = [];
+  for (const [provider, endpoint, family] of [
+    [cloudflareV4, 'https://1.0.0.1/cdn-cgi/trace', 'IPv4'],
+    [cloudflareV6, 'https://[2606:4700:4700::1111]/cdn-cgi/trace', 'IPv6'],
+  ]) {
+    try {
+      const ip = await testLog.timed(
+        { kind: 'egress', target: provider.name, endpoint, protocol: `HTTPS GET (${family})` },
+        () => provider.run(),
+        (value) => (value ? { result: 'ok', value } : { result: 'fail', error: 'empty answer' }),
+      );
+      if (ip) ips.push(ip);
+    } catch { /* recorded as a failed step; an absent family is ordinary */ }
+  }
+  return ips;
+};
+
+const runProbeMatrix = async (signal) => {
+  probeState.value = 'running';
+  probeRows.value = [];
+  const servers = probeServers();
+  const egressPromise = probeEgress();
+
+  const probes = await Promise.all(servers.map(async (server) => {
+    const handle = testLog.open({
+      kind: 'stun',
+      target: server.testOnly ? `${server.id} (test-only)` : server.id,
+      endpoint: `stun:${server.url}`,
+      protocol: 'UDP · STUN Binding (ICE)',
+    });
+    const result = await gatherAllCandidates(server.url, { signal, timeoutMs: 6000 });
+    if (result.reason === 'aborted') { handle.end({ result: 'skip', error: 'aborted' }); return null; }
+    const described = (result.candidates || []).map((c) => ({ ...c, ...describeCandidate(c) }));
+    const reflexive = described.filter((c) => c.type === 'srflx' || c.type === 'prflx');
+    const summary = described.length
+      ? described.map((c) => `${c.type}:${c.address}`).join(', ')
+      : null;
+    const iceErrors = (result.errors || []).map((e) => `${e.code ?? ''} ${e.text ?? ''}`.trim()).filter(Boolean);
+    handle.end({
+      result: result.reason === 'unavailable' ? 'skip' : (reflexive.length ? 'ok' : 'fail'),
+      value: summary,
+      error: reflexive.length ? null : [t('testlog.webrtc.NoReflexive'), ...new Set(iceErrors)].join(' — '),
+      raw: { candidates: result.candidates, errors: result.errors, elapsedMs: result.elapsedMs },
+    });
+    // One line per candidate, timed from the start of its server's pass.
+    described.forEach((c) => testLog.add({
+      kind: 'candidate',
+      target: server.id,
+      endpoint: `stun:${server.url}`,
+      protocol: [c.protocol, familyLabel(c)].filter(Boolean).join(' · '),
+      durationMs: c.at,
+      result: 'info',
+      value: `${c.type} ${c.address}${c.port ? `:${c.port}` : ''}`,
+      note: candidateStatus(c).status,
+      raw: c.raw,
+    }));
+    return { server, ok: result.ok, reason: result.reason, candidates: described };
+  }));
+
+  const done = probes.filter(Boolean);
+  const egressIps = await egressPromise;
+
+  // Location for every public address any server produced, one lookup each.
+  const publicIps = [...new Set(done.flatMap((p) => p.candidates.filter((c) => c.public).map((c) => c.ip)))];
+  const geoByIp = {};
+  await Promise.all(publicIps.map(async (ip) => {
+    const geo = await testLog.timed(
+      { kind: 'geo', target: ip, endpoint: `/api/maxmind?ip=${ip}`, protocol: 'HTTPS GET' },
+      () => lookupMaxmind(ip),
+      (g) => (g ? { result: 'ok', value: [g.country_code, g.country, g.org].filter(Boolean).join(' · ') } : { result: 'fail', error: 'no geolocation answer (source unavailable or address unknown)' }),
+    ).catch(() => null);
+    if (geo) geoByIp[ip] = [geo.country, geo.org].filter(Boolean).join(' · ');
+  }));
+
+  probeRows.value = done.flatMap((p) => {
+    if (!p.candidates.length) {
+      return [{
+        server: p.server.id, url: p.server.url, address: null, type: null, family: null, protocol: null,
+        location: null, tone: 'muted', status: t('testlog.webrtc.StatusNoAnswer'),
+      }];
+    }
+    return p.candidates.map((c) => ({
+      server: p.server.id,
+      url: p.server.url,
+      address: c.port ? `${c.address}:${c.port}` : c.address,
+      type: c.type,
+      family: c.family,
+      protocol: c.protocol,
+      location: c.public ? (geoByIp[c.ip] || null) : t('testlog.webrtc.LocationLan'),
+      ...candidateStatus(c),
+    }));
+  });
+  probeState.value = 'done';
+  testLog.finish(webrtcVerdict({ available: true, probes: done, egressIps }));
+};
 
 // One controller per pass, so a refresh or an unmount stops ICE gathering rather
 // than leaving four peer connections running until their own timeouts expire.
@@ -376,6 +570,11 @@ const checkAllWebRTC = async (isRefresh) => {
   isStarted.value = true;
   gatherAbort?.abort();
   gatherAbort = new AbortController();
+  testLog.begin({
+    userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
+    webrtc: isWebRtcAvailable,
+    servers: probeServers().map((server) => server.url).join(', '),
+  });
 
   // No WebRTC in this browser: mark every card with the dedicated state
   // (dl detail fields render as "—" via isFieldPending) and finish the
@@ -392,6 +591,8 @@ const checkAllWebRTC = async (isRefresh) => {
     });
     store.setLoadingStatus('WebRTC', true);
     emitWebrtcFinished();
+    testLog.add({ kind: 'env', target: 'RTCPeerConnection', result: 'skip', error: t('webrtc.StatusUnavailable') });
+    testLog.finish(webrtcVerdict({ available: false }));
     return;
   }
 
@@ -409,6 +610,12 @@ const checkAllWebRTC = async (isRefresh) => {
   // earlier enumeration gathering after the section has moved on.
   const gathered = runCandidateGather(gatherAbort.signal);
   promises.push(gathered);
+  // The log's matrix runs beside the cards but outside their 6 s race: its own
+  // passes time out at 6 s too, and the egress echo and geo lookups follow them.
+  runProbeMatrix(gatherAbort.signal).catch((error) => {
+    console.error('WebRTC probe matrix error:', error);
+    testLog.finish({ verdict: 'inconclusive', reason: 'internalError', params: { error: String(error?.message || error) } });
+  });
 
   const allSettledPromise = Promise.allSettled(promises);
   const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 6000));

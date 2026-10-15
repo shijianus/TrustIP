@@ -23,6 +23,7 @@
         :attribution="splitAttribution"
         :leak-running="leakRunning"
         :running="splitRunning || splitLocating > 0"
+        :log="splitLog"
         @run="runSplit" />
       <!-- The Advanced Tools drawer, with no grid above it. It stays mounted
            here because the keyboard shortcuts and the `?tool=<slug>` query open
@@ -86,6 +87,7 @@ import { useRefreshOrchestrator } from '@/composables/use-refresh-orchestrator.j
 import { useShortcuts } from '@/composables/use-shortcuts.js';
 import { useDocumentMeta } from '@/composables/use-document-meta.js';
 import { useSiteSplit } from '@/composables/use-site-split.js';
+import { useTestLog } from '@/composables/use-test-log.js';
 import { useEgressLeak } from '@/composables/use-egress-leak.js';
 import { useDnsEgress } from '@/composables/use-dns-egress.js';
 import { fetchWithTimeout } from '@/utils/fetch-with-timeout.js';
@@ -174,6 +176,9 @@ const geoLookup = async (ip) => {
 // needs an address, not a second record of a test the visitor never asked to run.
 const { leaks, running: leakRunning, run: runLeakCheck } = useEgressLeak({ geoLookup });
 
+// The routing table's test-process log (rendered under the table by SiteSplitTest).
+const splitLog = useTestLog('sitesplit');
+
 // The recursor, read in the same quiet way. It is not an exit address and never joins
 // that list: it is the witness that says whether DNS went out with the tunnel or stayed
 // at home, which is the thing a split network is most often wrong about.
@@ -184,7 +189,7 @@ const {
     egressIps, answered: splitAnswered, planFailed: splitPlanFailed,
     running: splitRunning, locating: splitLocating, run: runSplit,
     attribution: splitAttribution,
-} = useSiteSplit({ geoLookup, ownGeolocations, knownExits: ownExits, leaks });
+} = useSiteSplit({ geoLookup, ownGeolocations, knownExits: ownExits, leaks, log: splitLog });
 
 // Refresh / initial load sequence — scoped to what this page actually runs.
 // The leak and connectivity *sections* are not mounted here, so neither is waited

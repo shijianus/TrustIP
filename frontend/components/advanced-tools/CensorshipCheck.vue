@@ -175,6 +175,8 @@
                 {{ t('censorshipcheck.RealtimeFooterNote') }}
             </p>
         </template>
+
+        <TestRunLog :log="testLog" />
     </div>
 </template>
 
@@ -184,7 +186,9 @@ import { useMainStore } from '@/store';
 import { useI18n } from 'vue-i18n';
 import { trackEvent } from '@/utils/analytics';
 import { emitAppEvent } from '@/utils/app-events.js';
-import { useGlobalpingMeasurement } from '@/composables/use-globalping-measurement';
+import { useGlobalpingMeasurement, probeStepsOf } from '@/composables/use-globalping-measurement';
+import { useTestLog, summarizeSteps } from '@/composables/use-test-log.js';
+import TestRunLog from '@/components/widgets/TestRunLog.vue';
 import GlobalpingCountryPicker from './GlobalpingCountryPicker.vue';
 import { isValidDomain } from '@/utils/valid-ip.js';
 import getCountryName from '@/data/country-name.js';
@@ -239,6 +243,19 @@ const selectedCountries = ref([]);   // checked countries across all sections
 // Country order of the active/last run, frozen at run start for sorting.
 const activeTestCountries = ref([]);
 const censorshipResults = ref([]);
+// Test-process log: the Globalping create request, every poll, and one step per
+// probe with its raw output (probeStepsOf). Begun by the run, finished by the
+// composable's onFinish / onError.
+const testLog = useTestLog('censorship');
+let lastData = null;
+const finishTestLog = (errorStage) => {
+    probeStepsOf(lastData, 'http').forEach((step) => testLog.add(step));
+    testLog.finish(errorStage && !lastData?.results?.length
+        ? { verdict: 'fail', reason: 'gpError', params: { stage: errorStage } }
+        // Same counts, censorship-specific wording: a failed probe is not by itself
+        // evidence of blocking, and the module draws no verdict on its own.
+        : { ...summarizeSteps(testLog.record.value?.steps || [], { kinds: ['probe'] }), reason: 'censorshipProbes' });
+};
 const { status: censorshipCheckStatus, start: runMeasurement } = useGlobalpingMeasurement({
     pollInterval: 3000,
     maxRetries: 5,
@@ -358,13 +375,28 @@ const onSubmit = () => {
 };
 
 // —— OONI history query (default view) ——
+// The OONI history lookup as a log step, kept so the realtime run's record can
+// carry it too.
+let ooniStep = null;
 const queryOoni = async (hostname) => {
     ooniStatus.value = 'running';
+    ooniStep = null;
+    testLog.begin({ host: hostname });
+    const step = testLog.open({ kind: 'ooni', target: hostname, endpoint: `/api/ooni-blocking?domain=${hostname}`, protocol: 'HTTPS GET' });
     try {
         const response = await fetch(`/api/ooni-blocking?domain=${encodeURIComponent(hostname)}`);
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         ooniData.value = await response.json();
         ooniStatus.value = 'finished';
+        ooniStep = step.end({
+            result: 'ok',
+            value: `countries=${ooniData.value?.countries?.length ?? 0} flagged=${flagged.value.length}`,
+        });
+        testLog.finish({
+            verdict: flagged.value.length ? 'partial' : (isSparse.value ? 'inconclusive' : 'pass'),
+            reason: flagged.value.length ? 'ooniFlagged' : (isSparse.value ? 'ooniSparse' : 'ooniClean'),
+            params: { n: flagged.value.length, total: ooniData.value?.countries?.length ?? 0 },
+        });
         // Achievement rule (ItIsOpen) lives in data/achievement-rules.js —
         // payload { blocked }. The realtime module draws no verdict, so this
         // is the only emitter now.
@@ -376,6 +408,8 @@ const queryOoni = async (hostname) => {
         // realtime module below stays fully usable via the preset sections.
         console.error('Error fetching OONI blocking data:', error);
         ooniStatus.value = 'error';
+        ooniStep = step.end({ result: 'fail', error });
+        testLog.finish({ verdict: 'inconclusive', reason: 'fetchFailed', params: { error: String(error?.message || error) } });
     }
 };
 
@@ -385,6 +419,11 @@ const runTest = () => {
     const group = [...selectedCountries.value];
     activeTestCountries.value = group;
     censorshipResults.value = [];
+    lastData = null;
+    // A fresh record for the realtime run; the OONI history query that preceded
+    // it is carried over as the first step.
+    testLog.begin({ host: currentHostname.value, type: 'http HEAD :443', countries: group.join(', ') });
+    if (ooniStep) testLog.add(ooniStep);
     runMeasurement({
         locations: group.map((cc) => ({ country: cc, limit: PROBES_PER_COUNTRY })),
         target: currentHostname.value,
@@ -395,14 +434,17 @@ const runTest = () => {
             protocol: 'HTTPS',
         },
     }, {
+        log: testLog,
         onResults: (data) => {
+            lastData = data;
             processHttpResults(data);
             return censorshipResults.value.length > 0;
         },
-        onFinish: correctResult,
+        onFinish: () => { correctResult(); finishTestLog(null); },
         // POST error surfaces as 'invalidURL' (preserves pre-refactor copy);
         // poll failure / empty result surface as 'fetchError'.
         onError: (reason) => {
+            finishTestLog(reason);
             errorMsg.value = reason === 'create'
                 ? t('censorshipcheck.invalidURL')
                 : t('censorshipcheck.fetchError');

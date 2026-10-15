@@ -31,6 +31,8 @@ const pickIp = (data) => {
 export const browserleaks = {
     id: 'browserleaks',
     name: 'browserleaks.net',
+    // What the test-process log names as this probe's endpoint (the label is random per run).
+    endpoint: 'https://<random>.dns4.browserleaks.net/',
     async run() {
         const host = `${generateToken()}${HOST_SUFFIX}`;
         const response = await fetchWithTimeout(`https://${host}/`);

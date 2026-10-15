@@ -20,6 +20,8 @@ const pickLeakIp = (data) => {
 export const surfshark = {
     id: 'surfshark',
     name: 'surfsharkdns.com',
+    // What the test-process log names as this probe's endpoint (the label is random per run).
+    endpoint: 'https://<random>.ipv4.surfsharkdns.com/',
     async run() {
         const host = `${generatePrefix()}.ipv4.surfsharkdns.com`;
         const response = await fetchWithTimeout(`https://${host}`);

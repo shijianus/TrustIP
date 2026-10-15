@@ -163,7 +163,7 @@
             </CardContent>
         </Card>
 
-
+        <TestRunLog :log="testLog" />
     </div>
 </template>
 
@@ -173,7 +173,9 @@ import { useMainStore } from '@/store';
 import { useI18n } from 'vue-i18n';
 import { trackEvent } from '@/utils/analytics';
 import { emitAppEvent } from '@/utils/app-events';
-import { useGlobalpingMeasurement, GLOBALPING_SUGGESTED_COUNTRIES, GLOBALPING_MAX_COUNTRIES, selectableIPs, classifyTarget } from '@/composables/use-globalping-measurement';
+import { useGlobalpingMeasurement, probeStepsOf, GLOBALPING_SUGGESTED_COUNTRIES, GLOBALPING_MAX_COUNTRIES, selectableIPs, classifyTarget } from '@/composables/use-globalping-measurement';
+import { useTestLog, summarizeSteps } from '@/composables/use-test-log.js';
+import TestRunLog from '@/components/widgets/TestRunLog.vue';
 import GlobalpingCountryPicker from './GlobalpingCountryPicker.vue';
 import getCountryName from '@/data/country-name.js';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
@@ -221,6 +223,17 @@ const targetIP = computed(() =>
     manualMode.value ? (isValidManualIP.value ? manualIP.value.trim() : '') : selectedIP.value,
 );
 // status: 'idle' | 'running' | 'finished' | 'error' — driven by the composable
+// Test-process log: the Globalping create request, every poll, and one step per
+// probe with its raw output (probeStepsOf). Begun by the run, finished by the
+// composable's onFinish / onError.
+const testLog = useTestLog('pingtest');
+let lastData = null;
+const finishTestLog = (errorStage) => {
+    probeStepsOf(lastData, 'ping').forEach((step) => testLog.add(step));
+    testLog.finish(errorStage && !lastData?.results?.length
+        ? { verdict: 'fail', reason: 'gpError', params: { stage: errorStage } }
+        : summarizeSteps(testLog.record.value?.steps || [], { kinds: ['probe'] }));
+};
 const { status: pingCheckStatus, start: runMeasurement } = useGlobalpingMeasurement({
     pollInterval: 1000,
     maxRetries: 4,
@@ -259,6 +272,8 @@ const startPingCheck = () => {
     trackEvent('Section', 'StartClick', 'GlobalLatency');
     pingResults.value = [];
     cleanMap();
+    lastData = null;
+    testLog.begin({ target: targetIP.value, type: 'ping', packets: 8, countries: selectedCountries.value.join(', ') });
 
     runMeasurement({
         limit: selectedCountries.value.length,
@@ -267,11 +282,15 @@ const startPingCheck = () => {
         type: 'ping',
         measurementOptions: { packets: 8 },
     }, {
+        log: testLog,
         onResults: (data) => {
+            lastData = data;
             processpingResults(data);
             return pingResults.value.length > 0;
         },
+        onError: (stage) => finishTestLog(stage),
         onFinish: () => {
+            finishTestLog(null);
             drawMap();
             // Domain event: final probe results for the report collector.
             emitAppEvent('pingtest:finished', {

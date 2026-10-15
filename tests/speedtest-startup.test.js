@@ -5,6 +5,7 @@ import { test } from 'node:test';
 import { reactive, ref, computed, markRaw, nextTick } from 'vue';
 import { parse } from 'vue/compiler-sfc';
 import { createSpeedTestSession, getSpeedTestLiveValues } from '../frontend/utils/speedtest-session.js';
+import { useTestLog } from '../frontend/composables/use-test-log.js';
 
 // Run setup logic without mounting a DOM or evaluating UI component imports.
 const source = readFileSync(new URL('../frontend/components/SpeedTest.vue', import.meta.url), 'utf8');
@@ -30,7 +31,7 @@ const fixture = () => {
   }
   const bindings = {
     reactive, ref, computed, markRaw, nextTick,
-    createSpeedTestSession, getSpeedTestLiveValues,
+    createSpeedTestSession, getSpeedTestLiveValues, useTestLog,
     onMounted: () => {},
     onUnmounted: callback => { unmount = callback; },
     useMainStore: () => ({ lang: 'en', userPreferences: {}, updateAllIPs: value => ips.push(value) }),

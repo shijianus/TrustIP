@@ -81,6 +81,8 @@
       </Card>
     </div>
 
+    <TestRunLog :log="testLog" />
+
     <!-- Section banner slot (data-driven; see InfoBanner.vue); settled once
          the homepage test has resolved (success or timeout). -->
     <InfoBanner section="dnsleak" :settled="hasEverSettled" />
@@ -110,6 +112,10 @@ import {
   ipApi, bashws, myipstack, fastly, browserleaks, surfshark, ipleak,
   createDnsLeakRunner,
 } from '@/utils/dnsleaks';
+import { readTrace } from '@/composables/use-ai-egress.js';
+import { fetchWithTimeout } from '@/utils/fetch-with-timeout.js';
+import { useTestLog, dnsLeakVerdict, traceOutcome } from '@/composables/use-test-log.js';
+import TestRunLog from '@/components/widgets/TestRunLog.vue';
 
 // All providers in priority order: the first SLOT_COUNT hold a card each,
 // the rest are standbys. New provider = file under utils/dnsleaks + append.
@@ -129,6 +135,12 @@ const isSimpleMode = computed(() => userPreferences.value.simpleMode);
 // Sticky settled flag for the section's banner slot.
 const hasEverSettled = ref(false);
 let runId = 0;
+// Test-process log: every provider's DNS probe, each geo lookup, and the HTTP exit
+// the resolvers are compared with (verdict rules: use-test-log.js dnsLeakVerdict).
+const testLog = useTestLog('dnsleak');
+// The address HTTP leaves from, with its country — a Cloudflare echo, the same
+// one the IP cards ask first.
+const EGRESS_HOST = '1.0.0.1';
 
 const { dotClass, textClass } = useStatusTone();
 
@@ -164,7 +176,11 @@ const leakTest = reactive(ACTIVE.map((p) => ({
 
 // Apply MaxMind lookup to a card that already has a resolved leak IP.
 const applyMaxMindGeo = async (index, ip, currentRun) => {
-  const geo = await lookupMaxmind(ip);
+  const geo = await testLog.timed(
+    { kind: 'geo', target: ip, endpoint: `/api/maxmind?ip=${ip}`, protocol: 'HTTPS GET' },
+    () => lookupMaxmind(ip),
+    (g) => (g ? { result: 'ok', value: [g.country_code, g.country, g.org].filter(Boolean).join(' · ') } : { result: 'fail', error: 'no geolocation answer (source unavailable or address unknown)' }),
+  );
   if (currentRun !== runId) return;
   if (geo) {
     leakTest[index].country_code = geo.country_code;
@@ -206,7 +222,27 @@ const runProvider = async (index, run, currentRun) => {
 // herd on first paint.
 const checkAllDNSLeakTest = async (isRefresh) => {
   const currentRun = ++runId;
-  const run = createDnsLeakRunner(PROVIDERS, SLOT_COUNT);
+  testLog.begin({ providers: PROVIDERS.map((p) => p.name).join(', '), slots: SLOT_COUNT });
+  const egress = testLog.timed(
+    { kind: 'egress', target: 'Cloudflare', endpoint: `https://${EGRESS_HOST}/cdn-cgi/trace`, protocol: 'HTTPS GET' },
+    () => readTrace(EGRESS_HOST),
+    traceOutcome,
+  ).catch(() => null);
+  // Every resolver address any provider reported this run, card or standby.
+  const resolverIps = new Set();
+  const run = createDnsLeakRunner(PROVIDERS, SLOT_COUNT, {
+    // Each provider's DNS probe as one step: a unique hostname whose lookup the
+    // provider's authoritative server records, then an HTTPS fetch that reads
+    // back which resolver asked.
+    wrap: (provider, probe) => testLog.timed(
+      { kind: 'dns', target: provider.name, endpoint: provider.endpoint || null, protocol: 'DNS → HTTPS GET' },
+      probe,
+      (answer) => {
+        if (answer?.ip) resolverIps.add(answer.ip);
+        return { result: 'ok', value: answer?.ip, raw: answer };
+      },
+    ),
+  });
   isStarted.value = true;
   if (isRefresh) trackEvent('Section', 'RefreshClick', 'DNSLeakTest');
   // Every run starts from the primary provider and "Testing…" — on boot
@@ -229,6 +265,31 @@ const checkAllDNSLeakTest = async (isRefresh) => {
   const promises = ACTIVE.map((_, index) => delayedRun(index, index * 200));
 
   const allSettledPromise = Promise.allSettled(promises);
+  // The log closes on the real end of the run, not the cards' 6 s race: a slow
+  // provider's answer belongs in the record even after the cards moved on.
+  Promise.all([allSettledPromise, egress]).then(async ([, trace]) => {
+    if (currentRun !== runId) return;
+    const resolvers = [...resolverIps].map((ip) => ({
+      ip,
+      country_code: leakTest.find((card) => card.ip === ip)?.country_code || '',
+    }));
+    // A resolver the cards could not place (no MaxMind database, or a standby
+    // that never had a card) is asked the key-free /api/ipsb source once, for the
+    // verdict only — the cards keep their own source.
+    await Promise.all(resolvers.filter((r) => !r.country_code).map(async (r) => {
+      const geo = await testLog.timed(
+        { kind: 'geo', target: r.ip, endpoint: `/api/ipsb?ip=${r.ip}`, protocol: 'HTTPS GET', note: t('testlog.note.geoFallback') },
+        () => fetchWithTimeout(`/api/ipsb?ip=${encodeURIComponent(r.ip)}`).then((res) => (res.ok ? res.json() : null)),
+        (g) => (g?.country_code ? { result: 'ok', value: [g.country_code, g.org].filter(Boolean).join(' · ') } : { result: 'fail', error: 'no geolocation answer' }),
+      ).catch(() => null);
+      if (geo?.country_code) r.country_code = geo.country_code;
+    }));
+    if (currentRun !== runId) return;
+    testLog.finish(dnsLeakVerdict({
+      resolvers,
+      egressCountry: trace?.state === 'answered' ? trace.loc || '' : '',
+    }));
+  });
   const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 6000));
 
   return Promise.race([allSettledPromise, timeoutPromise]).then(() => {

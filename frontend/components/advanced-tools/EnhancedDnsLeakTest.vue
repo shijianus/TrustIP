@@ -261,6 +261,8 @@
                 </dl>
             </CardContent>
         </Card>
+
+        <TestRunLog :log="testLog" />
     </div>
 </template>
 
@@ -291,6 +293,9 @@ import {
 } from '@/components/ui/table';
 
 import { Play, Check, X, Hourglass, Info, Server, Hash, Route, MapPin, ShieldCheck, ShieldAlert } from '@lucide/vue';
+import { readTrace } from '@/composables/use-ai-egress.js';
+import { useTestLog, dnsLeakVerdict, traceOutcome } from '@/composables/use-test-log.js';
+import TestRunLog from '@/components/widgets/TestRunLog.vue';
 
 const { t } = useI18n();
 const store = useMainStore();
@@ -524,9 +529,17 @@ const apiLang = () => toApiTag(lang.value);
 
 // authenticatedFetch attaches the Firebase ID token as Authorization; our
 // backend then forwards request headers to the upstream IPCheck.ing API.
+// Test-process log: the four probe names, the wait, every result pull, each
+// captured resolver, and the HTTP exit the resolvers are compared with.
+const testLog = useTestLog('enhanceddnsleak');
+
 const fetchResultOnce = async (token) => {
     const url = `/api/dnsleaktest/session/${encodeURIComponent(token)}?lang=${encodeURIComponent(apiLang())}`;
-    return authenticatedFetch(url);
+    return testLog.timed(
+        { kind: 'session', target: `${token.slice(0, 8)}…`, endpoint: url.replace(token, '<token>'), protocol: 'HTTPS GET' },
+        () => authenticatedFetch(url),
+        (data) => ({ result: 'ok', value: `resolvers=${data?.resolverCount ?? 0} raw=${data?.rawCount ?? 0}` }),
+    );
 };
 
 // Retry transient failures. Auth / token errors bypass the retry — there's
@@ -563,15 +576,29 @@ const runTest = async () => {
     quotaExceeded.value = false;
     result.value = null;
 
+    testLog.begin({ domain: PROBE_DOMAIN, probes: PROBE_COUNT });
+    const egress = testLog.timed(
+        { kind: 'egress', target: 'Cloudflare', endpoint: 'https://1.0.0.1/cdn-cgi/trace', protocol: 'HTTPS GET' },
+        () => readTrace('1.0.0.1'),
+        traceOutcome,
+    ).catch(() => null);
+
     try {
         const token = generateToken();
         primeProbes(token);
 
         status.value = 'firing';
         fireAllProbes();
+        // The probes are <img> loads: the browser resolves each name (that lookup
+        // is the measurement) and the request itself is expected to fail.
+        probeStates.forEach((p) => testLog.add({
+            kind: 'dns', target: p.fqdn, endpoint: `https://${p.fqdn}/probe.gif`,
+            protocol: 'DNS (via <img>)', result: 'info', note: t('testlog.note.dnsProbeFired'),
+        }));
         await animateProbes();
 
         status.value = 'polling';
+        testLog.add({ kind: 'wait', result: 'info', durationMs: POLL_AFTER_MS, note: t('testlog.note.waitCapture') });
         await new Promise(r => setTimeout(r, POLL_AFTER_MS));
 
         status.value = 'fetching';
@@ -592,11 +619,32 @@ const runTest = async () => {
             queries: Array.isArray(data.queries) ? data.queries : [],
         };
         status.value = 'done';
+        result.value.queries.forEach((row) => testLog.add({
+            kind: 'resolver',
+            target: row.ip,
+            protocol: [row.transport, row.queryType].filter(Boolean).join(' · ') || null,
+            result: 'info',
+            value: [row.ipInfo?.country_code, row.ipInfo?.org, row.ecs ? `ECS ${row.ecs}` : null]
+                .filter(Boolean).join(' · '),
+            raw: row,
+        }));
+        const trace = await egress;
+        testLog.finish(dnsLeakVerdict({
+            resolvers: result.value.queries.map((row) => ({ ip: row.ip, country_code: row.ipInfo?.country_code })),
+            egressCountry: trace?.state === 'answered' ? trace.loc || '' : '',
+        }));
         // Domain event: raw query rows for the report collector (the builder
         // maps geo sub-objects and derives the DNSSEC posture).
         emitAppEvent('enhanceddnsleak:finished', { ...result.value });
     } catch (error) {
         console.error('Enhanced DNS leak test failed:', error);
+        testLog.finish({
+            verdict: 'inconclusive',
+            reason: error.message.includes('quota_exceeded') ? 'quotaExceeded'
+                : (error.message.includes('Sign in required') || error.message.includes('Invalid token')) ? 'signInRequired'
+                    : 'fetchFailed',
+            params: { error: error.message },
+        });
         if (error.message.includes('quota_exceeded')) {
             // Monthly quota exhausted — the hint box (with the sponsor path)
             // replaces the generic error line.

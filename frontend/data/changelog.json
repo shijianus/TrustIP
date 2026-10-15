@@ -2476,6 +2476,17 @@
           "ru": "Страница IP без адреса теперь показывает ваш собственный IP, а проверка Cloudflare называет проверяемые адреса назначения",
           "pt-BR": "Abrir a página de IP sem endereço agora consulta o seu próprio IP, e a verificação do Cloudflare nomeia os destinos testados"
         }
+      },
+      {
+        "type": "add",
+        "change": {
+          "en": "Every client-side test (WebRTC, DNS leak, connectivity, routing table, Cloudflare, latency, MTR, rule test, AI checks, censorship, speed test) now shows its full test process under the result: timestamped steps with endpoint, protocol, duration and raw answer, a plain-language verdict that says why, and JSON / text export; the WebRTC page adds a per-server STUN probe matrix compared against your HTTP egress",
+          "zh": "所有客户端测试（WebRTC、DNS 泄露、连通性、分流表、Cloudflare、延迟、MTR、规则测试、AI 检测、审查检测、测速）现在都会在结果下方展示完整测试过程：带时间戳的每一步（端点、协议、耗时、原始应答）、说明原因的通俗结论，以及 JSON / 文本导出；WebRTC 页面新增逐个 STUN 服务器的探测矩阵，并与 HTTP 出口对比",
+          "zh-TW": "所有用戶端測試（WebRTC、DNS 洩漏、連通性、分流表、Cloudflare、延遲、MTR、規則測試、AI 檢測、審查檢測、測速）現在都會在結果下方顯示完整測試過程：附時間戳記的每一步（端點、協定、耗時、原始回應）、說明原因的白話結論，以及 JSON／文字匯出；WebRTC 頁面新增逐一 STUN 伺服器的探測矩陣，並與 HTTP 出口比對",
+          "fr": "Chaque test côté client (WebRTC, fuite DNS, connectivité, table de routage, Cloudflare, latence, MTR, test de règles, vérifications IA, censure, test de débit) affiche désormais tout son déroulé sous le résultat : étapes horodatées avec point d’accès, protocole, durée et réponse brute, un verdict en langage clair qui dit pourquoi, et un export JSON / texte ; la page WebRTC ajoute une matrice de sondes STUN par serveur comparée à votre sortie HTTP",
+          "ru": "Каждая клиентская проверка (WebRTC, утечка DNS, доступность, таблица маршрутизации, Cloudflare, задержка, MTR, проверка правил, проверки ИИ, цензура, тест скорости) теперь показывает под результатом весь ход проверки: шаги с отметками времени, адресом, протоколом, длительностью и исходным ответом, понятный вывод с объяснением причины и экспорт в JSON / текст; на странице WebRTC добавлена матрица STUN-проб по серверам со сравнением с HTTP-выходом",
+          "pt-BR": "Todo teste do lado do cliente (WebRTC, vazamento de DNS, conectividade, tabela de rotas, Cloudflare, latência, MTR, teste de regras, verificações de IA, censura, teste de velocidade) agora mostra todo o processo abaixo do resultado: etapas com horário, endpoint, protocolo, duração e resposta bruta, um veredito em linguagem simples que explica o porquê, e exportação em JSON / texto; a página de WebRTC ganha uma matriz de sondas STUN por servidor comparada com a sua saída HTTP"
+        }
       }
     ]
   }

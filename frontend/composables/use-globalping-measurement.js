@@ -65,6 +65,37 @@ export function classifyTarget(input) {
 }
 
 const API_BASE = 'https://api.globalping.io/v1/measurements';
+
+// The finished measurement as test-process log steps, one per probe: where the
+// probe sits, what it reported, and its raw output (trimmed — an mtr dump is long).
+const RAW_OUTPUT_LIMIT = 2000;
+export const probeStepsOf = (data, type) => (data?.results || []).map((item) => {
+    const probe = item?.probe || {};
+    const result = item?.result || {};
+    const finished = result.status === 'finished';
+    let value = null;
+    if (type === 'ping' && result.stats) {
+        const st = result.stats;
+        value = st.min == null ? null : `min ${st.min} / avg ${st.avg} / max ${st.max} ms · loss ${st.loss}%`;
+    } else if (type === 'mtr' && Array.isArray(result.hops)) {
+        const last = result.hops[result.hops.length - 1];
+        value = `${result.hops.length} hops · last ${last?.resolvedAddress || '—'} avg ${last?.stats?.avg ?? '—'} ms`;
+    } else if (type === 'http') {
+        value = [result.statusCode ? `HTTP ${result.statusCode}` : null, result.timings?.total != null ? `${result.timings.total} ms` : null]
+            .filter(Boolean).join(' · ') || null;
+    }
+    const ok = finished && (type !== 'ping' || result.stats?.min != null);
+    const rawOutput = typeof result.rawOutput === 'string' ? result.rawOutput.slice(0, RAW_OUTPUT_LIMIT) : null;
+    return {
+        kind: 'probe',
+        target: [probe.country, probe.city, probe.network || (probe.asn ? `AS${probe.asn}` : null)].filter(Boolean).join(' · '),
+        protocol: String(type || '').toUpperCase(),
+        result: ok ? 'ok' : (result.status === 'in-progress' ? 'timeout' : 'fail'),
+        value,
+        error: ok ? null : (rawOutput ? rawOutput.split('\n')[0].slice(0, 200) : result.status || 'no result'),
+        raw: { probe, status: result.status, stats: result.stats ?? null, statusCode: result.statusCode ?? null, rawOutput },
+    };
+});
 // Globalping probes can be slow on first create + under load; allow more
 // headroom than the 5s front-end default.
 const REQUEST_TIMEOUT_MS = 10000;
@@ -87,7 +118,9 @@ export function useGlobalpingMeasurement({ pollInterval = 1000, maxRetries = 4 }
         }
     };
 
-    const start = (body, { onResults, onFinish, onError } = {}) => {
+    // `log` (optional) is a `useTestLog()` handle: the create request and every poll
+    // are recorded there as steps (the caller begins and finishes the record).
+    const start = (body, { onResults, onFinish, onError, log } = {}) => {
         cancel();
         status.value = 'running';
         let tryCount = 0;
@@ -109,6 +142,7 @@ export function useGlobalpingMeasurement({ pollInterval = 1000, maxRetries = 4 }
             if (disposed) return;
             currentController = new AbortController();
             let data;
+            const pollStep = log?.open({ kind: 'gpPoll', target: id, endpoint: `${API_BASE}/${id}`, protocol: 'HTTPS GET' });
             try {
                 const response = await fetchWithTimeout(`${API_BASE}/${id}`, {
                     timeoutMs: REQUEST_TIMEOUT_MS,
@@ -116,7 +150,12 @@ export function useGlobalpingMeasurement({ pollInterval = 1000, maxRetries = 4 }
                 });
                 if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                 data = await response.json();
+                pollStep?.end({
+                    result: 'ok',
+                    value: `status=${data?.status} results=${data?.results?.length ?? 0}`,
+                });
             } catch (err) {
+                pollStep?.end({ result: 'fail', error: err });
                 if (disposed) return;
                 console.error('Error fetching globalping results:', err);
                 finishError('poll');
@@ -140,6 +179,13 @@ export function useGlobalpingMeasurement({ pollInterval = 1000, maxRetries = 4 }
         (async () => {
             currentController = new AbortController();
             let createData;
+            const createStep = log?.open({
+                kind: 'gpCreate',
+                target: `${body?.type || ''} → ${body?.target || ''}`,
+                endpoint: API_BASE,
+                protocol: 'HTTPS POST',
+                raw: body,
+            });
             try {
                 const response = await fetchWithTimeout(API_BASE, {
                     method: 'POST',
@@ -150,7 +196,13 @@ export function useGlobalpingMeasurement({ pollInterval = 1000, maxRetries = 4 }
                 });
                 if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                 createData = await response.json();
+                createStep?.end({
+                    result: createData?.id ? 'ok' : 'fail',
+                    value: createData?.id ? `id=${createData.id} probes=${createData.probesCount ?? '?'}` : null,
+                    error: createData?.id ? null : 'no measurement id',
+                });
             } catch (err) {
+                createStep?.end({ result: 'fail', error: err });
                 if (disposed) return;
                 console.error('Error sending globalping request:', err);
                 finishError('create');

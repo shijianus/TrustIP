@@ -269,6 +269,8 @@
                 {{ t('home.split.footnote') }}
             </p>
         </div>
+
+        <TestRunLog v-if="log" :log="log" />
     </section>
 </template>
 
@@ -302,6 +304,7 @@ import { Spinner } from '@/components/ui/spinner';
 import SiteIcon from '@/components/widgets/SiteIcon.vue';
 import KeyRow from '@/components/widgets/KeyRow.vue';
 import SectionTitle from '@/components/widgets/SectionTitle.vue';
+import TestRunLog from '@/components/widgets/TestRunLog.vue';
 import getCountryName from '@/data/country-name.js';
 import { useStatusTone } from '@/composables/use-status-tone.js';
 
@@ -318,6 +321,8 @@ const props = defineProps({
     // The homepage's own STUN pass is still gathering. Without this, a visitor would
     // read "no other exits" while the one signal that could name them is in flight.
     leakRunning: { type: Boolean, default: false },
+    // The run's test-process log (a `useTestLog()` handle owned by Home.vue).
+    log: { type: Object, default: null },
 });
 
 defineEmits(['run']);
