@@ -1623,6 +1623,15 @@
       "in_progress": "進行中",
       "verifying": "驗證中",
       "completed": "已完成"
+    },
+    "FaultSummary": "{n} 個服務出現故障",
+    "AllClearSummary": "{n} 個服務全部正常",
+    "LastIncident": "上次故障：{time}",
+    "category": {
+      "ai": "AI",
+      "cloud": "雲端服務",
+      "dev": "開發",
+      "social": "社群"
     }
   },
   "connectivity": {

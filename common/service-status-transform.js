@@ -15,6 +15,9 @@ const COMPONENT_LIMIT = 40;
 //   { flatten: true }    every leaf, group headers dropped
 //   { include: [names] } ordered whitelist by component name
 //   { exclude: [id|name] } final filter on top of any mode (drops junk rows)
+//   { ownIndicator: true } the light is derived from the picked rows instead of
+//                        the page-wide indicator (a product sharing its parent's
+//                        page — see `componentsIndicator`)
 function selectComponents(raw, selector = {}) {
     let picked;
     if (Array.isArray(selector.include)) {
@@ -43,11 +46,26 @@ export function normalizeSummary(json, selector = {}) {
         .slice(0, COMPONENT_LIMIT)
         .map((c) => ({ name: c?.name ?? '', status: c?.status ?? 'operational' }));
 
-    return {
-        indicator: json?.status?.indicator || 'unknown',
-        components,
-    };
+    const indicator = selector.ownIndicator
+        ? (json ? componentsIndicator(components) : 'unknown')
+        : (json?.status?.indicator || 'unknown');
+    return { indicator, components };
 }
+
+// Component status → page indicator, the mapping Statuspage itself applies when
+// it rolls rows up into the page light. The worst row wins.
+const COMPONENT_SEVERITY = {
+    operational: 0, under_maintenance: 1, degraded_performance: 2, partial_outage: 3, major_outage: 4,
+};
+const SEVERITY_INDICATOR = ['none', 'maintenance', 'minor', 'major', 'critical'];
+
+// The light of a set of rows. An empty set is `unknown` — the rows the selector
+// asked for are not on the page, which says nothing about whether they are up.
+export const componentsIndicator = (components) => {
+    if (!components?.length) return 'unknown';
+    const worst = Math.max(...components.map((c) => COMPONENT_SEVERITY[c.status] ?? 0));
+    return SEVERITY_INDICATOR[worst];
+};
 
 // Normalize a `/api/v2/incidents.json` payload to the most recent `limit`
 // incidents. Upstream already returns them newest-first.
@@ -63,9 +81,17 @@ export function normalizeSummary(json, selector = {}) {
 // capping, NOT by upstream order: incident.io feeds (ChatGPT(OpenAI), Notion) leave
 // `started_at` null and order by `updated_at`, so the `created_at` we fall
 // back to would otherwise render out of chronological order in the UI.
-export function normalizeIncidents(json, { limit = 10, pageUrl = '' } = {}) {
+//
+// `componentNames`, when given, keeps only incidents that name at least one of
+// those components — how a product sharing its parent's page (SendGrid on
+// Twilio's) keeps only its own incidents.
+export function normalizeIncidents(json, { limit = 10, pageUrl = '', componentNames = null } = {}) {
     const base = String(pageUrl).replace(/\/+$/, ''); // trim trailing slash(es)
-    const incidents = Array.isArray(json?.incidents) ? json.incidents : [];
+    const all = Array.isArray(json?.incidents) ? json.incidents : [];
+    const wanted = Array.isArray(componentNames) ? new Set(componentNames) : null;
+    const incidents = wanted
+        ? all.filter((i) => (Array.isArray(i?.components) ? i.components : []).some((c) => wanted.has(c?.name)))
+        : all;
     return incidents
         .map((i) => {
             const id = i?.id ?? null;
@@ -96,14 +122,56 @@ function incidentTimestamp(incident) {
 // fetch) degrades gracefully — normalizeSummary(null) → indicator 'unknown'
 // with no components, normalizeIncidents(null) → []. Keeps the poller's
 // per-provider error handling free of shape-building logic.
+//
+// `lastIncidentAt` is the newest incident's start (or null) — the board's
+// "last incident 2 days ago" line, carried on the light overview so the cards can
+// show it without a detail read each.
 export function assembleProvider(provider, summaryJson, incidentsJson) {
     const { indicator, components } = normalizeSummary(summaryJson, provider.components);
+    const include = provider.components?.ownIndicator ? provider.components.include : null;
+    const incidents = normalizeIncidents(incidentsJson, { pageUrl: provider.page, componentNames: include });
     return {
         id: provider.id,
         name: provider.name,
         page: provider.page,
+        category: provider.category ?? null,
         indicator,
         components,
-        incidents: normalizeIncidents(incidentsJson, { pageUrl: provider.page }),
+        incidents,
+        lastIncidentAt: incidents.find((i) => i.startedAt)?.startedAt ?? null,
     };
 }
+
+// How bad a light is, for ordering: an outage outranks a degradation, which
+// outranks maintenance, which outranks `unknown` (no reading is not a fault),
+// which outranks green.
+const INDICATOR_RANK = { critical: 5, major: 4, minor: 3, maintenance: 2, unknown: 1, none: 0 };
+export const indicatorRank = (indicator) => INDICATOR_RANK[indicator] ?? INDICATOR_RANK.unknown;
+
+// The board's order: providers with a fault pinned on top, worst first; ties —
+// and every green provider — keep the catalog order, which is grouped by
+// category. Stable and pure, so both the overview and the UI can apply it.
+export const orderByIndicator = (providers) => providers
+    .map((p, i) => ({ p, i }))
+    .sort((a, b) => {
+        const ra = indicatorRank(a.p.indicator) >= INDICATOR_RANK.maintenance ? indicatorRank(a.p.indicator) : 0;
+        const rb = indicatorRank(b.p.indicator) >= INDICATOR_RANK.maintenance ? indicatorRank(b.p.indicator) : 0;
+        return rb - ra || a.i - b.i;
+    })
+    .map(({ p }) => p);
+
+// Per-category tally for the board's header row: `{ id, total, up, faults }` in
+// the order `categories` lists them. `up` counts green lights only; `faults`
+// counts minor and worse (maintenance and `unknown` are neither up nor a fault),
+// so `up + faults` may be less than `total` and the row says so honestly.
+export const categoryTally = (providers, categories) => categories
+    .map((id) => {
+        const members = providers.filter((p) => p.category === id);
+        return {
+            id,
+            total: members.length,
+            up: members.filter((p) => p.indicator === 'none').length,
+            faults: members.filter((p) => indicatorRank(p.indicator) >= INDICATOR_RANK.minor).length,
+        };
+    })
+    .filter((row) => row.total > 0);

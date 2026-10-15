@@ -8,10 +8,23 @@
     <!-- Top note -->
     <p class="text-sm text-muted-foreground leading-relaxed">{{ t('serviceStatus.Note') }}</p>
 
+    <!-- Board summary: how many providers report a fault right now, and the
+         per-category tally (up / total, faults). Faulted providers are pinned to
+         the top of the grid below, so this line names what the first cards are. -->
+    <div v-if="!loading && !fetchFailed && tally.length" class="flex flex-wrap items-center gap-2 text-sm">
+      <span class="font-medium" :class="faultCount ? textClass('fail') : textClass('ok-fast')">
+        {{ faultCount ? t('serviceStatus.FaultSummary', { n: faultCount }) : t('serviceStatus.AllClearSummary', { n: providers.length }) }}
+      </span>
+      <span v-for="row in tally" :key="row.id"
+        class="rounded-full border px-2.5 py-0.5 text-xs text-muted-foreground jn-nums">
+        {{ t(`serviceStatus.category.${row.id}`) }} {{ row.up }}/{{ row.total }}<template v-if="row.faults"> · ⚠ {{ row.faults }}</template>
+      </span>
+    </div>
+
     <!-- Provider card grid — always rendered from the static list, so a failed
         fetch shows per-card "status unavailable" rather than removing cards. -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-      <Collapsible v-for="p in PROVIDERS" :key="p.id" v-model:open="openState[p.id]" as-child>
+      <Collapsible v-for="p in providers" :key="p.id" v-model:open="openState[p.id]" as-child>
         <Card class="jn-card transition-transform duration-300 ease-out hover:-translate-y-1.5">
           <CardContent class="p-4 min-w-0">
             <!-- Header row (toggles the panel) — provider icon + name + chevron -->
@@ -45,6 +58,15 @@
                 </span>
               </template>
             </div>
+            <!-- Category · last incident — the reference board's second line. -->
+            <p v-if="!loading && (p.category || statusById[p.id]?.lastIncidentAt)"
+              class="mt-1 text-xs text-muted-foreground truncate">
+              <span v-if="p.category">{{ t(`serviceStatus.category.${p.category}`) }}</span>
+              <template v-if="statusById[p.id]?.lastIncidentAt">
+                <span v-if="p.category" aria-hidden="true"> · </span>
+                <span :title="formatDate(statusById[p.id].lastIncidentAt)">{{ t('serviceStatus.LastIncident', { time: relativeAgo(statusById[p.id].lastIncidentAt) }) }}</span>
+              </template>
+            </p>
           </CardContent>
 
           <!-- Expanded: services + recent incidents behind tabs (keeps the
@@ -175,9 +197,10 @@ import { useI18n } from 'vue-i18n';
 import { trackEvent } from '@/utils/analytics';
 import { fetchWithTimeout } from '@/utils/fetch-with-timeout.js';
 import { useStatusTone } from '@/composables/use-status-tone.js';
-import { unixToDateTime } from '@/utils/time-utils.js';
+import { unixToDateTime, relativeTimeSince } from '@/utils/time-utils.js';
 import {
   indicatorToTone, componentStatusToTone, impactLevel, incidentStatusTone,
+  orderByIndicator, indicatorRank, categoryTally, STATUS_CATEGORIES,
 } from '@/utils/service-status-tone.js';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -194,28 +217,60 @@ const store = useMainStore();
 const isMobile = computed(() => store.isMobile);
 const { textClass } = useStatusTone();
 
-// Static provider list — drives the always-visible cards. Brand icons from the
-// iconify `ri` (Remix Icon) set, matching the Connectivity section. Cloudflare
-// reuses the generic cloud glyph; providers with no reliable `ri` brand glyph
-// are left null and fall back to a first-letter tile.
-const PROVIDERS = [
-  { id: 'claude', name: 'Claude', icon: 'ri:claude-line' },
-  { id: 'chatgpt', name: 'ChatGPT', icon: 'ri:openai-line' },
-  { id: 'cursor', name: 'Cursor', icon: 'simple-icons:cursor' },
-  { id: 'notion', name: 'Notion', icon: 'ri:notion-line' },
-  { id: 'github', name: 'GitHub', icon: 'ri:github-line' },
-  { id: 'cloudflare', name: 'Cloudflare', icon: 'simple-icons:cloudflare' },
-  { id: 'elevenlabs', name: 'ElevenLabs', icon: 'simple-icons:elevenlabs' },
-  { id: 'groq', name: 'Groq', icon: 'bxl:groq-ai' },
-  { id: 'vercel', name: 'Vercel', icon: 'simple-icons:vercel' },
-  { id: 'netlify', name: 'Netlify', icon: 'simple-icons:netlify' },
-  { id: 'render', name: 'Render', icon: 'simple-icons:render' },
-  { id: 'supabase', name: 'Supabase', icon: 'simple-icons:supabase' },
-  { id: 'discord', name: 'Discord', icon: 'simple-icons:discord' },
-  { id: 'figma', name: 'Figma', icon: 'simple-icons:figma' },
-  { id: 'linear', name: 'Linear', icon: 'simple-icons:linear' },
-  { id: 'stripe', name: 'Stripe', icon: 'simple-icons:stripe' },
+// Provider cards. The overview decides which providers exist and in which order
+// (faults pinned on top, see `orderByIndicator`); this table only adds the brand
+// glyph, from the iconify `ri` / `simple-icons` sets, matching the Connectivity
+// section. Providers with no reliable glyph fall back to a first-letter tile.
+// The same table, in catalog order, is what the grid shows before the overview
+// lands or when it cannot be read — the cards never vanish on a failed fetch.
+const PROVIDER_META = [
+  { id: 'claude', name: 'Claude', icon: 'ri:claude-line', category: 'ai' },
+  { id: 'chatgpt', name: 'ChatGPT', icon: 'ri:openai-line', category: 'ai' },
+  { id: 'cursor', name: 'Cursor', icon: 'simple-icons:cursor', category: 'ai' },
+  { id: 'elevenlabs', name: 'ElevenLabs', icon: 'simple-icons:elevenlabs', category: 'ai' },
+  { id: 'groq', name: 'Groq', icon: 'bxl:groq-ai', category: 'ai' },
+  { id: 'perplexity', name: 'Perplexity', icon: 'simple-icons:perplexity', category: 'ai' },
+  { id: 'cloudflare', name: 'Cloudflare', icon: 'simple-icons:cloudflare', category: 'cloud' },
+  { id: 'vercel', name: 'Vercel', icon: 'simple-icons:vercel', category: 'cloud' },
+  { id: 'netlify', name: 'Netlify', icon: 'simple-icons:netlify', category: 'cloud' },
+  { id: 'render', name: 'Render', icon: 'simple-icons:render', category: 'cloud' },
+  { id: 'supabase', name: 'Supabase', icon: 'simple-icons:supabase', category: 'cloud' },
+  { id: 'flyio', name: 'Fly.io', icon: 'simple-icons:flydotio', category: 'cloud' },
+  { id: 'digitalocean', name: 'DigitalOcean', icon: 'simple-icons:digitalocean', category: 'cloud' },
+  { id: 'github', name: 'GitHub', icon: 'ri:github-line', category: 'dev' },
+  { id: 'npm', name: 'npm', icon: 'simple-icons:npm', category: 'dev' },
+  { id: 'pypi', name: 'Python / PyPI', icon: 'simple-icons:pypi', category: 'dev' },
+  { id: 'sentry', name: 'Sentry', icon: 'simple-icons:sentry', category: 'dev' },
+  { id: 'postman', name: 'Postman', icon: 'simple-icons:postman', category: 'dev' },
+  { id: 'clerk', name: 'Clerk', icon: 'simple-icons:clerk', category: 'dev' },
+  { id: 'twilio', name: 'Twilio', icon: 'simple-icons:twilio', category: 'dev' },
+  { id: 'sendgrid', name: 'SendGrid', icon: 'simple-icons:sendgrid', category: 'dev' },
+  { id: 'jira', name: 'Atlassian / Jira', icon: 'simple-icons:jira', category: 'dev' },
+  { id: 'notion', name: 'Notion', icon: 'ri:notion-line', category: 'dev' },
+  { id: 'figma', name: 'Figma', icon: 'simple-icons:figma', category: 'dev' },
+  { id: 'linear', name: 'Linear', icon: 'simple-icons:linear', category: 'dev' },
+  { id: 'stripe', name: 'Stripe', icon: 'simple-icons:stripe', category: 'dev' },
+  { id: 'discord', name: 'Discord', icon: 'simple-icons:discord', category: 'social' },
+  { id: 'reddit', name: 'Reddit', icon: 'simple-icons:reddit', category: 'social' },
+  { id: 'twitch', name: 'Twitch', icon: 'simple-icons:twitch', category: 'social' },
+  { id: 'pinterest', name: 'Pinterest', icon: 'simple-icons:pinterest', category: 'social' },
+  { id: 'zoom', name: 'Zoom', icon: 'simple-icons:zoom', category: 'social' },
 ];
+const META_BY_ID = new Map(PROVIDER_META.map((m) => [m.id, m]));
+
+// Overview rows in board order, each merged with its glyph. A provider the
+// back end lists but this table does not know still gets a card (letter tile).
+const overviewList = ref([]);
+const providers = computed(() => {
+  if (!overviewList.value.length) return PROVIDER_META;
+  return orderByIndicator(overviewList.value).map((row) => ({
+    ...(META_BY_ID.get(row.id) || { icon: null }),
+    ...row,
+    category: row.category || META_BY_ID.get(row.id)?.category || null,
+  }));
+});
+const tally = computed(() => categoryTally(providers.value, STATUS_CATEGORIES));
+const faultCount = computed(() => providers.value.filter((p) => indicatorRank(p.indicator) >= indicatorRank('minor')).length);
 
 const placeholderSizes = [10, 7, 9, 6, 8];
 
@@ -290,6 +345,7 @@ const incidentStatusLabel = (status) => {
 // Localized date for an incident's start instant, via the shared helper
 // (medium style, viewer's zone — matches the rest of the app's dates).
 const formatDate = (iso) => unixToDateTime(Date.parse(iso ?? ''), locale.value);
+const relativeAgo = (iso) => relativeTimeSince(iso, locale.value);
 
 // ── Data loading ────────────────────────────────────────────────────────────
 // Overview is a cheap snapshot read — the backend timer owns the upstream
@@ -302,8 +358,9 @@ const loadOverview = async () => {
     const json = await res.json();
     const list = Array.isArray(json.providers) ? json.providers : [];
     for (const item of list) {
-      statusById[item.id] = { indicator: item.indicator, page: item.page };
+      statusById[item.id] = { indicator: item.indicator, page: item.page, lastIncidentAt: item.lastIncidentAt || null };
     }
+    overviewList.value = list;
     fetchFailed.value = false;
   } catch {
     // Keep the cards; mark every one as "status unavailable".

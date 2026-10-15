@@ -1623,6 +1623,15 @@
       "in_progress": "En cours",
       "verifying": "Vérification",
       "completed": "Terminé"
+    },
+    "FaultSummary": "{n} services signalent une panne",
+    "AllClearSummary": "Les {n} services fonctionnent",
+    "LastIncident": "Dernier incident {time}",
+    "category": {
+      "ai": "IA",
+      "cloud": "Cloud",
+      "dev": "Développement",
+      "social": "Social"
     }
   },
   "connectivity": {

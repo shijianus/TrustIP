@@ -1623,6 +1623,15 @@
       "in_progress": "Em andamento",
       "verifying": "Verificando",
       "completed": "Concluído"
+    },
+    "FaultSummary": "{n} serviços com falha",
+    "AllClearSummary": "Todos os {n} serviços operando",
+    "LastIncident": "Último incidente {time}",
+    "category": {
+      "ai": "IA",
+      "cloud": "Nuvem",
+      "dev": "Desenvolvimento",
+      "social": "Social"
     }
   },
   "connectivity": {

@@ -1623,6 +1623,15 @@
       "in_progress": "Выполняется",
       "verifying": "Проверяется",
       "completed": "Завершён"
+    },
+    "FaultSummary": "Сбой у сервисов: {n}",
+    "AllClearSummary": "Все сервисы работают: {n}",
+    "LastIncident": "Последний инцидент {time}",
+    "category": {
+      "ai": "ИИ",
+      "cloud": "Облако",
+      "dev": "Разработка",
+      "social": "Соцсети"
     }
   },
   "connectivity": {
