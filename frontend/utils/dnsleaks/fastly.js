@@ -14,6 +14,8 @@ const generatePrefix = () => {
 export const fastly = {
     id: 'fastly',
     name: 'fastly.com',
+    // What the test-process log names as this probe's endpoint (the label is random per run).
+    endpoint: 'https://<random>.u.fastly-analytics.com/debug_resolver',
     async run() {
         const host = `${generatePrefix()}.u.fastly-analytics.com`;
         const response = await fetchWithTimeout(`https://${host}/debug_resolver`);

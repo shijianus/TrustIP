@@ -13,6 +13,8 @@ const generatePrefix = () => {
 export const ipApi = {
     id: 'ipapi',
     name: 'ip-api.com',
+    // What the test-process log names as this probe's endpoint (the label is random per run).
+    endpoint: 'https://<random>.edns.ip-api.com/json',
     async run() {
         const host = `${generatePrefix()}.edns.ip-api.com`;
         const response = await fetchWithTimeout(`https://${host}/json`);

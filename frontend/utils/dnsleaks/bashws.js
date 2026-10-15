@@ -13,6 +13,8 @@ export const pickDnsIp = (entries) => {
 export const bashws = {
     id: 'bashws',
     name: 'bash.ws',
+    // What the test-process log names as this probe's endpoint (the label is random per run).
+    endpoint: 'https://ex.1.<id>.bash.ws/css/z.css → https://bash.ws/dnsleak/test/<id>?json',
     async run() {
         const idResponse = await fetchWithTimeout('https://bash.ws/id');
         if (!idResponse.ok) throw new Error('bashws: ID response not ok');

@@ -25,6 +25,8 @@ export const parseRemoteAddress = (text) => {
 export const myipstack = {
     id: 'myipstack',
     name: 'dns.myipstack.com',
+    // What the test-process log names as this probe's endpoint (the label is random per run).
+    endpoint: 'https://<random>.dns.myipstack.com/getRemoteAddress',
     async run() {
         const label = generatePrefix();
         const response = await fetchWithTimeout(

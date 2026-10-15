@@ -5,6 +5,7 @@ import { test } from 'node:test';
 import { computed, reactive, ref } from 'vue';
 import { parse } from 'vue/compiler-sfc';
 import { createDnsLeakRunner } from '../frontend/utils/dnsleaks/index.js';
+import { useTestLog, dnsLeakVerdict, traceOutcome } from '../frontend/composables/use-test-log.js';
 
 const source = readFileSync(new URL('../frontend/components/DnsLeaksTest.vue', import.meta.url), 'utf8');
 const script = parse(source).descriptor.scriptSetup.content.replace(/^import[\s\S]*?;$/gm, '');
@@ -22,6 +23,11 @@ const fixture = (lookupMaxmind = async () => null) => {
         .map(id => [id, { id, name: id, run: async () => ({ ip: '192.0.2.53' }) }]));
     const bindings = {
         computed, reactive, ref, createDnsLeakRunner, ...providers,
+        // The test-process log is real (it is pure bookkeeping); only the HTTP
+        // egress echo it compares against is stubbed.
+        useTestLog, dnsLeakVerdict, traceOutcome,
+        readTrace: async () => ({ state: 'answered', ip: '198.51.100.1', loc: 'US' }),
+        fetchWithTimeout: async () => ({ ok: false }),
         useMainStore: () => ({ userPreferences: {}, setLoadingStatus: () => {} }),
         useI18n: () => ({ t: key => key }),
         useMaxmind: () => ({ lookupMaxmind }),
