@@ -2492,7 +2492,7 @@
   },
   "ainews": {
     "Title": "AI news",
-    "Note": "Every row below is an incident a vendor published about its own service. This build reads those status pages and nothing else.",
+    "Note": "Headlines first: what AI vendors and tech outlets published in their own RSS / Atom feeds, each linking to the original. Below them, the incidents vendors published about their own services.",
     "Loading": "Loading…",
     "Refresh": "Refresh",
     "Updated": "Snapshot {time}",
@@ -2509,10 +2509,14 @@
     "QuietTitle": "Nothing reported",
     "QuietChip": "{n} services nominal",
     "QuietNote": "No vendor in this list published an incident that is still open. The lights below are each provider’s own status page, as this deployment last read it.",
-    "EditorialTitle": "Editorial coverage",
-    "EditorialNote": "Model releases, pricing changes and company news are not published by a status page, and this build reads no other content source.",
-    "EditorialNeeds": "A content source with a licence to redistribute it, and a route that can fetch it — a browser cannot read an RSS feed cross-origin.",
-    "Caveat": "An incident is a vendor’s own account of an outage. It says what the vendor noticed, not what happened."
+    "EditorialTitle": "Headlines",
+    "EditorialNote": "None of the publishers' feeds could be read this time, so there are no headlines to list.",
+    "EditorialNeeds": "Outbound HTTPS from this deployment's server to the publishers' feeds (openai.com, github.com, blog.google…) — a browser cannot read an RSS feed cross-origin.",
+    "Caveat": "An incident is a vendor’s own account of an outage. It says what the vendor noticed, not what happened.",
+    "IncidentsTitle": "Vendor incidents",
+    "Sources": "Sources: {list}",
+    "SourcesFailed": "unreadable right now: {list}",
+    "Via": "via {via}"
   },
   "aiService": {
     "Note": "What {name} sees as your address, how much the public registries trust that address, and what else leaves this machine alongside it.",

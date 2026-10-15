@@ -2492,7 +2492,7 @@
   },
   "ainews": {
     "Title": "Notícias de IA",
-    "Note": "Cada linha abaixo é um incidente que um fornecedor publicou sobre o próprio serviço. Esta versão lê essas páginas de status e nada mais.",
+    "Note": "Primeiro, as manchetes que fornecedores de IA e veículos de tecnologia publicam nos próprios feeds RSS / Atom, cada uma levando ao original. Abaixo, os incidentes que os fornecedores publicam sobre os próprios serviços.",
     "Loading": "Carregando…",
     "Refresh": "Atualizar",
     "Updated": "Instantâneo de {time}",
@@ -2509,10 +2509,14 @@
     "QuietTitle": "Nada reportado",
     "QuietChip": "{n} serviços nominais",
     "QuietNote": "Nenhum fornecedor desta lista publicou um incidente ainda em aberto. Os indicadores abaixo vêm da página de status de cada provedor, como esta implantação os leu pela última vez.",
-    "EditorialTitle": "Cobertura editorial",
-    "EditorialNote": "Lançamentos de modelos, mudanças de preço e notícias de empresas não aparecem numa página de status, e esta versão não lê nenhuma outra fonte de conteúdo.",
-    "EditorialNeeds": "Uma fonte de conteúdo com licença para redistribuí-lo e uma rota que possa buscá-la — um navegador não lê um feed RSS entre origens.",
-    "Caveat": "Um incidente é o relato que o fornecedor faz da própria falha. Ele diz o que o fornecedor percebeu, não o que aconteceu."
+    "EditorialTitle": "Manchetes",
+    "EditorialNote": "Nenhum feed dos editores pôde ser lido desta vez, então não há manchetes para listar.",
+    "EditorialNeeds": "Acesso HTTPS de saída do servidor desta instalação aos feeds dos editores (openai.com, github.com, blog.google…) — um navegador não lê um feed RSS entre origens.",
+    "Caveat": "Um incidente é o relato que o fornecedor faz da própria falha. Ele diz o que o fornecedor percebeu, não o que aconteceu.",
+    "IncidentsTitle": "Incidentes dos fornecedores",
+    "Sources": "Fontes: {list}",
+    "SourcesFailed": "indisponíveis agora: {list}",
+    "Via": "via {via}"
   },
   "aiService": {
     "Note": "O que o {name} vê como o seu endereço, o quanto os registros públicos confiam nele e o mais que sai desta máquina junto com ele.",

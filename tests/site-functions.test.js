@@ -14,6 +14,8 @@ import handler, { routeNameOf } from '../functions/handler.ts';
 // Modules `functions/shared/` carries unchanged from `common/`. A file that
 // needs an edge-specific change leaves this list in the same commit.
 const MIRRORED = [
+    'ai-news.js',
+    'ai-news-store.js',
     'bgp-prefix.js',
     'dns-record-types.js',
     'globalping-inventory.js',
@@ -59,6 +61,11 @@ describe('edge handler', () => {
 
     it('answers 405 for the wrong method', async () => {
         const res = await call('split');
+        assert.equal(res.status, 405);
+    });
+
+    it('routes /api/ai-news like the Express app (GET only)', async () => {
+        const res = await call('ai-news', { method: 'POST', body: '{}' });
         assert.equal(res.status, 405);
     });
 

@@ -39,6 +39,7 @@ import createReportHandler, { getReport as getReportHandler } from './api/share-
 import invisibilitytestHandler from './api/invisibility-test.js';
 import macChecker from './api/mac-checker.js';
 import githubStarsHandler from './api/github-stars.js';
+import aiNewsHandler from './api/ai-news.js';
 import personaEvaluateHandler from './api/persona.js';
 import splitHandler from './api/split.js';
 import trustScoreHandler from './api/trust-score.js';
@@ -279,6 +280,9 @@ const KEYED_PROXY_MAX = 20;
 // Short Cache
 app.get('/api/service-status', needsServiceStatus, cacheable(FIVE_MIN_CACHE), serviceStatusHandler);
 app.get('/api/service-status/detail', requireValidProviderId(), needsServiceStatus, cacheable(FIVE_MIN_CACHE), serviceStatusDetailHandler);
+// Publisher feeds, held 30 minutes in process (common/ai-news-store.js); the
+// edge copy follows the same clock.
+app.get('/api/ai-news', perMinute(30), cacheable(30 * 60), aiNewsHandler);
 // Cache for 1 day
 app.get('/api/ipinfo', requirePublicIP(), perMinute(VENDOR_LOOKUP_MAX), withTimeZone(), cacheable(ONE_DAY_CACHE), ipinfoHandler);
 app.get('/api/ipapicom', requirePublicIP(), perMinute(VENDOR_LOOKUP_MAX), withTimeZone(), cacheable(ONE_DAY_CACHE), ipapicomHandler);

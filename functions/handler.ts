@@ -29,6 +29,7 @@ import { overview as serviceStatus, detail as serviceStatusDetail } from './shar
 import asnHistory from './shared/asn-history.js';
 import globalpingProbes from './shared/globalping-probes.js';
 import internetdb from './shared/internetdb.js';
+import aiNews from './shared/ai-news-route.js';
 
 type Params = URLSearchParams;
 type Ctx = { params: Params; headers: Headers; body: unknown };
@@ -54,6 +55,7 @@ const ROUTES: Record<string, Route> = {
     'asn-history': { method: 'GET', guards: [requireValidPrefix], run: ({ params }) => asnHistory(params) },
     'globalping-probes': { method: 'GET', run: () => globalpingProbes() },
     'internetdb': { method: 'GET', guards: [requirePublicIP], run: ({ params }) => internetdb(params) },
+    'ai-news': { method: 'GET', run: () => aiNews() },
 };
 
 const FUNCTION_PREFIX = '/functions/v1/app';
