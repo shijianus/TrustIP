@@ -11,14 +11,14 @@
   <header class="sticky top-0 z-40 border-b bg-background/80 supports-[backdrop-filter:blur(0px)]:bg-background/60 backdrop-blur pt-[env(safe-area-inset-top)]">
     <div class="mx-auto flex w-full max-w-[1600px] items-center gap-2 px-4 h-14">
       <RouterLink to="/"
-        class="inline-flex items-center gap-1.5 rounded-md px-1 py-1 text-lg font-semibold text-foreground no-underline hover:opacity-80 transition-opacity"
+        class="inline-flex items-center gap-1.5 rounded-md px-1 py-1 text-lg font-semibold text-foreground no-underline hover:opacity-80 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
         aria-label="TrustMy.IP">
         <BrandWordmark />
       </RouterLink>
       <!-- Breadcrumb: " / <title>" — only when the page passes a title. -->
       <template v-if="title">
         <span class="text-muted-foreground" aria-hidden="true">/</span>
-        <span class="min-w-0 truncate font-medium">{{ title }}</span>
+        <span class="min-w-0 truncate font-medium" aria-current="page">{{ title }}</span>
       </template>
       <!-- Button `as-child` renders the RouterLink as its root, so this is a
            single <a> styled as a button — not a <button> nested in an <a>.
@@ -28,7 +28,10 @@
            overflowed — a dangling "/" plus a clipped button. `sr-only` (not
            `hidden`) keeps the accessible name in every locale, and being out of
            flow it costs no `gap-2`. -->
-      <Button as-child variant="default" size="icon" class="ml-auto shrink-0 cursor-pointer sm:w-auto sm:px-4">
+      <!-- Outline, not solid: going home is a secondary action, and a filled
+           block in the header out-weighed every primary action on the page
+           below it (one primary per view — HIG / Material emphasis). -->
+      <Button as-child variant="outline" size="icon" class="ml-auto shrink-0 cursor-pointer sm:w-auto sm:px-4">
         <RouterLink to="/">
           <ArrowLeft class="size-4" />
           <span class="sr-only sm:not-sr-only">{{ t('advancedtools.BackToHome') }}</span>

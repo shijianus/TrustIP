@@ -19,7 +19,7 @@
           <Menu />
         </Button>
         <a href="#" @click="handleLogoClick"
-          class="inline-flex items-center gap-1.5 rounded-md px-1 py-1 text-lg font-semibold text-foreground no-underline hover:opacity-80 transition-opacity">
+          class="inline-flex items-center gap-1.5 rounded-md px-1 py-1 text-lg font-semibold text-foreground no-underline hover:opacity-80 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring">
           <BrandWordmark :loading="!loaded" />
         </a>
       </div>
@@ -195,7 +195,7 @@
               <CollapsibleContent>
                 <div class="my-0.5 ml-3 flex flex-col gap-0.5 border-l pl-3">
                   <button v-for="tool in advancedTools" :key="tool.slug" type="button"
-                    class="block w-full rounded-md px-3 py-1.5 text-left text-sm leading-snug text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
+                    class="block w-full rounded-md px-3 py-2.5 text-left text-sm leading-6 text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
                     @click="openTool(tool.slug)">
                     {{ t(tool.titleKey) }}
                   </button>
@@ -211,7 +211,7 @@
             </RouterLink>
           </template>
           <a :href="t('page.footerLink')" target="_blank" rel="noopener"
-            class="mt-3 flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium hover:bg-muted">
+            class="mt-3 flex min-h-11 items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium hover:bg-muted">
             <Icon icon="ri:github-line" class="size-4" />
             <span>Star on GitHub</span>
             <!-- Same /api/github-stars count as the desktop badge (fetched on
@@ -304,8 +304,10 @@ const fetchGithubStars = async () => {
 };
 
 // nav link style — the destination currently on screen reads as pressed
+// Drawer rows are 44px tall (py-2.5 + 24px line): the mobile drawer is a
+// touch surface, so each row meets the HIG / WCAG 2.5.5 target on its own.
 const navLinkClass = (id, { block = false } = {}) => {
-  const base = 'rounded-full px-3 py-1.5 text-sm font-medium no-underline cursor-pointer transition-colors duration-200';
+  const base = 'rounded-md px-3 py-2.5 text-sm leading-6 font-medium no-underline cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring';
   const state = id === route.meta.section
     ? 'bg-accent text-accent-foreground'
     : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground';
