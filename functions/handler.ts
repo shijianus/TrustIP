@@ -12,7 +12,7 @@
 // way to read — enforcing the empty default would 403 every real visitor, so the
 // gate is left to the platform's own origin binding.
 
-import { json } from './shared/respond.js';
+import { finalizeResponse, json } from './shared/respond.js';
 import {
     requirePublicIP, requireValidDomain, requireValidPrefix,
     requireValidRecordType, requireValidProviderId,
@@ -106,7 +106,7 @@ const parseBody = async (request: Request): Promise<{ body?: unknown; error?: st
     }
 };
 
-const handler = async (request: Request): Promise<Response> => {
+const dispatch = async (request: Request): Promise<Response> => {
     const url = new URL(request.url);
 
     // Before routing: the requests worth refusing are the ones that would have
@@ -150,5 +150,10 @@ const handler = async (request: Request): Promise<Response> => {
         return json({ error: 'Internal Server Error' }, { status: 500 });
     }
 };
+
+// Every answer, the 429 and the 404 included, leaves through finalizeResponse so
+// the security headers and the no-store-on-error rule cannot be skipped by a
+// route that builds its own Response.
+const handler = async (request: Request): Promise<Response> => finalizeResponse(await dispatch(request));
 
 export default handler;

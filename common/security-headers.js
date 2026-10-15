@@ -2,10 +2,9 @@
 // frontend-server.js — each serves dist/ in some deployment).
 //
 // Deliberately not set here:
-//   - Content-Security-Policy: the SPA loads Google Analytics, the GitBook
-//     docs embed, the IPCheck.ing invisibility probe, Firebase auth and Sentry;
-//     an enforced policy needs a staged Report-Only rollout against real
-//     traffic first, or it breaks those features.
+//   - Content-Security-Policy: frontend-server.js sends it (common/csp.js),
+//     Report-Only unless CSP_ENFORCE=1. The backend's own dist/ fallback goes
+//     without one, so a deployment serving pages from it has no policy.
 //   - Strict-Transport-Security: only meaningful on HTTPS, which these Node
 //     servers never terminate themselves — set it at the TLS edge (Cloudflare).
 export const securityHeaders = (req, res, next) => {

@@ -60,3 +60,11 @@ export const cacheable = (maxAge, { cacheIf, degradedMaxAge } = {}) => (req, res
     }
     next();
 };
+
+// `Cache-Control: no-store` as a default, set before anything can answer: the
+// limiters' 429, body-parser's 400 / 413, a proxy failure and a 404 all go out
+// uncacheable unless a later layer deliberately opts the response in.
+export const noStore = (req, res, next) => {
+    res.setHeader('Cache-Control', 'no-store');
+    next();
+};

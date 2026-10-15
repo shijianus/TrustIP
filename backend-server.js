@@ -63,7 +63,7 @@ import { isAsRelLoaded } from './common/as-rel-db.js';
 import { isAsOrgLoaded } from './common/as-org-db.js';
 import { isOuiLoaded } from './common/oui-db.js';
 import { runOfflineBootstrap, requireOfflineData, isOfflineBootstrapping } from './common/offline-data.js';
-import { cacheable } from './common/cache-control.js';
+import { cacheable, noStore } from './common/cache-control.js';
 import { initUpstreamUserAgent } from './common/upstream-ua.js';
 import { apiNotFound, jsonErrorHandler } from './common/error-handler.js';
 import { resolveClientIp, trustProxySetting } from './common/client-ip.js';
@@ -76,6 +76,10 @@ const app = express();
 // Don't advertise the framework on every response.
 app.disable('x-powered-by');
 app.use(securityHeaders);
+// Default every /api/* response to no-store, ahead of the limiters and the body
+// parser so their 429 / 400 / 413 are never cacheable. Routes that want edge
+// caching declare it explicitly via `cacheable(maxAge)` (common/cache-control.js).
+app.use('/api', noStore);
 const backEndPort = parseInt(process.env.BACKEND_PORT || 11966, 10);
 // Local rate-limit ledger file — opt-in: empty means no file is written.
 // The logger.warn in the limiter handler always fires regardless (and flows
@@ -236,13 +240,6 @@ if (speedLimitSet !== 0) {
 // Must stay above REPORT_MAX_BYTES (common/report-schema.js) or report
 // uploads die here with a raw 413 before the handler's own size check.
 app.use(express.json({ limit: '500kb' }));
-
-// Default every /api/* response to no-store. Routes that want edge caching
-// declare it explicitly via `cacheable(maxAge)` (common/cache-control.js).
-app.use('/api', (req, res, next) => {
-    res.setHeader('Cache-Control', 'no-store');
-    next();
-});
 
 // Global referer gate for all /api/* routes. Handlers no longer repeat this
 // check individually — see common/guards.js.

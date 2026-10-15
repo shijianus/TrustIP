@@ -13,7 +13,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
-    clientIpOf, createRateLimiter, rateLimitConfig, RATE_LIMIT_DEFAULTS,
+    clientIpOf, createRateLimiter, rateLimitConfig, RATE_LIMIT_DEFAULTS, UNKNOWN_CLIENT,
 } from '../functions/shared/rate-limit.js';
 
 // `clientIpOf` only ever calls `.get()`, which is what a real Headers gives it.
@@ -22,29 +22,24 @@ const headersOf = (entries) => ({
 });
 
 describe('rate-limit.js clientIpOf', () => {
-    it('takes the proxy-written header over a client-writable one', () => {
+    it('keys on the platform-written CF-Connecting-IP', () => {
         assert.equal(clientIpOf(headersOf({
-            'cf-connecting-ip': '203.0.113.7',
+            'cf-connecting-ip': ' 203.0.113.7 ',
             'x-forwarded-for': '198.51.100.1',
+            'x-real-ip': '198.51.100.2',
         })), '203.0.113.7');
-        assert.equal(clientIpOf(headersOf({
-            'x-real-ip': '203.0.113.9',
-            'x-forwarded-for': '198.51.100.1',
-        })), '203.0.113.9');
     });
 
-    it('reads only the first hop of a forwarded chain', () => {
-        // Everything after the first entry was written by a proxy this function
-        // does not control, so it proves nothing about who connected.
-        assert.equal(
-            clientIpOf(headersOf({ 'x-forwarded-for': '198.51.100.4, 70.41.3.18, 150.172.238.28' })),
-            '198.51.100.4',
-        );
+    it('never reads a client-writable header', () => {
+        // A script that rotates X-Forwarded-For or X-Real-IP must not get a fresh
+        // bucket per request: both collapse onto the shared unknown key.
+        assert.equal(clientIpOf(headersOf({ 'x-forwarded-for': '9.9.9.9, 1.2.3.4' })), UNKNOWN_CLIENT);
+        assert.equal(clientIpOf(headersOf({ 'x-real-ip': '7.7.7.7' })), UNKNOWN_CLIENT);
     });
 
-    it('returns null when no header names a client', () => {
-        assert.equal(clientIpOf(headersOf({})), null);
-        assert.equal(clientIpOf(headersOf({ 'x-forwarded-for': '   , 10.0.0.1' })), null);
+    it('names the shared unknown bucket when the platform header is missing or blank', () => {
+        assert.equal(clientIpOf(headersOf({})), UNKNOWN_CLIENT);
+        assert.equal(clientIpOf(headersOf({ 'cf-connecting-ip': '   ' })), UNKNOWN_CLIENT);
     });
 });
 
@@ -103,24 +98,67 @@ describe('rate-limit.js createRateLimiter', () => {
         assert.equal(limiter.size(), 0, 'a disabled limiter keeps no state at all');
     });
 
-    it('fails open for a client it cannot identify', () => {
-        // Sharing one anonymous bucket would make every unidentified visitor pay
-        // for one abuser's traffic — the opposite of what the ceiling is for.
-        const limiter = createRateLimiter({ limit: 1, windowMs: WINDOW, now: () => 0 });
-        for (let i = 0; i < 10; i += 1) assert.equal(limiter.check(null).allowed, true);
-        assert.equal(limiter.size(), 0);
+    it('puts unidentified clients in one shared bucket instead of failing open', () => {
+        const limiter = createRateLimiter({ limit: 2, windowMs: WINDOW, now: () => 0 });
+        assert.equal(limiter.check(null).allowed, true);
+        assert.equal(limiter.check('').allowed, true);
+        assert.equal(limiter.check(undefined).allowed, false, 'null, empty and undefined share one bucket');
+        assert.equal(limiter.check(UNKNOWN_CLIENT).allowed, false);
+        assert.equal(limiter.size(), 1);
     });
 
-    it('drops expired buckets instead of growing without bound', () => {
+    it('a rotating X-Forwarded-For without the platform header stays limited', () => {
+        const limiter = createRateLimiter({ limit: 2, windowMs: WINDOW, now: () => 0 });
+        const verdicts = [1, 2, 3, 4].map((i) => limiter.check(clientIpOf(headersOf({
+            'x-forwarded-for': `198.51.100.${i}`,
+        }))).allowed);
+        assert.deepEqual(verdicts, [true, true, false, false]);
+    });
+
+    it('drops expired buckets on the next sweep', () => {
         let now = 0;
         const limiter = createRateLimiter({ limit: 1, windowMs: WINDOW, now: () => now });
         for (let i = 0; i < 3000; i += 1) limiter.check(`203.0.113.${i % 250}.${Math.floor(i / 250)}`);
-        const grown = limiter.size();
-        assert.ok(grown >= 2048, `sweep should have been triggered by ${grown}`);
+        assert.equal(limiter.size(), 3000);
 
         now = WINDOW * 2;
         limiter.check('198.51.100.1');
-        assert.ok(limiter.size() < grown, 'expired entries are reclaimed on the next sweep');
+        assert.equal(limiter.size(), 1, 'expired entries are reclaimed');
+    });
+
+    it('sweeps at most once per interval, not on every request', () => {
+        let now = 0;
+        const limiter = createRateLimiter({ limit: 1, windowMs: 10, sweepIntervalMs: 1_000, now: () => now });
+        for (let i = 0; i < 100; i += 1) limiter.check(`a${i}`);
+        // Every bucket has expired, but the sweep that ran at t=0 is not repeated
+        // until a full interval has passed.
+        now = 500;
+        limiter.check('b');
+        assert.equal(limiter.size(), 101);
+        now = 1_000;
+        limiter.check('c');
+        assert.equal(limiter.size(), 1);
+    });
+
+    it('never holds more than maxKeys, evicting the least recently used client', () => {
+        const limiter = createRateLimiter({ limit: 2, windowMs: WINDOW, maxKeys: 3, now: () => 0 });
+        limiter.check('a');
+        limiter.check('b');
+        limiter.check('c');
+        limiter.check('a'); // a is now the most recent; b is the oldest
+        limiter.check('d');
+        assert.equal(limiter.size(), 3);
+        // a kept its count (2 of 2 used), so its next request is refused.
+        assert.equal(limiter.check('a').allowed, false, 'the active client was not evicted');
+        // b was evicted and starts over.
+        assert.equal(limiter.check('b').allowed, true);
+        assert.equal(limiter.size(), 3);
+    });
+
+    it('stays at the default cap under a flood of distinct keys', () => {
+        const limiter = createRateLimiter({ limit: 5, windowMs: WINDOW, now: () => 0 });
+        for (let i = 0; i < 25_000; i += 1) limiter.check(`k${i}`);
+        assert.equal(limiter.size(), 10_000);
     });
 });
 

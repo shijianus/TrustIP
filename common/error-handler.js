@@ -10,6 +10,7 @@ import logger from './logger.js';
 // Unknown /api/* paths: JSON like every other API response, not the HTML
 // "Cannot GET" page.
 export const apiNotFound = (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
     res.status(404).json({ error: 'Not found' });
 };
 
@@ -27,6 +28,8 @@ export const jsonErrorHandler = (err, req, res, next) => {
         res.end();
         return;
     }
+    // An error is never cacheable, whatever a route had set before it threw.
+    res.setHeader('Cache-Control', 'no-store');
     const message = status === 400 ? 'Invalid request body'
         : status === 413 ? 'Request body too large'
         : status < 500 ? 'Bad request'
