@@ -113,3 +113,13 @@ minimumReleaseAgeExclude:
   - '@vueuse/metadata@15.0.0'
   - '@vueuse/shared@15.0.0'
   - vue-i18n@11.4.12
+# Patched versions for advisories on transitive dependencies (pnpm audit).
+# Each selector matches only the vulnerable range and keeps the major line the
+# parent asked for. braces@3.0.3 (GHSA-vfj7-8cjw-p6xm, via http-proxy-middleware
+# > micromatch) has no patched release yet, so it has no entry.
+overrides:
+  '@grpc/grpc-js@<1.13.6': ^1.13.6
+  'fflate@>=0.7.0 <0.7.5': ^0.7.5
+  'browserslist@<4.28.7': ^4.28.7
+  'baseline-browser-mapping@<2.11.0': ^2.11.0
+  'brace-expansion@>=4.0.0 <5.0.12': ^5.0.12

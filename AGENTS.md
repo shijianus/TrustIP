@@ -49,7 +49,8 @@ ua-parser-js · detect-gpu · @vueuse/core.
 | `SITE_FUNCTIONS=1 pnpm build` | Same build, addressed to a Qoder Sites edge function instead of `/api` (see frontend/AGENTS.md) |
 
 **pnpm only** (`packageManager` pin, committed lockfile, `pnpm-workspace.yaml`
-`allowBuilds` approvals); npm / yarn would produce a competing lockfile.
+`allowBuilds` approvals and `overrides` that pin patched versions of vulnerable
+transitive dependencies); npm / yarn would produce a competing lockfile.
 
 ## Project layout
 
