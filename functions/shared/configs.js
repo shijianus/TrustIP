@@ -63,6 +63,8 @@ export default (headers) => {
         // not served rather than call a route that answers 404 and show a failure.
         trust: false,
         dossier: false,
+        // /api/asn-profile is Express-only (it reads the CAIDA files on disk).
+        asnProfile: false,
     }, { cacheSeconds: 60 * 60 });
     response.headers.set('Vary', 'Referer');
     return response;

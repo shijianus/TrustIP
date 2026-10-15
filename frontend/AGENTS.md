@@ -91,7 +91,7 @@ and never shipped to the browser (why: api/AGENTS.md):
 ### Advanced Tools gates decide listing only
 
 `data/tools.js` gates (`requiresOriginalSite`, `requiresConfig: '<configs key>'`,
-e.g. `asn` → `cloudFlare`) are read only via `isToolAvailable()`, by the card
+e.g. `asn` → `asnProfile`, the route existing at all) are read only via `isToolAvailable()`, by the card
 grid and the nav; deep links (`?tool=`, `/tools/:slug`) are never gated.
 
 ### ASN Profile
