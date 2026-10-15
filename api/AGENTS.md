@@ -92,6 +92,10 @@ upstream.
   route's `normalizeAsnQuery` guard canonicalizes `as<n>` to `AS<n>` first. The
   ASN Profile reads the same registry object through the upstream's parsed
   `rdapAutnum` instead; both live in `common/rdap.js` over one bootstrap matcher.
+  A port-43 reply that is prose rather than a record (`registryReplyFault`:
+  "No match for…" → 404; "Malformed request." / rate limits → RDAP, else 502) is
+  never served as a 200, and upstream faults answer `502 { error: 'Upstream
+  request failed' }` with the cause only in the log.
 - **Offline datasets** (MaxMind, CAIDA, PeeringDB, IEEE MAC registries) are rows in
   `common/datasets.js`, run by one engine,
   `common/dataset-updater.js` (lock, atomic state, publish, boot download,

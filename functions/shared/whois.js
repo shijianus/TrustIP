@@ -45,9 +45,9 @@ export default async (params) => {
         // as *no data*, not an outage — Whois.vue renders `noData` for any 4xx and a
         // fetch error for a 5xx, and an unregistered domain is the common case.
         if (error instanceof RdapNotFound) {
-            return json({ error: error.message }, { status: 404, cacheSeconds });
+            return json({ error: error.message }, { status: 404 });
         }
         console.error('[whois] lookup failed', { query, error: error?.message });
-        return json({ error: 'Upstream request failed' }, { status: 500, cacheSeconds });
+        return json({ error: 'Upstream request failed' }, { status: 502 });
     }
 };

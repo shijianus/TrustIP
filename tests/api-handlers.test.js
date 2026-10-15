@@ -16,7 +16,10 @@ import configsHandler from '../api/configs.js';
 import googleMapHandler from '../api/google-map.js';
 import dnsResolverHandler from '../api/dns-resolver.js';
 import getUserInfoHandler from '../api/get-user-info.js';
-import getWhoisHandler from '../api/get-whois.js';
+import getWhoisHandler, { registryReplyFault } from '../api/get-whois.js';
+import edgeWhoisHandler from '../functions/shared/whois.js';
+import whoiser from 'whoiser';
+import { cacheable } from '../common/cache-control.js';
 import cfRadarHandler from '../api/cf-radar.js';
 import invisibilityHandler from '../api/invisibility-test.js';
 import macCheckerHandler, { createMacChecker } from '../api/mac-checker.js';
@@ -367,6 +370,170 @@ describe('get-whois handler', () => {
         await getWhoisHandler(createRequest({ query: { q: '4294967295' } }), res);
         assert.equal(res.statusCode, 400);
         assert.deepEqual(res.body, { error: 'Invalid IP or address' });
+    });
+
+    it('answers an AS lookup that broke upstream with 502 and none of its error text', async () => {
+        stubAsnRdap(async () => { throw new Error('connect ECONNREFUSED 10.0.0.7:443'); });
+        const res = createResponse();
+        await getWhoisHandler(createRequest({ query: { q: 'AS15169' } }), res);
+        assert.equal(res.statusCode, 502);
+        assert.deepEqual(res.body, { error: 'Upstream request failed' });
+    });
+});
+
+// -- get-whois: registry text that is not a record -------------------------
+
+// Port-43 servers say "no" in prose; whoiser parses it into a record-shaped
+// object. Upstreams are stubbed: whoiser's two entry points on the module object
+// the handler imports, and globalThis.fetch for RDAP (restored in afterEach).
+describe('get-whois registry replies', () => {
+    const realDomain = whoiser.domain;
+    const realIp = whoiser.ip;
+    afterEach(() => {
+        whoiser.domain = realDomain;
+        whoiser.ip = realIp;
+    });
+
+    // whoiser.domain()'s shape for whois.nic.io answering `127.0.0.1.nip.io`.
+    const MALFORMED = {
+        'whois.nic.io': {
+            'Domain Status': [],
+            'Name Server': [],
+            '>>> Last update of WHOIS database': '2026-10-14T01:57:32Z <<<',
+            text: ['Malformed request.', '', 'Terms of Use: Access to WHOIS information is provided to assist persons…'],
+            __raw: 'Malformed request.\r\n>>> Last update of WHOIS database: 2026-10-14T01:57:32Z <<<\r\n\r\nTerms of Use: Access to WHOIS information is provided to assist persons…\r\n',
+        },
+    };
+    const NO_MATCH = {
+        'whois.verisign-grs.com': {
+            'Domain Status': [],
+            'Name Server': [],
+            '>>> Last update of whois database': '2026-10-15T01:00:00Z <<<',
+            text: ['No match for "UNREGISTERED-XQ7Z.COM".'],
+            __raw: 'No match for "UNREGISTERED-XQ7Z.COM".\r\n>>> Last update of whois database: 2026-10-15T01:00:00Z <<<\r\n\r\nNOTICE: The expiration date displayed in this record…\r\n',
+        },
+    };
+    const RECORD = {
+        'whois.verisign-grs.com': {
+            'Domain Name': 'EXAMPLE.COM',
+            'Domain Status': ['clientTransferProhibited'],
+            'Name Server': ['a.iana-servers.net'],
+            text: [],
+            __raw: 'Domain Name: EXAMPLE.COM\r\nRegistry Domain ID: 2336799_DOMAIN_COM-VRSN\r\n',
+        },
+    };
+    // One bootstrap for every case: rdap.js caches dns.json for the process.
+    const DNS_BOOTSTRAP = { services: [[['io', 'com'], ['https://rdap.registry.test/']]] };
+    const stubRdap = (domainResponder) => {
+        const called = [];
+        globalThis.fetch = async (url) => {
+            called.push(String(url));
+            if (String(url).endsWith('/rdap/dns.json')) return { ok: true, status: 200, json: async () => DNS_BOOTSTRAP };
+            return domainResponder(String(url));
+        };
+        return called;
+    };
+    // The route as backend-server.js wires it: every /api answer starts no-store,
+    // and cacheable() stamps a 2xx only.
+    const runRoute = async (q) => {
+        const req = createRequest({ query: { q } });
+        const res = { ...createResponse(), locals: {} };
+        res.setHeader('Cache-Control', 'no-store');
+        cacheable(24 * 60 * 60)(req, res, () => {});
+        await getWhoisHandler(req, res);
+        return res;
+    };
+
+    it('classifies registry prose, and leaves real records alone', () => {
+        assert.equal(registryReplyFault(MALFORMED), 'error');
+        assert.equal(registryReplyFault(NO_MATCH), 'no-match');
+        assert.equal(registryReplyFault(RECORD), null);
+        // An RIR reply (whoiser.ip) is the object itself, its verdict in % comments.
+        assert.equal(registryReplyFault({ __raw: '% This is the RIPE Database query service.\n%\n%ERROR:101: no entries found\n' }), 'no-match');
+        assert.equal(registryReplyFault({ __raw: '%ERROR:201: access denied for 10.0.0.1\n' }), 'error');
+        assert.equal(registryReplyFault({ range: '8.8.8.0 - 8.8.8.255', NetName: 'GOGL', __raw: 'NetRange: 8.8.8.0 - 8.8.8.255\n' }), null);
+        // A refusal line inside a real record is not a verdict on the record.
+        assert.equal(registryReplyFault({ s: { ...RECORD['whois.verisign-grs.com'], __raw: 'Error: see below\nDomain Name: EXAMPLE.COM\n' } }), null);
+        // Text this does not recognise keeps today's behaviour.
+        assert.equal(registryReplyFault({ s: { 'Domain Status': [], 'Name Server': [], __raw: 'Some registry banner\n' } }), null);
+        assert.equal(registryReplyFault(null), null);
+        assert.equal(registryReplyFault({ 'whois.nic.io': { error: 'Timeout' } }), null);
+    });
+
+    it('answers a registry refusal that RDAP cannot settle with 502, no-store, no registry text', async () => {
+        whoiser.domain = async () => MALFORMED;
+        const called = stubRdap(async () => ({ ok: false, status: 503, json: async () => ({}) }));
+        const res = await runRoute('127.0.0.1.nip.io');
+        assert.equal(res.statusCode, 502);
+        assert.equal(res.headers['Cache-Control'], 'no-store');
+        assert.deepEqual(res.body, { error: 'Upstream request failed' });
+        assert.ok(called.some((u) => u.includes('/domain/127.0.0.1.nip.io')), 'asked RDAP after the refusal');
+    });
+
+    it('answers a registry refusal on a TLD without RDAP with 502, not "no record"', async () => {
+        whoiser.domain = async () => ({ 'whois.nic.zz': { ...MALFORMED['whois.nic.io'] } });
+        stubRdap(async () => { throw new Error('unexpected RDAP call'); });
+        const res = await runRoute('127.0.0.1.nip.zz');
+        assert.equal(res.statusCode, 502);
+        assert.equal(res.headers['Cache-Control'], 'no-store');
+    });
+
+    it('serves RDAP when the registry refused port 43 but RDAP has the record', async () => {
+        whoiser.domain = async () => MALFORMED;
+        stubRdap(async () => ({ ok: true, status: 200, json: async () => ({ objectClassName: 'domain', ldhName: 'nip.io', events: [], entities: [] }) }));
+        const res = await runRoute('nip.io');
+        assert.equal(res.statusCode, 200);
+        assert.equal(res.headers['Cache-Control'], 'public, max-age=86400');
+        assert.ok(res.body['rdap.registry.test']);
+    });
+
+    it('answers a registry refusal plus an RDAP 404 with no record', async () => {
+        whoiser.domain = async () => MALFORMED;
+        stubRdap(async () => ({ ok: false, status: 404, json: async () => ({}) }));
+        const res = await runRoute('127.0.0.1.nip.io');
+        assert.equal(res.statusCode, 404);
+        assert.equal(res.headers['Cache-Control'], 'no-store');
+    });
+
+    it('answers the registry\'s own "No match" with 404, no-store, without asking RDAP', async () => {
+        whoiser.domain = async () => NO_MATCH;
+        const called = stubRdap(async () => { throw new Error('unexpected RDAP call'); });
+        const res = await runRoute('unregistered-xq7z.com');
+        assert.equal(res.statusCode, 404);
+        assert.equal(res.headers['Cache-Control'], 'no-store');
+        assert.deepEqual(res.body, { error: 'Domain not found: unregistered-xq7z.com' });
+        assert.equal(called.length, 0);
+    });
+
+    it('still serves and caches a real port-43 record', async () => {
+        whoiser.domain = async () => RECORD;
+        const res = await runRoute('example.com');
+        assert.equal(res.statusCode, 200);
+        assert.equal(res.headers['Cache-Control'], 'public, max-age=86400');
+        assert.equal(res.body, RECORD);
+    });
+
+    // The IP path reaches whoiser only after RDAP fails, so fetch fails first.
+    for (const [raw, status] of [
+        ['%ERROR:101: no entries found\n', 404],
+        ['Query rate limit exceeded\n', 502],
+    ]) {
+        it(`answers an RIR fallback reply ${JSON.stringify(raw.trim())} with ${status}, no-store`, async () => {
+            globalThis.fetch = async () => { throw new Error('rdap down'); };
+            whoiser.ip = async () => ({ text: [], __raw: raw });
+            const res = await runRoute('193.0.6.139');
+            assert.equal(res.statusCode, status);
+            assert.equal(res.headers['Cache-Control'], 'no-store');
+            assert.doesNotMatch(JSON.stringify(res.body), /rate limit|ERROR:101|rdap down/);
+        });
+    }
+
+    it('edge: an RDAP fault is 502 no-store with no upstream text', async () => {
+        stubRdap(async () => ({ ok: false, status: 500, json: async () => ({ title: 'internal' }) }));
+        const response = await edgeWhoisHandler(new URLSearchParams({ q: 'example.com' }));
+        assert.equal(response.status, 502);
+        assert.equal(response.headers.get('Cache-Control'), 'no-store');
+        assert.deepEqual(await response.json(), { error: 'Upstream request failed' });
     });
 });
 
