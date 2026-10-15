@@ -116,7 +116,8 @@ pnpm start
 ```
 
 `pnpm start` serves the built frontend on **18966** and the API on **11966**
-(localhost-only by design — put a reverse proxy in front of 18966). The API trusts
+(bound to 127.0.0.1 — put a reverse proxy in front of 18966; `BACKEND_HOST` widens
+the bind only when the frontend runs on another host or container). The API trusts
 `X-Forwarded-For` only from loopback, where frontend-server writes it from the real
 socket; behind another proxy set `TRUST_PROXY`, and behind Cloudflare set
 `TRUST_CF_CONNECTING_IP=1` (see [.env.example](.env.example)).

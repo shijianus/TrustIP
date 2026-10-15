@@ -66,6 +66,7 @@ import { cacheable } from './common/cache-control.js';
 import { initUpstreamUserAgent } from './common/upstream-ua.js';
 import { apiNotFound, jsonErrorHandler } from './common/error-handler.js';
 import { trustProxySetting } from './common/client-ip.js';
+import { backendHost, hostPort } from './common/backend-host.js';
 import { limiter, perMinute, clientKey, getClientIp } from './common/route-limiter.js';
 import { securityHeaders } from './common/security-headers.js';
 
@@ -77,6 +78,8 @@ const app = express();
 app.disable('x-powered-by');
 app.use(securityHeaders);
 const backEndPort = parseInt(process.env.BACKEND_PORT || 11966, 10);
+// Loopback unless BACKEND_HOST widens it — see common/backend-host.js.
+const backEndHost = backendHost(process.env.BACKEND_HOST);
 // Local rate-limit ledger file — opt-in: empty means no file is written.
 // The logger.warn in the limiter handler always fires regardless (and flows
 // to Sentry Logs when a backend DSN is configured), so the file only adds a
@@ -451,8 +454,8 @@ const bootBackend = async () => {
         await reloadMaxMindDatabases('startup').catch(() => {});
     }
 
-    app.listen(backEndPort, () => {
-        logger.info(`🚀 Backend server ready on http://localhost:${backEndPort}`);
+    app.listen(backEndPort, backEndHost, () => {
+        logger.info(`🚀 Backend server ready on http://${hostPort(backEndHost, backEndPort)}`);
     });
 
     // Watching from before the downloads: a dataset another process

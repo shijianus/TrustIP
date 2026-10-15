@@ -57,7 +57,7 @@ ua-parser-js · detect-gpu · @vueuse/core.
 frontend/ · api/      ← SPA and Express handlers (own AGENTS.md each)
 common/               ← shared back-end code; the SPA imports parts of it
 tests/                ← Node test runner specs
-backend-server.js     ← Express app, every route wired here (default port 11966)
+backend-server.js     ← Express app, every route wired here (default 127.0.0.1:11966)
 frontend-server.js    ← static server for `pnpm start` (+ SPA fallback)
 sentry-instrument.js  ← backend Sentry bootstrap via `node --import`
 ecosystem.config.cjs  ← pm2 definitions (carries the `--import` flag)

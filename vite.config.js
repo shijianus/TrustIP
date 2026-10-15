@@ -284,8 +284,9 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: frontEndPort,
+    // 127.0.0.1, where the backend listens by default (common/backend-host.js).
     proxy: {
-      '/api': `http://localhost:${backEndPort}`
+      '/api': `http://127.0.0.1:${backEndPort}`
     },
     // Extra hostnames the dev server answers for, so a tunnel / second
     // machine can reach `pnpm dev` without Vite's "blocked request" host
