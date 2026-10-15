@@ -3,6 +3,11 @@
 // Returns `{ country_code, country, org, asn }` on success. Returns `null` on
 // every failure path (no MaxMind source, network error, malformed
 // upstream payload) so callers don't have to disambiguate.
+// MaxMind answers from a local database a key-free deployment usually does not
+// have; when `/api/configs` says it is absent the lookup goes to the first
+// enabled key-free source instead (`pickLookupSource`), so the WebRTC, DNS-leak
+// and rule tests still name each address's country and network rather than
+// spending a request per address on a route that can only answer 503.
 // Lookups are deduped module-wide by ip+lang: the WebRTC test resolves the
 // same public IP from several STUN servers and each one triggers a lookup —
 // they all share one request, and successful results are cached for the
@@ -42,12 +47,28 @@ export const dedupedLookup = async (key, doLookup) => {
     }
 };
 
+// The source a leaked / echoed address is enriched from: MaxMind when its
+// database is installed, else the key-free sources in the order the IP card's
+// own fallback uses (IP.sb names the city and carries the AS organisation).
+const LOOKUP_FALLBACK = ['IP.sb', 'IPinfo.io', 'IP2Location.io', 'IPAPI.is', 'IP-API.com'];
+
+export const pickLookupSource = (ipDBs = []) => {
+    const maxmind = ipDBs.find((s) => s.text === 'MaxMind');
+    if (maxmind?.enabled) return maxmind;
+    for (const text of LOOKUP_FALLBACK) {
+        const source = ipDBs.find((s) => s.text === text && s.enabled);
+        if (source) return source;
+    }
+    // No enabled entry at all (configs not loaded yet): keep the old behaviour.
+    return maxmind || null;
+};
+
 export function useMaxmind() {
     const store = useMainStore();
     const { t } = useI18n();
 
     const lookupMaxmind = async (ip) => {
-        const source = store.ipDBs.find((s) => s.text === 'MaxMind');
+        const source = pickLookupSource(store.ipDBs);
         if (!source) return null;
 
         const lang = store.lang;
@@ -55,7 +76,7 @@ export function useMaxmind() {
         const apiLang = toApiTag(lang);
 
         // `country` below is localized, so the cache key must carry the lang.
-        return dedupedLookup(`${ip}|${lang}`, async () => {
+        return dedupedLookup(`${ip}|${lang}|${source.id}`, async () => {
             try {
                 const url = store.getDbUrl(source.id, ip, apiLang);
                 const response = await fetchWithTimeout(url);

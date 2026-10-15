@@ -38,4 +38,30 @@ const getCountryName = (abbr, lang) => {
     return (displayNames && displayNames.of(code)) || '';
 };
 
+// English country name → ISO 3166-1 alpha-2, for the one key-free source that
+// answers with a name and no code (api.ipapi.is's free tier). Built once from
+// the runtime's CLDR names; a name CLDR spells differently ("Korea, Republic
+// of") is not guessed at and answers null.
+let codeByEnglishName = null;
+const normalizeName = (name) => name.toLowerCase().replace(/[^a-z]/g, '');
+
+export const countryCodeFromName = (name) => {
+    if (typeof name !== 'string' || !name.trim()) return null;
+    if (!codeByEnglishName) {
+        codeByEnglishName = new Map();
+        const en = getDisplayNames('en');
+        if (en) {
+            for (let a = 65; a <= 90; a += 1) {
+                for (let b = 65; b <= 90; b += 1) {
+                    const code = String.fromCharCode(a, b);
+                    if (code === 'ZZ') continue;
+                    const label = en.of(code);
+                    if (label) codeByEnglishName.set(normalizeName(label), code);
+                }
+            }
+        }
+    }
+    return codeByEnglishName.get(normalizeName(name)) ?? null;
+};
+
 export default getCountryName;

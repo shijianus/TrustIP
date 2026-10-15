@@ -48,6 +48,11 @@ export default (req, res) => {
         // rule is that a capability this build does not have is *stated*, not failed.
         trust: true,
         dossier: true,
+        // The geolocation vendors with a keyless tier (ipinfo.io, api.ipapi.is,
+        // api.ip2location.io) answer on this server without their keys, so their
+        // source cards are listed whether or not the key flags above are set. The
+        // edge function does not carry those routes and says false.
+        keylessGeo: true,
     };
     let result = {};
     for (const key in envConfigs) {
