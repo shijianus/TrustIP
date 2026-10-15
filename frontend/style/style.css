@@ -23,6 +23,32 @@
     border-color: var(--border);
   }
 
+  /* Type rendering: greyscale antialiasing on macOS (the Apple / Vercel /
+     Linear default), so light text on the dark theme stops looking bold. */
+  body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Display headings wrap as balanced lines instead of leaving one orphan
+     word on the last line, and tighten slightly as they grow. */
+  h1, h2, h3 {
+    text-wrap: balance;
+    letter-spacing: -0.01em;
+  }
+  p {
+    text-wrap: pretty;
+  }
+
+  /* Tabular figures wherever a value is a measurement. IP cells (marked
+     data-mask="ip" for InfoMask), tables, code and monospace runs keep every
+     digit the same width, so an address or a latency that updates in place
+     never shifts the row around it. Base layer: `proportional-nums` on an
+     element still wins. */
+  [data-mask="ip"], table, code, kbd, samp, .font-mono, time {
+    font-variant-numeric: tabular-nums;
+  }
+
   /* Always reserve the scrollbar gutter. Without it, moving between a short
      page and a long one shifts every centred column sideways. */
   html {
@@ -264,6 +290,60 @@
     }
   }
 
+/* Type scale — one ramp for the whole app (Material 3 / Apple HIG style
+   roles). Each role fixes size, weight, line-height and tracking together so
+   a page title, a section heading, a card title and a caption can never drift
+   into near-duplicates. Steps follow the 4px baseline: 30/24/16/14/12.
+     display  — page <h1>               24→30px, 600
+     title    — section <h2>            20→24px, 600
+     headline — card title              16px,    600
+     body     — running text            14px,    400, 1.6
+     caption  — helper / meta text      12px,    muted
+     overline — card eyebrow (IPV4…)    11px,    600, caps, tracked */
+@utility jn-text-display {
+  font-size: 1.5rem;
+  line-height: 2rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  @media (width >= 48rem) {
+    font-size: 1.875rem;
+    line-height: 2.25rem;
+  }
+}
+@utility jn-text-title {
+  font-size: 1.25rem;
+  line-height: 1.75rem;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  @media (width >= 48rem) {
+    font-size: 1.5rem;
+    line-height: 2rem;
+  }
+}
+@utility jn-text-headline {
+  font-size: 1rem;
+  line-height: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+@utility jn-text-body {
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+@utility jn-text-caption {
+  font-size: 0.75rem;
+  line-height: 1rem;
+  color: var(--muted-foreground);
+}
+@utility jn-text-overline {
+  font-size: 0.6875rem;
+  line-height: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
 /* === Base end === */
 
 /* === Custom CSS === */
@@ -398,9 +478,10 @@
   padding: 24px 20px;
 }
 
+/* Phone padding on the 4px rhythm (was 14px vertical). */
 @media (max-width: 480px) {
   .jn-container {
-    padding: 14px 12px;
+    padding: 16px 12px;
   }
 }
 
