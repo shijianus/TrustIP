@@ -9,13 +9,15 @@ import { describe, it } from 'node:test';
 import { localProfile } from '../frontend/utils/persona/local-profile.js';
 import { EXTRA_LANGUAGES, FONTS_BY_SCRIPT } from '../frontend/data/persona-tables.js';
 
-// `Intl.Locale#getTimeZones` is the region-info half of ICU, and a runtime
+// `Intl.Locale#getTimeZones` (or the earlier proposal's `timeZones` getter,
+// which the module also reads) is the region-info half of ICU, and a runtime
 // built without that data answers empty for every country — the module under
 // test is doing nothing wrong, the machine has nothing to give it. The zone
 // assertions declare that gap instead of failing; everything this runtime can
 // still answer (the language derivation, the code casing) runs either way.
-const hasZoneData = typeof Intl.Locale.prototype.getTimeZones === 'function';
-const noZoneData = 'needs Intl.Locale#getTimeZones (full-icu region-info data)';
+const hasZoneData = typeof Intl.Locale.prototype.getTimeZones === 'function'
+    || Object.getOwnPropertyDescriptor(Intl.Locale.prototype, 'timeZones') !== undefined;
+const noZoneData = 'needs Intl.Locale#getTimeZones or #timeZones (full-icu region-info data)';
 
 describe('localProfile', () => {
     it('derives the primary language, its script and the country timezones', (t) => {
@@ -62,6 +64,24 @@ describe('localProfile', () => {
         // Bouvet Island: a real ISO code with no IANA zone. The tool reads the
         // empty list as "no local profile" rather than as an error.
         assert.deepEqual(localProfile('BV').timeZones, []);
+    });
+
+    it('reads the timeZones getter on an engine without getTimeZones()', {
+        // Stages that engine from this runtime's own data, so it needs the method.
+        skip: typeof Intl.Locale.prototype.getTimeZones === 'function' ? false : noZoneData,
+    }, () => {
+        const proto = Intl.Locale.prototype;
+        const method = Object.getOwnPropertyDescriptor(proto, 'getTimeZones');
+        const getter = Object.getOwnPropertyDescriptor(proto, 'timeZones');
+        delete proto.getTimeZones;
+        Object.defineProperty(proto, 'timeZones', { configurable: true, get() { return method.value.call(this); } });
+        try {
+            assert.deepEqual(localProfile('JP').timeZones, ['Asia/Tokyo']);
+        } finally {
+            Object.defineProperty(proto, 'getTimeZones', method);
+            if (getter) Object.defineProperty(proto, 'timeZones', getter);
+            else delete proto.timeZones;
+        }
     });
 });
 

@@ -91,10 +91,10 @@ Two things that spec does cover, because they are easy to assume otherwise:
   `gh`. Rename or reformat that step and the extraction fails by name — the point is
   that a silent no-op there would leave the schedule untested.
 - **A runtime missing an ICU surface skips, with the reason, and never passes.**
-  `Intl.Locale#getTimeZones` (region-info data) and `Intl.DurationFormat` are not in
+  `Intl.Locale#getTimeZones` / `#timeZones` (region-info data) and `Intl.DurationFormat` are not in
   every Node the suite runs on; the guarded specs report `skipped` rather than failing
   or asserting against the fallback as if it were the real thing. So `pnpm check` on
-  such a runtime ends `0 fail, 4 skipped` — that is green, not a hole in the run.
+  such a runtime ends `0 fail, 5 skipped` — that is green, not a hole in the run.
 
 ## Security & Boundaries
 
