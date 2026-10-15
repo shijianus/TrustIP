@@ -66,11 +66,19 @@ const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 // `ttlMs` is the clock of the family being cached, not a per-call whim: the
 // registry families below keep the 6h default, and the opt-in keyed feeds
 // override it with `LIST_TTL_MS`, which an operator can set.
+//
+// A `{ failed: true }` answer is held for FAILURE_TTL_MS only: it records that a
+// source could not be asked, not a fact about the address, and holding it for the
+// family's 6h would keep a signal "unmeasured" long after one slow RIPEstat call.
+const FAILURE_TTL_MS = 5 * 60 * 1000;
+
+export const ttlFor = (value, ttlMs) => (value?.failed ? Math.min(ttlMs, FAILURE_TTL_MS) : ttlMs);
+
 const cached = async (key, producer, ttlMs = CACHE_TTL_MS) => {
     const hit = await readEntry(key);
     if (hit !== undefined) return hit;
     const value = await producer();
-    writeEntry(key, value, ttlMs / 1000);
+    writeEntry(key, value, ttlFor(value, ttlMs) / 1000);
     return value;
 };
 
@@ -183,9 +191,14 @@ const readAsHolder = async (asn) => {
     return { holder };
 };
 
+// A hyperscaler's prefix list is megabytes (AS16509's is ~3 MB) and RIPEstat
+// takes 15–20s to build it cold, so this call gets the longest budget here; the
+// 6h cache means one visitor per AS per six hours pays for it.
+const ANNOUNCED_PREFIXES_TIMEOUT_MS = 25000;
+
 const readAnnounceShape = async (asn) => {
     if (!asn) return { failed: true };
-    const { data, failed } = await ripestat('announced-prefixes', `AS${asn}`, {}, 12000);
+    const { data, failed } = await ripestat('announced-prefixes', `AS${asn}`, {}, ANNOUNCED_PREFIXES_TIMEOUT_MS);
     if (failed) return { failed: true };
     const v4 = (data?.prefixes || [])
         .map((p) => p?.prefix)
@@ -218,6 +231,26 @@ const readAsnRegistration = async (asn) => {
 };
 
 const RPKI_STATES = ['valid', 'invalid', 'invalid_asn', 'invalid_length', 'not-found', 'unknown'];
+
+// The prefix actually routed for this address — RIPEstat's prefix-overview
+// aligns an unannounced more-specific to the covering announcement. This is what
+// an ROA validates: the RIR allocation (52.0.0.0/10) is paperwork nobody
+// announces and validates to `unknown`, while the route carrying the address
+// (52.24.0.0/14) validates to the real answer.
+const readRoutedPrefix = async (ip) => {
+    const { data, failed } = await ripestat('prefix-overview', ip, {}, 5000);
+    if (failed || data?.announced !== true) return null;
+    return typeof data.resource === 'string' && data.resource.includes('/') ? data.resource : null;
+};
+
+// RPKI's prefix, in order of preference: the routed prefix, the allocation's own
+// CIDR (RIPE writes `inetnum` as a range about as often as a CIDR, and only the
+// CIDR form is something RPKI can validate), then the DFZ floor (/24, /48).
+export const pickRpkiPrefix = ({ routed, allocation, fallback }) => {
+    if (typeof routed === 'string' && routed.includes('/')) return routed;
+    if (typeof allocation === 'string' && allocation.includes('/')) return allocation;
+    return fallback;
+};
 
 const readRpki = async (asn, prefix) => {
     if (!asn || !prefix) return { failed: true };
@@ -421,7 +454,7 @@ export const gatherTrustEvidence = async (ip, { geo = null } = {}) => {
     // Independent of each other; run together so the response costs the
     // slowest source, not their sum. RPKI is the exception — it needs the
     // prefix, which only the allocation record can supply.
-    const [ptr, rir, holder, shape, allocated, blocklists, feed, providerAnswers] = await Promise.all([
+    const [ptr, rir, holder, shape, allocated, blocklists, feed, providerAnswers, routed] = await Promise.all([
         queryPtr(ip),
         readRirRecord(ip),
         readAsHolder(asn),
@@ -430,6 +463,7 @@ export const gatherTrustEvidence = async (ip, { geo = null } = {}) => {
         checkBlocklists(ip),
         readAbuseFeed(ip),
         readProviders(ip),
+        readRoutedPrefix(ip),
     ]);
 
     evidence.asOrg = asn ? lookupAsOrgName(asn) : null;
@@ -514,14 +548,12 @@ export const gatherTrustEvidence = async (ip, { geo = null } = {}) => {
                 : { status: 'no-record' };
     }
 
-    // RPKI needs a prefix. Prefer the allocation's own CIDR — RIPE writes
-    // `inetnum` as a range (`a - b`) about as often as a CIDR, and only the
-    // CIDR form is something RPKI can validate — otherwise fall back to the DFZ
-    // floor (/24, /48), which is what an ROA is normally written for and what
-    // lets the edge cache dedupe across a whole prefix.
-    // Of an ARIN list, the CIDR that actually holds this address.
+    // RPKI needs a prefix: the routed one when RIPEstat names it, else the
+    // allocation's own CIDR (of an ARIN list, the CIDR that actually holds this
+    // address), else the DFZ floor (/24, /48) — see pickRpkiPrefix.
     const allocation = blockContaining(ip, rir?.cidr || null)?.label;
-    const prefix = allocation?.includes('/') ? allocation : toBgpPrefix(ip);
+    const prefix = pickRpkiPrefix({ routed, allocation, fallback: toBgpPrefix(ip) });
+    evidence.routedPrefix = routed || null;
     const rpkiResult = await readRpki(asn, prefix);
     evidence.rpki = rpkiResult?.state ?? null;
     if (rpkiResult?.failed) failed.push('rpki');
