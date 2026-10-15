@@ -115,17 +115,19 @@ describe('IPCheck.ing proxy routes no longer forward visitor headers wholesale',
     }
 
     // asn-profile's reputation section calls the same private API, and its
-    // answer sits behind a 7-day public cache — no visitor's cookie belongs in it.
-    it('asn-profile: the reputation call sends only the allow-list and the resolved IP', async () => {
+    // answer sits behind a 7-day public cache — no visitor's cookie or bearer
+    // token belongs in it.
+    it('asn-profile: the reputation call sends only the anonymous allow-list and the resolved IP', async () => {
         const calls = captureFetch(() => new Response('{"found":false}', { status: 200, headers: { 'content-type': 'application/json' } }));
         await asnProfileHandler({
             method: 'GET', headers: { ...hostileHeaders, 'cf-connecting-ip': '7.7.7.7' }, query: { asn: '13335' }, ip: '203.0.113.9',
         }, res());
         const rep = calls.find((c) => c.url.includes('/asnreputation'));
         assert.ok(rep, 'the reputation source was not asked');
-        assert.deepEqual(Object.keys(rep.options.headers).sort(), ['accept-language', 'authorization', 'referer', 'user-agent', 'x-forwarded-for', 'x-real-ip']);
+        assert.deepEqual(Object.keys(rep.options.headers).sort(), ['accept-language', 'referer', 'user-agent', 'x-forwarded-for', 'x-real-ip']);
         assert.equal(rep.options.headers['x-forwarded-for'], '203.0.113.9');
         assert.equal(rep.options.headers.cookie, undefined);
+        assert.equal(rep.options.headers.authorization, undefined);
     });
 
     it('updateuserachievement: a pretty-printed JSON body no longer fails on a stale content-length', async () => {

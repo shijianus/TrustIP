@@ -41,3 +41,11 @@ export const upstreamHeaders = (req, extra = {}) => {
     }
     return { ...headers, ...extra };
 };
+
+// For answers that land in a shared public cache (asn-profile's 7-day cache):
+// a visitor's credential must never shape — or be replayed into — a response
+// every other visitor is served, so the bearer token stays home.
+export const anonymousUpstreamHeaders = (req, extra = {}) => {
+    const { authorization: _omit, ...headers } = upstreamHeaders(req, extra);
+    return headers;
+};

@@ -190,7 +190,10 @@ caller context the upstream needs (Accept-Language, auth tokens) through
 `upstreamHeaders(req)` (`common/upstream-headers.js`): an allow-list plus the
 client address as `common/client-ip.js` resolved it — never `{ ...req.headers }`,
 which would hand a third party this site's cookies and let a client choose the
-address the upstream sees. Third-party upstreams get only what's explicitly needed.
+address the upstream sees. `asn-profile`'s reputation call sits behind a shared
+7-day public cache, so it uses `anonymousUpstreamHeaders(req)`: the same list
+without `Authorization` — no visitor's token shapes an answer everyone is served.
+Third-party upstreams get only what's explicitly needed.
 
 ### Defensive method gates
 
