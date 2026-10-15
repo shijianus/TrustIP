@@ -31,6 +31,7 @@ import { buildLatencyMatrix } from './latency-matrix.js';
 import { toBgpPrefix } from './bgp-prefix.js';
 import { parseIp, formatIp, blockContaining } from './ip-math.js';
 import { isIPv6 } from './valid-ip.js';
+import { rdapIp } from './rdap.js';
 import { normalizeLang } from './lang-param.js';
 import logger from './logger.js';
 
@@ -276,6 +277,52 @@ const buildNeighbours = (ip, cidr) => {
 };
 
 /**
+ * An RDAP `ip network` object's block, spelled the way `blockContaining` reads
+ * the RIR record: the cidr0 extension's prefixes (`2606:4700::/32`, comma
+ * separated when the network is several), else `start - end`.
+ *
+ * @param {object|null} data  an RDAP ip network response
+ * @returns {string|null}
+ */
+export const rdapBlockOf = (data) => {
+    const cidrs = (Array.isArray(data?.cidr0_cidrs) ? data.cidr0_cidrs : [])
+        .map((c) => {
+            const prefix = c?.v4prefix || c?.v6prefix;
+            return typeof prefix === 'string' && Number.isInteger(c?.length) ? `${prefix}/${c.length}` : null;
+        })
+        .filter(Boolean);
+    if (cidrs.length) return cidrs.join(', ');
+    if (typeof data?.startAddress === 'string' && typeof data?.endAddress === 'string') {
+        return `${data.startAddress} - ${data.endAddress}`;
+    }
+    return null;
+};
+
+/**
+ * The registered block that contains `ip`. RIPEstat's whois is the first answer;
+ * for ARIN IPv6 it says "No match found" and names no block at all, so the RIR's
+ * own RDAP server (IANA bootstrap, common/rdap.js) is asked — only on that miss,
+ * once, with a short budget, and its block is used only if it contains the
+ * address. Anything else keeps the RIPEstat answer, null included.
+ *
+ * @param {string} ip
+ * @param {string|null} rirCidr  `evidence.rir.cidr`
+ * @param {object} [options]
+ * @param {Function} [options.lookup]  rdapIp, injectable for tests
+ * @returns {Promise<string|null>}
+ */
+export const registeredBlockOf = async (ip, rirCidr, { lookup = rdapIp } = {}) => {
+    if (blockContaining(ip, rirCidr)) return rirCidr;
+    try {
+        const block = rdapBlockOf(await lookup(ip, { timeoutMs: 4000 }));
+        return block && blockContaining(ip, block) ? block : rirCidr;
+    } catch (err) {
+        logger.warn({ err, ip }, 'dossier: RDAP block fallback failed');
+        return rirCidr;
+    }
+};
+
+/**
  * The neighbours slot for the block `buildNeighbours` found. The static entry in
  * `SLOTS` describes the half-real section a block makes possible; with no block
  * containing the address there is no real half, and claiming `partial` would
@@ -430,7 +477,8 @@ export const buildDossier = async (ip, { lang = 'en' } = {}) => {
     const usablePrivacy = Boolean(evidence.privacy?.sources?.length);
     const technical = technicalSlot(evidence.scan);
 
-    const neighbours = buildNeighbours(ip, evidence.rir?.cidr || null);
+    const registeredBlock = await registeredBlockOf(ip, evidence.rir?.cidr || null);
+    const neighbours = buildNeighbours(ip, registeredBlock);
     return {
         ip,
         version: isIPv6(ip) ? 6 : 4,
@@ -445,7 +493,7 @@ export const buildDossier = async (ip, { lang = 'en' } = {}) => {
             asn: resolvedAsn,
             asName: evidence.asName,
             asOrg: evidence.asOrg,
-            cidr: evidence.rir?.cidr || null,
+            cidr: registeredBlock,
             netname: evidence.rir?.netName || null,
             status: evidence.rir?.status || null,
             netType: evidence.rir?.netType || null,
