@@ -6,13 +6,20 @@ on:
   pull_request:
     branches: [main, dev]
 
-# Least-privilege GITHUB_TOKEN: tests + build only need to read the repo.
+# Least-privilege GITHUB_TOKEN: every job only reads the repo (artifact upload
+# and download use the runner's own token, not this one).
 permissions:
   contents: read
 
+# Four checks, each its own status on a PR (names are what branch protection
+# requires — keep them stable):
+#   Test             pnpm test (unit / integration specs)
+#   Build            pnpm run build + the VITE_TEST_EXTRA_STUN build the E2E uses
+#   E2E (Playwright) the built app on an offline, key-less stack (e2e/README.md)
+#   Security probes  scripts/security-probes.mjs against the real servers
 jobs:
-  check:
-    name: Test + Build
+  test:
+    name: Test
     runs-on: ubuntu-latest
     # Normal run is ~1 min; a hosted runner that loses its connection would
     # otherwise sit "in progress" for the 6h default before failing.
@@ -57,5 +64,130 @@ jobs:
       - name: Run tests
         run: pnpm test
 
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+
+      - name: Setup Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
       - name: Build
         run: pnpm run build
+
+      - name: Build (E2E STUN flavour)
+        # vite --mode e2e reads .env.e2e: VITE_TEST_EXTRA_STUN=127.0.0.1:43478.
+        # Test-only output, never deployed; the E2E job serves it.
+        run: pnpm run build:stun
+
+      - name: Upload builds for the E2E and probe jobs
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: builds
+          path: |
+            dist/
+            dist-stun/
+          if-no-files-found: error
+          retention-days: 3
+
+  e2e:
+    name: E2E (Playwright)
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+
+      - name: Setup Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Download builds
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: builds
+          path: .
+
+      - name: Install Chromium
+        # The version comes from the locked @playwright/test; headless shell only.
+        run: pnpm exec playwright install --with-deps --only-shell chromium
+
+      - name: Run E2E
+        run: pnpm run test:e2e
+
+      - name: Upload screenshots, traces and logs
+        # Always, so a red run carries its own evidence (replaces hand-made zips).
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: e2e-artifacts
+          path: e2e/.out/
+          # e2e/.out is a dot-directory: hidden files are skipped by default.
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 14
+
+  security-probes:
+    name: Security probes
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+
+      - name: Setup Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Download builds
+        # dist/ lets SP-06 check the CSP on the backend-served page too.
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: builds
+          path: .
+
+      - name: Run security probes
+        run: pnpm run test:security
+
+      - name: Upload probe journal and server logs
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: security-probes
+          path: e2e/.out/security-probes/
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 14
