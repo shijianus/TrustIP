@@ -47,6 +47,10 @@ COPY --from=build-stage --chown=node:node /app/sentry-instrument.js ./
 COPY --from=build-stage --chown=node:node /app/api ./api
 COPY --from=build-stage --chown=node:node /app/common ./common
 COPY --from=build-stage --chown=node:node /app/docker/healthcheck.js ./docker/healthcheck.js
+# The dataset directories exist (empty, node-owned) so a named volume mounted
+# on one (deploy/docker-compose.vps.yml) inherits that owner instead of root.
+RUN mkdir -p common/maxmind-db common/as-rel-db common/as-org-db common/peeringdb-db common/oui-db \
+    && chown node:node common/maxmind-db common/as-rel-db common/as-org-db common/peeringdb-db common/oui-db
 
 USER node
 
