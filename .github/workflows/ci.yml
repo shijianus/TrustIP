@@ -30,7 +30,9 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          node-version: 24
+          # One source of truth for the Node line: .nvmrc (package.json
+          # `engines` states the supported range, .nvmrc the one CI runs).
+          node-version-file: .nvmrc
           # The committed pnpm-lock.yaml lets setup-node cache the pnpm store keyed
           # off the lockfile hash — installs are warm on every run after the first.
           cache: pnpm
