@@ -70,3 +70,8 @@ local-context.md
 
 # Qoder Sites publication descriptor (machine-local preview record, never source)
 *.qoder.site
+
+# E2E / security-probe output (Playwright traces, screenshots, reports, server
+# logs) and the VITE_TEST_EXTRA_STUN build the WebRTC E2E test serves
+e2e/.out/
+dist-stun/
