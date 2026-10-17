@@ -11,6 +11,7 @@ import { readAuthHint } from './utils/auth-hint';
 import { installSiteFunctionsApi } from './utils/site-functions-api';
 import { unregisterLegacyServiceWorker } from './utils/unregister-service-worker';
 import { addCollection } from '@iconify/vue';
+import { installOfflineIcons, loadFlagSet } from './utils/iconify-offline';
 
 import { detectOS } from './utils/system-detect';
 import './style/style.css'
@@ -63,8 +64,10 @@ window.addEventListener('vite:preloadError', (event) => {
 
 // The flag icon JSON is hundreds of KB — loaded after mount (see the mount
 // chain below) so it doesn't compete for boot bandwidth.
-const loadFlagIcons = () => import('@iconify-json/circle-flags/icons.json')
-    .then((mod) => { if (mod?.default) addCollection(mod.default); })
+// Every icon lookup is answered from the bundle (no api.iconify.design).
+installOfflineIcons();
+const loadFlagIcons = () => loadFlagSet()
+    .then((set) => { if (set) addCollection(set); })
     .catch(() => { /* non-fatal: flag icons degrade gracefully */ });
 
 const app = createApp(App);
