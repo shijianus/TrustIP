@@ -52,6 +52,7 @@ scripts/*
 !scripts/i18n-scaffold.js
 !scripts/check-dns-resolvers.js
 !scripts/regen-timezone-countries.js
+!scripts/security-probes.mjs
 
 # Section banners — deploy-time data (ads and campaign promos stay out of git)
 frontend/data/banners/*
