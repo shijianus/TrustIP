@@ -1,0 +1,46 @@
+# Caddy (v2.7+) in front of a TrustIP VPS — automatic HTTPS from Let's Encrypt.
+# Walkthrough: docs/deploy-vps.zh-TW.md. Replace trustip.example.com with the
+# real domain (its A / AAAA records must point at this host before the first
+# start) and keep ALLOWED_DOMAINS in .env equal to it.
+#
+# Topology: /api/* goes straight to the backend (127.0.0.1:11966), so Caddy is
+# the one hop writing X-Forwarded-For — it sets the header to the visitor's
+# socket address and ignores any client copy (no trusted_proxies configured).
+# The backend's default TRUST_PROXY (loopback) then resolves the real visitor
+# for every per-IP limiter. Everything else goes to frontend-server.js
+# (127.0.0.1:18966), which serves dist/ with its Content-Security-Policy.
+
+trustip.example.com {
+	encode zstd gzip
+
+	# HTTPS-only from here on (the Node servers never terminate TLS themselves,
+	# see common/security-headers.js). No `preload`: that is a one-way door.
+	header Strict-Transport-Security "max-age=31536000; includeSubDomains"
+	# Caddy's own Server header names it; nothing upstream needs it.
+	header -Server
+
+	# Above every body the app accepts (500 KB JSON, 1 MB Sentry tunnel).
+	request_body {
+		max_size 2MB
+	}
+
+	handle /api/* {
+		reverse_proxy 127.0.0.1:11966
+	}
+
+	handle {
+		reverse_proxy 127.0.0.1:18966
+	}
+
+	log {
+		output file /var/log/caddy/trustip.access.log {
+			roll_size 50MiB
+			roll_keep 5
+		}
+	}
+}
+
+# Bare www → apex (drop this block when there is no www record).
+www.trustip.example.com {
+	redir https://trustip.example.com{uri} permanent
+}

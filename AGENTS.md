@@ -62,6 +62,8 @@ backend-server.js     ← Express app, every route wired here (default 127.0.0.1
 frontend-server.js    ← static server for `pnpm start` (app in common/frontend-app.js: proxy, SPA fallback, CSP, no-store misses)
 sentry-instrument.js  ← backend Sentry bootstrap via `node --import`
 ecosystem.config.cjs  ← pm2 definitions (carries the `--import` flag)
+Dockerfile · docker/   ← non-root production image; docker/healthcheck.js is its HEALTHCHECK probe
+deploy/               ← VPS samples (Caddyfile, nginx.conf, systemd unit, host-network compose); guide in docs/deploy-vps.zh-TW.md
 index.html · vite.config.js · jsconfig.json (alias @ → frontend/)
 ```
 

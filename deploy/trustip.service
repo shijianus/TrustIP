@@ -1,0 +1,41 @@
+# systemd unit for a TrustIP checkout at /opt/trustip, run as the dedicated
+# `trustip` user. Walkthrough: docs/deploy-vps.zh-TW.md.
+#   sudo cp deploy/trustip.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now trustip
+# `npm start` runs frontend-server.js and the backend (with
+# --import ./sentry-instrument.js) together; .env is read from
+# WorkingDirectory by dotenv.
+
+[Unit]
+Description=TrustIP (frontend-server + backend)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=trustip
+Group=trustip
+WorkingDirectory=/opt/trustip
+ExecStart=/usr/bin/npm start
+Restart=on-failure
+RestartSec=5
+# Let concurrently stop both children before systemd escalates to SIGKILL.
+KillMode=mixed
+TimeoutStopSec=20
+
+# Hardening: the process may write only its dataset directories
+# (common/<name>-db/) and its private /tmp (dataset staging).
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+ReadWritePaths=/opt/trustip/common
+
+[Install]
+WantedBy=multi-user.target

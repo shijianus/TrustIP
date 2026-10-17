@@ -1,0 +1,31 @@
+# docker compose -f deploy/docker-compose.vps.yml up -d --build
+#
+# VPS variant of the root docker-compose.yml, for Caddy / Nginx running on the
+# host (docs/deploy-vps.zh-TW.md). `network_mode: host` makes the container's
+# loopback the host's: the backend stays on 127.0.0.1:11966 (BACKEND_HOST
+# empty), the reverse proxy reaches it there for /api/*, and the default
+# TRUST_PROXY (loopback) resolves real visitors. No port is published — the
+# firewall keeps 18966 / 11966 closed to the internet.
+services:
+    trustip:
+        container_name: trustip
+        build: ..
+        image: epocanvas/trustip:local # built locally, never pulled
+        network_mode: host
+        restart: unless-stopped
+        env_file:
+            - ../.env
+        volumes:
+            # Downloaded datasets survive a rebuild (owned by uid 1000 = node).
+            - trustip-maxmind:/app/common/maxmind-db
+            - trustip-as-rel:/app/common/as-rel-db
+            - trustip-as-org:/app/common/as-org-db
+            - trustip-peeringdb:/app/common/peeringdb-db
+            - trustip-oui:/app/common/oui-db
+
+volumes:
+    trustip-maxmind:
+    trustip-as-rel:
+    trustip-as-org:
+    trustip-peeringdb:
+    trustip-oui:
