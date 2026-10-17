@@ -97,6 +97,8 @@ const PAIRS = [
   ['info-soft-fg', 'info-soft', 4.5], ['destructive-soft-fg', 'destructive-soft', 4.5],
   ['action-soft-fg', 'action-soft', 4.5],
   ['focus-ring', 'card', 3], ['focus-ring', 'page-bg', 3],
+  // Form-field outlines (WCAG 1.4.11 non-text contrast).
+  ['input-border', 'card', 3], ['input-border', 'page-bg', 3], ['input-border', 'background', 3],
 ];
 
 describe('design tokens — WCAG AA contrast', () => {
@@ -132,6 +134,18 @@ describe('uikit strings — every shipped locale', () => {
         assert.equal(typeof pack.uikit?.[key], 'string', `${code}: uikit.${key}`);
         assert.ok(pack.uikit[key].length > 0, `${code}: uikit.${key} non-empty`);
       }
+    });
+  }
+});
+
+describe('form fields — outline uses --input-border', () => {
+  const FIELDS = ['input/Input.vue', 'textarea/Textarea.vue', 'select/SelectTrigger.vue',
+    'combobox/ComboboxTrigger.vue', 'checkbox/Checkbox.vue', 'input-otp/InputOTPSlot.vue'];
+  for (const f of FIELDS) {
+    it(`ui/${f} draws border-input-border, not the 1.35:1 border-input`, () => {
+      const src = fs.readFileSync(new URL(`../frontend/components/ui/${f}`, import.meta.url), 'utf8');
+      assert.match(src, /border-input-border/);
+      assert.doesNotMatch(src, /(?<![\w-])border-input(?![\w-])/);
     });
   }
 });

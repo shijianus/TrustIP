@@ -20,7 +20,7 @@
         <div class="flex justify-end mb-5">
           <div class="inline-flex items-stretch">
             <!-- Download addon -->
-            <span class="flex items-center px-3 border border-input rounded-l-md bg-muted" aria-hidden="true">
+            <span class="flex items-center px-3 border border-input-border rounded-l-md bg-muted" aria-hidden="true">
               <CloudDownload class="size-4 text-muted-foreground" />
             </span>
             <!-- Download select -->
@@ -38,7 +38,7 @@
               </SelectContent>
             </Select>
             <!-- Upload addon -->
-            <span class="flex items-center px-3 border border-input border-l-0 bg-muted" aria-hidden="true">
+            <span class="flex items-center px-3 border border-input-border border-l-0 bg-muted" aria-hidden="true">
               <CloudUpload class="size-4 text-muted-foreground" />
             </span>
             <!-- Upload select -->

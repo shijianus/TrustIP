@@ -106,6 +106,10 @@
   --action-foreground: oklch(0.985 0 0);
   --border: oklch(0.925 0.007 258);
   --input: oklch(0.9 0.009 258);
+  /* Form-field outline (input / textarea / select / checkbox). WCAG 1.4.11
+     wants a field's boundary ≥3:1 against what surrounds it; --input (1.35:1)
+     stays for fills and switch tracks. 3.6:1 on --card, 3.4:1 on --page-bg. */
+  --input-border: oklch(0.62 0.018 258);
   --ring: oklch(0.72 0.05 258);
   /* Keyboard focus indicator. Separate from --ring (the soft input glow) so
      it can meet WCAG 1.4.11 (≥3:1 against the surface it sits on) without
@@ -204,6 +208,7 @@
   --action-foreground: oklch(0.985 0 0);      /* white text, 5.3:1 */
   --border: oklch(0.85 0.02 258 / 0.12);
   --input: oklch(0.85 0.02 258 / 0.18);
+  --input-border: oklch(0.53 0.02 258);       /* 3.3:1 on --card, 3.5:1 on --page-bg */
   --ring: oklch(0.6 0.05 258);
   --focus-ring: oklch(0.72 0.15 255);         /* 7:1 on --card */
   /* Black ink, heavier: a light-theme shadow is invisible against a dark
@@ -267,6 +272,7 @@
   --color-trust-5-fg: var(--trust-5-fg);
   --color-border: var(--border);
   --color-input: var(--input);
+  --color-input-border: var(--input-border);
   --color-ring: var(--ring);
   --color-focus-ring: var(--focus-ring);
   --color-page-bg: var(--page-bg);

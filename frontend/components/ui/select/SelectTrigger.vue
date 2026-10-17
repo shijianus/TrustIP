@@ -8,7 +8,7 @@ defineProps({ class: { type: [String, Array, Object], default: undefined } });
 
 <template>
   <SelectTrigger
-    :class="cn('flex h-9 w-full items-center justify-between whitespace-nowrap rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-focus-ring disabled:cursor-not-allowed disabled:opacity-50 [&>span]:flex [&>span]:min-w-0 [&>span]:items-center [&>span]:overflow-hidden [&>span]:whitespace-nowrap', $props.class)"
+    :class="cn('flex h-9 w-full items-center justify-between whitespace-nowrap rounded-md border border-input-border bg-transparent px-3 py-1 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-focus-ring disabled:cursor-not-allowed disabled:opacity-50 [&>span]:flex [&>span]:min-w-0 [&>span]:items-center [&>span]:overflow-hidden [&>span]:whitespace-nowrap', $props.class)"
   >
     <slot />
     <SelectIcon as-child>

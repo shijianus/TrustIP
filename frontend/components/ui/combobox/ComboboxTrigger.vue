@@ -9,7 +9,7 @@ const props = defineProps({ class: { type: null, required: false } });
 <template>
   <ComboboxTrigger
     :class="cn(
-      'flex h-9 w-full items-center justify-between gap-2 rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm',
+      'flex h-9 w-full items-center justify-between gap-2 rounded-md border border-input-border bg-transparent px-3 py-2 text-sm shadow-sm',
       'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-focus-ring disabled:cursor-not-allowed disabled:opacity-50',
       props.class,
     )"

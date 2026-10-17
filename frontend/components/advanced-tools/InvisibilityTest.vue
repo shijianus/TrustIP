@@ -11,7 +11,7 @@
             <div class="flex items-stretch gap-0">
                 <!-- Checkbox (flat container and Button combined) -->
                 <label for="collectingDatas"
-                    class="flex items-center gap-2 px-3 border border-input border-r-0 bg-background rounded-l-md text-sm cursor-pointer select-none"
+                    class="flex items-center gap-2 px-3 border border-input-border border-r-0 bg-background rounded-l-md text-sm cursor-pointer select-none"
                     :class="{ 'opacity-50 cursor-not-allowed': !store.user }">
                     <input type="checkbox" id="collectingDatas" name="collectingDatas"
                         class="size-4 cursor-pointer accent-action" aria-label="Checkbox for Collecting datas"
