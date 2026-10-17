@@ -84,6 +84,8 @@ export default async (params) => {
             }))));
         return json({ hostname, results });
     } catch (error) {
-        return serverError(error?.message || String(error));
+        // The error text stays in the platform log; the client gets a fixed one.
+        console.error('[dnsresolver] handler failed', { hostname, type, error: error?.message });
+        return serverError('Internal Server Error');
     }
 };
