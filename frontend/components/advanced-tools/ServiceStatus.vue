@@ -230,6 +230,8 @@ const PROVIDER_META = [
   { id: 'elevenlabs', name: 'ElevenLabs', icon: 'simple-icons:elevenlabs', category: 'ai' },
   { id: 'groq', name: 'Groq', icon: 'bxl:groq-ai', category: 'ai' },
   { id: 'perplexity', name: 'Perplexity', icon: 'simple-icons:perplexity', category: 'ai' },
+  { id: 'xai', name: 'xAI / Grok', icon: 'simple-icons:x', category: 'ai' },
+  { id: 'replicate', name: 'Replicate', icon: 'simple-icons:replicate', category: 'ai' },
   { id: 'cloudflare', name: 'Cloudflare', icon: 'simple-icons:cloudflare', category: 'cloud' },
   { id: 'vercel', name: 'Vercel', icon: 'simple-icons:vercel', category: 'cloud' },
   { id: 'netlify', name: 'Netlify', icon: 'simple-icons:netlify', category: 'cloud' },

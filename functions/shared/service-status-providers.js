@@ -14,6 +14,8 @@
 // `category` — the board's facet: ai · cloud · dev · social. Four buckets, the
 //          same ones the reference board groups by, so the per-category tally
 //          (`3/6 up`) reads the same on both.
+// `format` — optional; 'rss' for an official page that publishes an incident
+//          feed at `${api}/feed.xml` but no Statuspage API (see rssToStatuspage).
 // `components` — optional selector (see service-status-transform.js). A provider
 //          that shares a page with its parent (SendGrid on Twilio's page) uses
 //          `include` plus `ownIndicator`, so its light is computed from its own
@@ -32,6 +34,15 @@ export const STATUS_PROVIDERS = [
     { id: 'elevenlabs', name: 'ElevenLabs', category: 'ai', api: 'https://status.elevenlabs.io', page: 'https://status.elevenlabs.io' },
     { id: 'groq', name: 'Groq', category: 'ai', api: 'https://groqstatus.com', page: 'https://groqstatus.com' },
     { id: 'perplexity', name: 'Perplexity', category: 'ai', api: 'https://status.perplexity.com', page: 'https://status.perplexity.com' },
+    // status.x.ai is a custom page with no /api/v2; its official incident RSS
+    // feed (feed.xml) carries severity and resolution per item.
+    { id: 'xai', name: 'xAI / Grok', category: 'ai', api: 'https://status.x.ai', page: 'https://status.x.ai', format: 'rss' },
+    // Replicate's own status page now redirects to Cloudflare's (Replicate is a
+    // Cloudflare company); its light comes from the "Replicate" row there.
+    {
+        id: 'replicate', name: 'Replicate', category: 'ai', api: 'https://www.cloudflarestatus.com', page: 'https://www.cloudflarestatus.com',
+        components: { include: ['Replicate'], ownIndicator: true },
+    },
     // ── Cloud ──
     // Default top-level: summary.json flattens away CF's mid-level product
     // categories, leaving one "Cloudflare Sites and Services" rollup + 7

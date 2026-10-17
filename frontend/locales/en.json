@@ -2430,7 +2430,8 @@
       "noEndpoint": "No trace endpoint: the host answered, but not with the address it saw. Either it is not fronted by Cloudflare, or that path is blocked.",
       "timeout": "Silent after six seconds — the echo never came back.",
       "blocked": "Could not be reached. A browser will not say whether that was a CORS refusal, a blocked path or a dead connection, so the cause stays unnamed."
-    }
+    },
+    "Unmeasurable": "Cannot be measured"
   },
   "ipCard": {
     "kind": "Network type",

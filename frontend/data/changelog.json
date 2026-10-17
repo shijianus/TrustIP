@@ -2487,6 +2487,17 @@
           "ru": "Каждая клиентская проверка (WebRTC, утечка DNS, доступность, таблица маршрутизации, Cloudflare, задержка, MTR, проверка правил, проверки ИИ, цензура, тест скорости) теперь показывает под результатом весь ход проверки: шаги с отметками времени, адресом, протоколом, длительностью и исходным ответом, понятный вывод с объяснением причины и экспорт в JSON / текст; на странице WebRTC добавлена матрица STUN-проб по серверам со сравнением с HTTP-выходом",
           "pt-BR": "Todo teste do lado do cliente (WebRTC, vazamento de DNS, conectividade, tabela de rotas, Cloudflare, latência, MTR, teste de regras, verificações de IA, censura, teste de velocidade) agora mostra todo o processo abaixo do resultado: etapas com horário, endpoint, protocolo, duração e resposta bruta, um veredito em linguagem simples que explica o porquê, e exportação em JSON / texto; a página de WebRTC ganha uma matriz de sondas STUN por servidor comparada com a sua saída HTTP"
         }
+      },
+      {
+        "type": "add",
+        "change": {
+          "en": "Fills data gaps from free public sources: the IP dossier's Tor and VPN rows read the Tor Project exit list and X4BNet's VPN / datacenter ranges; ASN type and traffic come from PeeringDB; MaxMind lookups fall back to DB-IP Lite (attributed in the footer); Globalping tools pause on HTTP 429 with a countdown; Service Status adds xAI and Replicate; the AI check says when an exit cannot be measured",
+          "zh": "以免费公开来源补齐数据缺口：IP 档案的 Tor 与 VPN 栏读取 Tor Project 出口清单与 X4BNet VPN／机房网段；ASN 类型与流量来自 PeeringDB；MaxMind 查询在无金钥时改用 DB-IP Lite（页尾标示来源）；Globalping 工具遇到 HTTP 429 会暂停并倒数；服务状态新增 xAI 与 Replicate；AI 检测在无法取得出口时明确显示“无法量测”",
+          "zh-TW": "以免費公開來源補齊資料缺口：IP 檔案的 Tor 與 VPN 欄讀取 Tor Project 出口清單與 X4BNet VPN／機房網段；ASN 類型與流量來自 PeeringDB；MaxMind 查詢在沒有金鑰時改用 DB-IP Lite（頁尾標示來源）；Globalping 工具遇到 HTTP 429 會暫停並倒數；服務狀態新增 xAI 與 Replicate；AI 檢測在無法取得出口時明確顯示「無法量測」",
+          "fr": "Comble des manques avec des sources publiques gratuites : les lignes Tor et VPN du dossier IP lisent la liste des sorties du Tor Project et les plages VPN / datacenter de X4BNet ; type et trafic de l'AS viennent de PeeringDB ; MaxMind se replie sur DB-IP Lite (attribution en pied de page) ; les outils Globalping se mettent en pause sur HTTP 429 avec un décompte ; l'état des services ajoute xAI et Replicate ; le test IA indique quand une sortie n'est pas mesurable",
+          "ru": "Пробелы в данных закрыты бесплатными открытыми источниками: строки Tor и VPN в досье IP читают список выходных узлов Tor Project и диапазоны VPN / дата-центров X4BNet; тип и трафик AS — из PeeringDB; MaxMind без ключа переходит на DB-IP Lite (с указанием источника в подвале); инструменты Globalping при HTTP 429 делают паузу с обратным отсчётом; в статус сервисов добавлены xAI и Replicate; проверка ИИ сообщает, когда выход невозможно измерить",
+          "pt-BR": "Preenche lacunas de dados com fontes públicas gratuitas: as linhas Tor e VPN do dossiê de IP leem a lista de saídas do Tor Project e as faixas de VPN / datacenter da X4BNet; tipo e tráfego do AS vêm do PeeringDB; o MaxMind recorre ao DB-IP Lite (atribuído no rodapé); as ferramentas Globalping pausam no HTTP 429 com contagem regressiva; o status de serviços inclui xAI e Replicate; a verificação de IA diz quando uma saída não pode ser medida"
+        }
       }
     ]
   }

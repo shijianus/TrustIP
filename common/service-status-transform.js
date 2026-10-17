@@ -102,7 +102,10 @@ export function normalizeIncidents(json, { limit = 10, pageUrl = '', componentNa
                 impact: i?.impact ?? 'none',
                 // `started_at` is the canonical start; fall back to created_at.
                 startedAt: i?.started_at ?? i?.created_at ?? null,
-                url: id && base ? `${base}/incidents/${id}` : (base || null),
+                // A feed that names its own incident page (the RSS adapter
+                // below) is linked there; Statuspage JSON carries no `link`.
+                url: typeof i?.link === 'string' && /^https:\/\//.test(i.link) ? i.link
+                    : id && base ? `${base}/incidents/${id}` : (base || null),
             };
         })
         .sort((a, b) => incidentTimestamp(b) - incidentTimestamp(a))
@@ -175,3 +178,53 @@ export const categoryTally = (providers, categories) => categories
         };
     })
     .filter((row) => row.total > 0);
+
+// ── RSS status feeds ────────────────────────────────────────────────────────
+//
+// A provider whose official status page publishes an incident RSS feed but no
+// Statuspage API (status.x.ai) is described with `format: 'rss'`; the poller
+// fetches `${api}/feed.xml` and this adapter turns it into the summary +
+// incidents pair the transforms above read, so nothing downstream knows.
+//
+// Each <item> is one incident. Its <category> tags carry the severity
+// (`outage`, `disruption`, `degraded`, `maintenance`) and, once over,
+// `resolved` / `completed`. The light is the worst severity among items not
+// yet over — an empty set of open items is 'none', the feed's own statement
+// that nothing is ongoing. A body with no <rss>/<channel> is not a feed: null,
+// which the poller reads as a failed fetch ('unknown' / last-known-good).
+
+const RSS_SEVERITY = { outage: 'major', disruption: 'minor', degraded: 'minor', maintenance: 'maintenance' };
+const RSS_DONE = new Set(['resolved', 'completed', 'postmortem']);
+const INDICATOR_ORDER = ['none', 'maintenance', 'minor', 'major', 'critical'];
+
+const xmlText = (block, tag) => {
+    const m = new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`, 'i').exec(block);
+    if (!m) return null;
+    return m[1].replace(/^<!\[CDATA\[|\]\]>$/g, '').trim()
+        .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&');
+};
+
+export function rssToStatuspage(xml) {
+    if (typeof xml !== 'string' || !/<rss[\s>]/i.test(xml) || !/<channel[\s>]/i.test(xml)) return null;
+    const items = [...xml.matchAll(/<item>([\s\S]*?)<\/item>/gi)].map((m) => m[1]);
+    let worst = 0;
+    const incidents = items.map((block) => {
+        const categories = [...block.matchAll(/<category>([\s\S]*?)<\/category>/gi)].map((m) => m[1].trim().toLowerCase());
+        const done = categories.some((c) => RSS_DONE.has(c));
+        const severity = categories.map((c) => RSS_SEVERITY[c]).find(Boolean) || 'minor';
+        if (!done) worst = Math.max(worst, INDICATOR_ORDER.indexOf(severity));
+        const published = Date.parse(xmlText(block, 'pubDate') || '');
+        return {
+            id: xmlText(block, 'guid'),
+            name: xmlText(block, 'title') || '',
+            status: done ? 'resolved' : 'investigating',
+            impact: severity === 'maintenance' ? 'maintenance' : severity,
+            started_at: Number.isNaN(published) ? null : new Date(published).toISOString(),
+            link: xmlText(block, 'link'),
+        };
+    });
+    return {
+        summary: { status: { indicator: INDICATOR_ORDER[worst] }, components: [] },
+        incidents: { incidents },
+    };
+}

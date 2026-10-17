@@ -2430,7 +2430,8 @@
       "noEndpoint": "Pas de point de terminaison trace : l’hôte a répondu, mais pas avec l’adresse qu’il a vue. Soit il n’est pas fronté par Cloudflare, soit ce chemin est bloqué.",
       "timeout": "Silence après six secondes — l’écho n’est jamais revenu.",
       "blocked": "Joint impossible. Un navigateur ne dit pas s’il s’agit d’un refus CORS, d’un chemin bloqué ou d’une connexion morte ; la cause reste donc anonyme."
-    }
+    },
+    "Unmeasurable": "Non mesurable"
   },
   "ipCard": {
     "kind": "Type de réseau",

@@ -406,7 +406,12 @@ const verdictTone = computed(() => VERDICT_TONES[judged.value.verdict] || 'muted
 
 const verdictLabel = computed(() => {
     if (judged.value.locNote) return t('aiCheck.RegionNoCountry');
-    if (!judged.value.ip) return t('aiService.NotYet');
+    // No address came back. Still pending reads "not yet"; a run that ended
+    // without one (no trace endpoint, a timeout, a block) reads "cannot be
+    // measured" — the reason line beside it says which.
+    if (!judged.value.ip) {
+        return judged.value.state === EGRESS_STATE.pending ? t('aiService.NotYet') : t('aiCheck.Unmeasurable');
+    }
     if (judged.value.verdict === REGION_VERDICT.unknown) return t('aiCheck.RegionNoList');
     return judged.value.verdict === REGION_VERDICT.supported
         ? t('aiCheck.RegionSupported')

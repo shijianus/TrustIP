@@ -13,7 +13,7 @@ import { fetchUpstream } from './fetch-with-timeout.js';
 import logger from './logger.js';
 import { withCronMonitor } from './sentry-cron.js';
 import { STATUS_PROVIDERS } from './service-status-providers.js';
-import { assembleProvider } from './service-status-transform.js';
+import { assembleProvider, rssToStatuspage } from './service-status-transform.js';
 
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 
@@ -37,11 +37,30 @@ async function fetchJson(url) {
 // blips (DNS hiccups, TLS resets) that shouldn't surface as "status
 // unavailable". Only the genuinely-degraded case (no prior good data) is a
 // warn; recoverable blips drop to debug to keep the prod log quiet.
-async function refreshProvider(provider, previous) {
-    const [summary, incidents] = await Promise.allSettled([
+// An RSS provider (`format: 'rss'`) is one fetch of `${api}/feed.xml`, turned
+// into the summary + incidents pair by rssToStatuspage; a body that is not a
+// feed rejects both halves, exactly like a failed JSON fetch.
+async function fetchFeedPair(provider) {
+    const res = await fetchUpstream(`${provider.api}/feed.xml`);
+    if (!res.ok) throw new Error(`upstream ${res.status}`);
+    const pair = rssToStatuspage(await res.text());
+    if (!pair) throw new Error('not an RSS feed');
+    return pair;
+}
+
+function fetchDocuments(provider) {
+    if (provider.format === 'rss') {
+        const pair = fetchFeedPair(provider);
+        return Promise.allSettled([pair.then((p) => p.summary), pair.then((p) => p.incidents)]);
+    }
+    return Promise.allSettled([
         fetchJson(`${provider.api}/api/v2/summary.json`),
         fetchJson(`${provider.api}/api/v2/incidents.json`),
     ]);
+}
+
+async function refreshProvider(provider, previous) {
+    const [summary, incidents] = await fetchDocuments(provider);
     const summaryJson = summary.status === 'fulfilled' ? summary.value : null;
     const incidentsJson = incidents.status === 'fulfilled' ? incidents.value : null;
 

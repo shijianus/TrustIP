@@ -2430,7 +2430,8 @@
       "noEndpoint": "Sem endpoint de trace: o host respondeu, mas não com o endereço que viu. Ou ele não fica atrás do Cloudflare, ou esse caminho está bloqueado.",
       "timeout": "Silêncio após seis segundos — o eco não voltou.",
       "blocked": "Não foi possível alcançar. O navegador não diz se foi recusa de CORS, caminho bloqueado ou conexão morta, então a causa fica sem nome."
-    }
+    },
+    "Unmeasurable": "Não mensurável"
   },
   "ipCard": {
     "kind": "Tipo de rede",

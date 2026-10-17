@@ -13,7 +13,7 @@
 
 import { fetchUpstream } from './fetch-upstream.js';
 import { STATUS_PROVIDERS } from './service-status-providers.js';
-import { assembleProvider } from './service-status-transform.js';
+import { assembleProvider, rssToStatuspage } from './service-status-transform.js';
 
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 // One provider is two requests; neither may hold the visitor's response open
@@ -35,11 +35,29 @@ const withBudget = (promise) => new Promise((resolve, reject) => {
 });
 
 // Refresh one provider. Never throws.
-const refreshProvider = async (provider, previous) => {
-    const [summary, incidents] = await Promise.allSettled([
+// An RSS provider (`format: 'rss'`): one fetch of `${api}/feed.xml`, split into
+// the summary + incidents pair by rssToStatuspage (see the Express store).
+const fetchFeedPair = async (provider) => {
+    const res = await fetchUpstream(`${provider.api}/feed.xml`);
+    if (!res.ok) throw new Error(`upstream ${res.status}`);
+    const pair = rssToStatuspage(await res.text());
+    if (!pair) throw new Error('not an RSS feed');
+    return pair;
+};
+
+const fetchDocuments = (provider) => {
+    if (provider.format === 'rss') {
+        const pair = withBudget(fetchFeedPair(provider));
+        return Promise.allSettled([pair.then((p) => p.summary), pair.then((p) => p.incidents)]);
+    }
+    return Promise.allSettled([
         withBudget(fetchJson(`${provider.api}/api/v2/summary.json`)),
         withBudget(fetchJson(`${provider.api}/api/v2/incidents.json`)),
     ]);
+};
+
+const refreshProvider = async (provider, previous) => {
+    const [summary, incidents] = await fetchDocuments(provider);
     const summaryJson = summary.status === 'fulfilled' ? summary.value : null;
     const incidentsJson = incidents.status === 'fulfilled' ? incidents.value : null;
 
