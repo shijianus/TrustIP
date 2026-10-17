@@ -2095,7 +2095,9 @@
       "needs": "a paid anonymity feed. Blocklist lookups were tried and dropped: an intercepting resolver answers every query with a hit, which accuses an address without evidence",
       "detected": "Detected",
       "clear": "Not detected",
-      "nodata": "No data"
+      "nodata": "No data",
+      "notListed": "Not on the list",
+      "listSource": "Tor row: Tor Project exit list. VPN row: X4BNet VPN ranges (MIT, curated — “not on the list” is not a clearance). Both refreshed daily on this server."
     },
     "latency": {
       "title": "Global latency",
@@ -2285,7 +2287,8 @@
     },
     "tag": {
       "anycast": "Anycast",
-      "rpkiProblem": "Route validation problem"
+      "rpkiProblem": "Route validation problem",
+      "datacenterList": "Hosting range (X4BNet list)"
     },
     "scene": {
       "tiktok": "TikTok",

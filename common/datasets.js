@@ -13,10 +13,15 @@
 //             as the ASN Profile is hidden without it
 //   oui       IEEE MAC registries (MA-L / MA-M  common/oui-db.js
 //             / MA-S / IAB / CID), published together as downloaded
+//   tor-exit  Tor Project bulk exit list         common/anonymity-lists.js
+//   x4bnet    X4BNet VPN + datacenter IPv4      common/anonymity-lists.js
+//             CIDR lists (MIT), published together; both anonymity rows are
+//             key-free and on unless ANONYMITY_LISTS=false
 //
 // Sources: https://dev.maxmind.com/geoip/geolite2-free-geolocation-data ·
 // https://publicdata.caida.org/datasets/ (CAIDA AUA) · https://www.peeringdb.com ·
-// https://standards.ieee.org/products-programs/regauth/
+// https://standards.ieee.org/products-programs/regauth/ ·
+// https://check.torproject.org/torbulkexitlist · https://github.com/X4BNet/lists_vpn (MIT)
 
 import fsp from 'fs/promises';
 import path from 'path';
@@ -32,6 +37,11 @@ import { distillPeeringdbDump } from './peeringdb-distill.js';
 import { hasRadarApiKey } from './cf-radar.js';
 import { MAXMIND_DB_DIR, MAXMIND_CITY_DB, MAXMIND_ASN_DB, reloadMaxMindDatabases, isMaxMindReady } from './maxmind-service.js';
 import { OUI_DB_DIR, OUI_REGISTRIES, OUI_FILES, readOuiRegistries, reloadOuiDatabase, isOuiLoaded } from './oui-db.js';
+import {
+    TOR_EXIT_DB_DIR, TOR_EXIT_FILE, X4BNET_DB_DIR, X4BNET_VPN_FILE, X4BNET_DATACENTER_FILE,
+    validateTorExitFile, validateCidrFile, reloadTorExitList, reloadX4bnetLists,
+    isTorExitListLoaded, isX4bnetLoaded, isAnonymityListsEnabled,
+} from './anonymity-lists.js';
 
 // The pre-engine CAIDA updater's state: same { identifier, updatedAt } shape.
 const CAIDA_LEGACY_STATE = { file: '.caida-update-state.json', toState: (json) => json };
@@ -123,6 +133,19 @@ export const findPeeringdbDump = async ({ signal, now = new Date() } = {}) => {
     }
     throw new Error('No PeeringDB dump in the current or previous month listing');
 };
+
+// ---------- anonymity lists ----------
+
+export const TOR_EXIT_URL = 'https://check.torproject.org/torbulkexitlist';
+const X4BNET_RAW = 'https://raw.githubusercontent.com/X4BNet/lists_vpn/main/output';
+export const X4BNET_LISTS = [
+    { file: X4BNET_VPN_FILE, kind: 'vpn', url: `${X4BNET_RAW}/vpn/ipv4.txt` },
+    { file: X4BNET_DATACENTER_FILE, kind: 'datacenter', url: `${X4BNET_RAW}/datacenter/ipv4.txt` },
+];
+
+// A HEAD's version header: ETag first (GitHub raw sends one, Last-Modified
+// rarely), then Last-Modified; null when neither is there (always fetched).
+const versionOf = (res) => res.headers.get('etag') || res.headers.get('last-modified');
 
 // ---------- MaxMind ----------
 
@@ -303,5 +326,54 @@ export const datasets = [
         },
         reload: reloadOuiDatabase,
         isLoaded: isOuiLoaded,
+    },
+    {
+        id: 'tor-exit',
+        dir: TOR_EXIT_DB_DIR,
+        files: [TOR_EXIT_FILE],
+        enabled: isAnonymityListsEnabled,
+        // The list is regenerated every few minutes; the daily schedule (or a
+        // tighter DATASET_UPDATE_CRON) decides how fresh the copy is.
+        findRemote: async ({ signal } = {}) => {
+            const res = await fetchUpstream(TOR_EXIT_URL, { method: 'HEAD', signal });
+            if (!res.ok) throw new Error(`HEAD failed: HTTP ${res.status}`);
+            return { url: TOR_EXIT_URL, identifier: versionOf(res) };
+        },
+        fetch: async ({ remote, tempDir, signal }) => {
+            const staged = path.join(tempDir, TOR_EXIT_FILE);
+            await downloadToFile(remote.url, staged, { signal });
+            return { [TOR_EXIT_FILE]: staged };
+        },
+        validate: async ({ [TOR_EXIT_FILE]: stagedPath }) => { validateTorExitFile(stagedPath); },
+        reload: reloadTorExitList,
+        isLoaded: isTorExitListLoaded,
+    },
+    {
+        id: 'x4bnet',
+        dir: X4BNET_DB_DIR,
+        files: X4BNET_LISTS.map(({ file }) => file),
+        enabled: isAnonymityListsEnabled,
+        findRemote: async ({ signal } = {}) => {
+            const versions = [];
+            for (const { file, url } of X4BNET_LISTS) {
+                const res = await fetchUpstream(url, { method: 'HEAD', signal });
+                if (!res.ok) throw new Error(`Failed to check ${file}: HTTP ${res.status}`);
+                versions.push(versionOf(res));
+            }
+            return { identifier: joinedIdentifier(versions) };
+        },
+        fetch: async ({ tempDir, signal }) => {
+            const staged = {};
+            for (const { file, url } of X4BNET_LISTS) {
+                staged[file] = path.join(tempDir, file);
+                await downloadToFile(url, staged[file], { signal });
+            }
+            return staged;
+        },
+        validate: async (staged) => {
+            for (const { file, kind } of X4BNET_LISTS) validateCidrFile(staged[file], kind);
+        },
+        reload: reloadX4bnetLists,
+        isLoaded: isX4bnetLoaded,
     },
 ];

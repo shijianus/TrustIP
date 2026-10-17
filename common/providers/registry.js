@@ -9,7 +9,7 @@
 // opts in deliberately, in `.env`, having decided what its quota is for.
 //
 // `TRUST_PROVIDERS` is a comma-separated list of ids (`proxycheck`, `abuseipdb`,
-// `ip2location`, `ipinfo`, `internetdb`; the dotted vendor form is accepted too).
+// `ip2location`, `ipinfo`, `internetdb`, `locallists`; the dotted vendor form is accepted too).
 // An id that is listed but whose key is absent is not a failure: the adapter
 // answers `unavailable / missing_key`, the capability stays a declared gap, and
 // the overall response is still a 200 with the key-free sources in it. An unknown
@@ -26,6 +26,7 @@ import { askAbuseipdb, ABUSEIPDB_SOURCE } from './abuseipdb.js';
 import { askIp2location, IP2LOCATION_SOURCE } from './ip2location.js';
 import { askIpinfoLite, IPINFO_SOURCE } from './ipinfo-lite.js';
 import { askInternetdb, INTERNETDB_SOURCE } from './internetdb.js';
+import { askLocalLists, LOCAL_LISTS_SOURCE } from './local-lists.js';
 import { errored, unavailable, STATUS } from './answer.js';
 import { outOfBudget, recordAsk } from './quota.js';
 
@@ -40,6 +41,9 @@ const PROVIDERS = [
     // capability — the anonymity rows then read as *measured* rather than as a gap
     // never promised, which is the deal `TRUST_IPAPIIS_FEED` already spells out.
     { id: INTERNETDB_SOURCE, ask: askInternetdb },
+    // The downloaded Tor exit / X4BNet lists (common/anonymity-lists.js): no
+    // key and no request, only the decision to let them score.
+    { id: LOCAL_LISTS_SOURCE, ask: askLocalLists },
 ];
 
 // `proxycheck`, `proxycheck.io` and ` PROXYCHECK_IO ` all name the same vendor.
@@ -109,4 +113,4 @@ export const askProviders = async (ip) => {
     ));
 };
 
-export { PROXYCHECK_SOURCE, ABUSEIPDB_SOURCE, IP2LOCATION_SOURCE, IPINFO_SOURCE, INTERNETDB_SOURCE };
+export { PROXYCHECK_SOURCE, ABUSEIPDB_SOURCE, IP2LOCATION_SOURCE, IPINFO_SOURCE, INTERNETDB_SOURCE, LOCAL_LISTS_SOURCE };

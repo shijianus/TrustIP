@@ -2095,7 +2095,9 @@
       "needs": "付费匿名度情报源。黑名单查询曾尝试后放弃：拦截式解析器会对每个查询都返回命中，等于无证据指控一个地址",
       "detected": "已检测到",
       "clear": "未检测到",
-      "nodata": "暂无数据"
+      "nodata": "暂无数据",
+      "notListed": "未列入清单",
+      "listSource": "Tor 列：Tor Project 官方出口清单。VPN 列：X4BNet VPN 网段（MIT，人工整理——“未列入清单”不代表没问题）。两者每日在本服务器更新。"
     },
     "latency": {
       "title": "全球延迟",
@@ -2285,7 +2287,8 @@
     },
     "tag": {
       "anycast": "任播",
-      "rpkiProblem": "路由校验异常"
+      "rpkiProblem": "路由校验异常",
+      "datacenterList": "机房网段（X4BNet 清单）"
     },
     "scene": {
       "tiktok": "TikTok",

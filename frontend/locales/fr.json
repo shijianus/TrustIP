@@ -2095,7 +2095,9 @@
       "needs": "un flux d'anonymat payant. Les listes de blocage ont été essayées puis abandonnées : un résolveur interceptant répond présent à chaque requête, ce qui accuse une adresse sans preuve",
       "detected": "Détecté",
       "clear": "Non détecté",
-      "nodata": "Aucune donnée"
+      "nodata": "Aucune donnée",
+      "notListed": "Absent de la liste",
+      "listSource": "Ligne Tor : liste officielle des sorties du Tor Project. Ligne VPN : plages VPN X4BNet (MIT, liste éditée — « absent de la liste » n’est pas un blanc-seing). Mises à jour quotidiennes sur ce serveur."
     },
     "latency": {
       "title": "Latence mondiale",
@@ -2285,7 +2287,8 @@
     },
     "tag": {
       "anycast": "Anycast",
-      "rpkiProblem": "Problème de validation de route"
+      "rpkiProblem": "Problème de validation de route",
+      "datacenterList": "Plage d’hébergement (liste X4BNet)"
     },
     "scene": {
       "tiktok": "TikTok",

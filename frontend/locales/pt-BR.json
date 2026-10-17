@@ -2095,7 +2095,9 @@
       "needs": "uma base paga de anonimato. Listas de bloqueio foram tentadas e descartadas: um resolvedor que intercepta responde «sim» a toda consulta, o que acusa um endereço sem prova",
       "detected": "Detectado",
       "clear": "Não detectado",
-      "nodata": "Sem dados"
+      "nodata": "Sem dados",
+      "notListed": "Fora da lista",
+      "listSource": "Linha Tor: lista oficial de saídas do Tor Project. Linha VPN: faixas de VPN da X4BNet (MIT, lista curada — “fora da lista” não é um atestado). Ambas atualizadas diariamente neste servidor."
     },
     "latency": {
       "title": "Latência global",
@@ -2285,7 +2287,8 @@
     },
     "tag": {
       "anycast": "Anycast",
-      "rpkiProblem": "Problema na validação de rota"
+      "rpkiProblem": "Problema na validação de rota",
+      "datacenterList": "Faixa de hospedagem (lista X4BNet)"
     },
     "scene": {
       "tiktok": "TikTok",

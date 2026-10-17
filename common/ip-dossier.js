@@ -26,6 +26,7 @@ import { assessTrust } from './trust-score.js';
 import { providersOf, peersOf, customerCountOf, isTier1 } from './as-rel-db.js';
 import { lookupAsOrgName } from './as-org-db.js';
 import { isMaxMindReady, lookupMaxMind } from './maxmind-service.js';
+import { lookupAnonymity } from './anonymity-lists.js';
 import { buildAsnHistoryBlock } from './asn-announcement-history.js';
 import { buildLatencyMatrix } from './latency-matrix.js';
 import { toBgpPrefix } from './bgp-prefix.js';
@@ -482,6 +483,29 @@ export const blocklistSlot = (evidence) => (evidence?.blocklists?.answered
     });
 
 /**
+ * The deep-risk slot. The keyed lists fill it outright; without them the
+ * local Tor exit / X4BNet lists (common/anonymity-lists.js) still answer the
+ * Tor and VPN rows, so the slot is partial — the proxy half and the bot-traffic
+ * half stay declared, with the same source sentence as the full gap.
+ *
+ * @param {boolean} usablePrivacy  a keyed vendor answered
+ * @param {object} anonymity       lookupAnonymity's answer
+ * @returns {object} a slot descriptor
+ */
+const deepRiskSlot = (usablePrivacy, anonymity) => {
+    if (usablePrivacy) return { status: 'ready', partial: ['botTrafficRatio'] };
+    const answered = ['tor', 'vpn', 'datacenter'].filter((key) => ['listed', 'not-listed'].includes(anonymity?.[key]?.status));
+    if (!answered.length) return SLOTS.deepRisk;
+    return {
+        status: 'partial',
+        answered,
+        missing: ['proxy', 'botTrafficRatio'],
+        note: 'Tor membership from the Tor Project exit list; VPN and hosting ranges from the X4BNet lists (curated: a miss is "not listed", not a clearance)',
+        needs: SLOTS.deepRisk.needs,
+    };
+};
+
+/**
  * Build the dossier for one address.
  *
  * @param {string} ip  validated, publicly routable
@@ -519,6 +543,8 @@ export const buildDossier = async (ip, { lang = 'en' } = {}) => {
     // answered — an object full of `null` because every configured source timed
     // out must not render as a section of clears.
     const usablePrivacy = Boolean(evidence.privacy?.sources?.length);
+    // Local membership lists, no I/O: a Set and two bisections.
+    const anonymity = lookupAnonymity(ip);
     const technical = technicalSlot(evidence.scan);
 
     const registeredBlock = await registeredBlockOf(ip, evidence.rir?.cidr || null);
@@ -567,6 +593,11 @@ export const buildDossier = async (ip, { lang = 'en' } = {}) => {
         },
         blocklists: evidence.blocklists || null,
         privacy: evidence.privacy || null,
+        // Membership in the downloaded Tor exit and X4BNet lists, per list:
+        // { status: listed | not-listed | not-covered | unavailable, source, updatedAt }.
+        // Shown beside the keyed vendors' verdict, never folded into the score
+        // unless the deployment opts in (`TRUST_PROVIDERS=locallists`).
+        anonymity,
         topology: buildTopology(resolvedAsn),
         neighbours,
         latency: buildLatencyMatrix(ip),
@@ -585,7 +616,7 @@ export const buildDossier = async (ip, { lang = 'en' } = {}) => {
             // and the honeypot half — which needs traffic we cannot observe —
             // stays listed either way.
             threat: usablePrivacy ? { status: 'ready', partial: ['honeypot'] } : SLOTS.threat,
-            deepRisk: usablePrivacy ? { status: 'ready', partial: ['botTrafficRatio'] } : SLOTS.deepRisk,
+            deepRisk: deepRiskSlot(usablePrivacy, anonymity),
             // The open-ports row, which is filled by the scan archive rather than
             // by any registry — hence its own three states above.
             technical,
@@ -596,5 +627,5 @@ export const buildDossier = async (ip, { lang = 'en' } = {}) => {
 
 export {
     SLOTS, BLOCKLIST_GAP_REASONS, buildGeo, buildNeighbours, buildTopology,
-    haversineKm, geoFromEvidence, technicalSlot, neighboursSlot,
+    haversineKm, geoFromEvidence, technicalSlot, neighboursSlot, deepRiskSlot,
 };

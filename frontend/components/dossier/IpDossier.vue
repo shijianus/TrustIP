@@ -219,6 +219,7 @@
                                 <VerdictChip :tone="row.tone" :label="row.label2" />
                             </KeyRow>
                         </dl>
+                        <p v-if="listSources" class="mt-2 text-xs leading-relaxed text-muted-foreground">{{ t('dossier.deep.listSource') }}</p>
                     </div>
                 </div>
 
@@ -493,6 +494,11 @@ const tags = computed(() => {
     const cls = trust.value.cls;
     if (cls && cls !== 'unknown') out.push({ tone: CLASS_TONE[cls], label: t(`trustip.value.${cls}`) });
     if (identity.value.anycast) out.push({ tone: 'info', label: t('dossier.tag.anycast') });
+    // X4BNet's datacenter list naming the range, when the registry's own class
+    // did not already say datacenter: a secondhand label, so a warning, not a verdict.
+    if (cls !== 'datacenter' && dossier.value?.anonymity?.datacenter?.status === 'listed') {
+        out.push({ tone: 'warn', label: t('dossier.tag.datacenterList') });
+    }
     if (['invalid', 'invalid_asn', 'invalid_length'].includes(network.value.rpki)) {
         out.push({ tone: 'bad', label: t('dossier.tag.rpkiProblem') });
     }
@@ -579,20 +585,39 @@ const privacyFlags = computed(() => {
     const pv = dossier.value?.privacy;
     return pv?.sources?.length ? pv : {};
 });
+const anonymity = computed(() => dossier.value?.anonymity || {});
+// A keyed vendor's boolean decides a row first; without one, the local lists
+// answer. The Tor Project's exit list is the directory itself, so a miss there
+// is "not detected"; X4BNet's VPN list is curated, so a miss is "not on the
+// list" — a fact about the list, never a clearance of the address.
+const listChip = (entry, exhaustive) => {
+    if (entry?.status === 'listed') return chipOf('detected');
+    if (entry?.status === 'not-listed') {
+        return exhaustive ? chipOf('clear') : { tone: 'info', label: t('dossier.deep.notListed') };
+    }
+    return chipOf('unknown');
+};
 const deepRows = computed(() => {
     const pv = privacyFlags.value;
-    const row = (name, known, hit) => {
-        const chip = known ? chipOf(hit ? 'detected' : 'clear') : chipOf('unknown');
+    const lists = anonymity.value;
+    const row = (name, known, hit, fallback) => {
+        const chip = known ? chipOf(hit ? 'detected' : 'clear') : (fallback || chipOf('unknown'));
         return { label: t(name), tone: chip.tone, label2: chip.label };
     };
     return [
-        row('dossier.row.vpn', typeof pv.vpn === 'boolean', pv.vpn),
+        row('dossier.row.vpn', typeof pv.vpn === 'boolean', pv.vpn, listChip(lists.vpn, false)),
         row('dossier.row.proxy', typeof pv.proxy === 'boolean', pv.proxy),
-        row('dossier.row.tor', typeof pv.tor === 'boolean', pv.tor),
+        row('dossier.row.tor', typeof pv.tor === 'boolean', pv.tor, listChip(lists.tor, true)),
         // Human-versus-bot traffic is the one capability no abuse feed
         // substitutes for: it needs observation, not a vendor's list.
         row('dossier.row.crawler', false, false),
     ];
+});
+// Which local lists answered, for the line under the deep-risk rows.
+const listSources = computed(() => {
+    const lists = anonymity.value;
+    const answered = (entry) => ['listed', 'not-listed'].includes(entry?.status);
+    return answered(lists.tor) || answered(lists.vpn) || answered(lists.datacenter);
 });
 const deepScore = computed(() => `${deepRows.value.filter((r) => r.tone !== 'muted').length} / 4`);
 
