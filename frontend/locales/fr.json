@@ -2720,5 +2720,8 @@
       "LocationLan": "Réseau local",
       "NoReflexive": "aucun candidat réfléchi (srflx) — l’UDP vers ce serveur STUN est bloqué ou il n’a pas répondu"
     }
+  },
+  "siteSplitLog": {
+    "noTraceFallback": "pas de réponse /cdn-cgi/trace — durée de connexion mesurée à la place"
   }
 }

@@ -2720,5 +2720,8 @@
       "LocationLan": "本地网络",
       "NoReflexive": "没有反射（srflx）候选——到该 STUN 服务器的 UDP 被拦截或它没有应答"
     }
+  },
+  "siteSplitLog": {
+    "noTraceFallback": "没有 /cdn-cgi/trace 应答——改为测量连接耗时"
   }
 }

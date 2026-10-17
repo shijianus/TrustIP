@@ -189,7 +189,7 @@ const {
     egressIps, answered: splitAnswered, planFailed: splitPlanFailed,
     running: splitRunning, locating: splitLocating, run: runSplit,
     attribution: splitAttribution,
-} = useSiteSplit({ geoLookup, ownGeolocations, knownExits: ownExits, leaks, log: splitLog });
+} = useSiteSplit({ geoLookup, ownGeolocations, knownExits: ownExits, leaks, log: splitLog, t });
 
 // Refresh / initial load sequence — scoped to what this page actually runs.
 // The leak and connectivity *sections* are not mounted here, so neither is waited

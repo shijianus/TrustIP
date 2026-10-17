@@ -160,9 +160,13 @@ const pooled = async (items, worker, onDone, limit) => {
     await Promise.all(runners);
 };
 
+// Locale key for the latency-fallback note (siteSplitLog block, all locales).
+export const SPLIT_FALLBACK_NOTE_KEY = 'siteSplitLog.noTraceFallback';
+
 // One table row as a test-process log step (composables/use-test-log.js): what was
-// asked of the destination, how long it took, and what it said.
-export const splitRowStep = (row, ms) => {
+// asked of the destination, how long it took, and what it said. `t` (vue-i18n)
+// localizes the note; without one the step carries the locale key itself.
+export const splitRowStep = (row, ms, t) => {
     if (row.measured === 'trace') {
         return {
             kind: 'trace', target: row.host, endpoint: `https://${row.host}${TRACE_PATH}`,
@@ -177,13 +181,13 @@ export const splitRowStep = (row, ms) => {
         protocol: `HTTPS GET (no-cors) ×${samples}`, durationMs: ms,
         result: !samples ? 'skip' : (row.reachable ? 'ok' : 'fail'),
         value: row.ms != null ? `${Math.round(row.ms)} ms (${good}/${samples})` : `0/${samples}`,
-        note: row.method === 'ping' ? null : 'no /cdn-cgi/trace answer — timed the connection instead',
+        note: row.method === 'ping' ? null : (typeof t === 'function' ? t(SPLIT_FALLBACK_NOTE_KEY) : SPLIT_FALLBACK_NOTE_KEY),
     };
 };
 
 // `log` (optional) is a `useTestLog()` handle: the run, the work-order request and
 // every destination's measurement are recorded there for the visitor to read.
-export function useSiteSplit({ geoLookup, ownGeolocations, knownExits, leaks, log } = {}) {
+export function useSiteSplit({ geoLookup, ownGeolocations, knownExits, leaks, log, t } = {}) {
     // Rows are replaced wholesale rather than mutated: dozens of objects the table
     // re-reads on every answer is the kind of deep reactivity that makes a page
     // stutter while it loads.
@@ -398,7 +402,7 @@ export function useSiteSplit({ geoLookup, ownGeolocations, knownExits, leaks, lo
         const timedRow = async (row) => {
             const started = performance.now();
             const result = await measureRow(row);
-            if (!cancelled && result.state !== PENDING) log?.add(splitRowStep(result, performance.now() - started));
+            if (!cancelled && result.state !== PENDING) log?.add(splitRowStep(result, performance.now() - started, t));
             return result;
         };
         await pooled(todo, timedRow, (result) => {

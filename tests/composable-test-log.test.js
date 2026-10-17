@@ -296,5 +296,10 @@ describe('per-test step builders', () => {
         assert.equal(latency.result, 'fail');
         assert.equal(latency.value, '0/2');
         assert.ok(latency.note);
+        // No hardcoded English: the note is a locale key, localized when `t` is given.
+        assert.equal(latency.note, 'siteSplitLog.noTraceFallback');
+        const localized = splitRowStep({ host: 'b.com', method: 'auto', measured: 'latency', reachable: true, ms: 40, dots: [{ ok: true }] }, 50, (k) => `T(${k})`);
+        assert.equal(localized.note, 'T(siteSplitLog.noTraceFallback)');
+        assert.equal(splitRowStep({ host: 'c.com', method: 'ping', measured: 'latency', dots: [] }, 1).note, null);
     });
 });

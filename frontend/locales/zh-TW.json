@@ -2720,5 +2720,8 @@
       "LocationLan": "區域網路",
       "NoReflexive": "沒有反射（srflx）候選——到該 STUN 伺服器的 UDP 遭攔截或它沒有回應"
     }
+  },
+  "siteSplitLog": {
+    "noTraceFallback": "沒有 /cdn-cgi/trace 回應——改為測量連線耗時"
   }
 }

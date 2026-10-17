@@ -2720,5 +2720,8 @@
       "LocationLan": "Local network",
       "NoReflexive": "no reflexive (srflx) candidate — UDP to this STUN server is blocked or it did not answer"
     }
+  },
+  "siteSplitLog": {
+    "noTraceFallback": "no /cdn-cgi/trace answer — timed the connection instead"
   }
 }
