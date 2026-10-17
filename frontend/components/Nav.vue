@@ -32,7 +32,7 @@
         <Badge variant="outline" v-if="githubStarsLabel">
           <a :href="t('page.footerLink')" target="_blank" rel="noopener" class="inline-flex items-center gap-1"
             aria-label="Star on GitHub" title="Star on GitHub">
-            <Icon icon="ri:star-fill" class="size-3.5 text-yellow-400" />
+            <Icon icon="ri:star-fill" class="size-3.5 text-warning" />
             <span class="tabular-nums">{{ githubStarsLabel }}</span>
             <Icon icon="ri:github-line" class="size-3.5" />
           </a>
@@ -218,7 +218,7 @@
                  mount); hidden until it lands / on error. -->
             <span v-if="githubStarsLabel"
               class="ml-auto tabular-nums text-muted-foreground inline-flex items-center gap-1">
-              <Icon icon="ri:star-fill" class="size-3.5 text-yellow-400" />
+              <Icon icon="ri:star-fill" class="size-3.5 text-warning" />
               {{ githubStarsLabel }}
             </span>
           </a>

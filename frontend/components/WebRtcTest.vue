@@ -22,7 +22,7 @@
     <!-- Card grid -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
       <Card v-for="(stun, index) in stunServers" :key="stun.id"
-        class="keyboard-shortcut-card jn-card min-w-0 overflow-hidden transition-transform duration-300 ease-out hover:-translate-y-1.5 data-[keyboard-hover=true]:ring-2 data-[keyboard-hover=true]:ring-green-500/50">
+        class="keyboard-shortcut-card jn-card min-w-0 overflow-hidden transition-transform duration-300 ease-out hover:-translate-y-1.5 data-[keyboard-hover=true]:ring-2 data-[keyboard-hover=true]:ring-focus-ring/60">
         <CardContent class="p-4 min-w-0">
           <!-- Top: service provider icon + name -->
           <div class="flex flex-col gap-2 mb-1 w-full min-w-0">

@@ -149,3 +149,29 @@ describe('form fields — outline uses --input-border', () => {
     });
   }
 });
+
+describe('components — status colours come from tokens', () => {
+  // A fixed Tailwind palette class (bg-green-500, text-yellow-400 …) ignores the
+  // theme, so a contrast fix to --success / --warning never reaches it.
+  // Additional.vue's always-black curl terminal is the one deliberate exception.
+  const ALLOW = new Set(['Additional.vue']);
+  const PALETTE = /(?<![\w-])(?:bg|text|border|ring|fill|stroke|from|to)-(?:red|green|yellow|amber|emerald|orange|sky|blue|rose|lime|teal|indigo|violet|purple|pink|cyan|gray|slate|zinc|neutral|stone)-\d{2,3}\b/;
+  const walk = (dir) => fs.readdirSync(dir, { withFileTypes: true }).flatMap((d) => {
+    const p = new URL(`${d.name}${d.isDirectory() ? '/' : ''}`, dir);
+    if (d.isDirectory()) return d.name === 'ui' ? [] : walk(p);
+    return d.name.endsWith('.vue') ? [p] : [];
+  });
+  for (const file of walk(new URL('../frontend/components/', import.meta.url))) {
+    const name = file.pathname.split('/').pop();
+    if (ALLOW.has(name)) continue;
+    it(`${file.pathname.split('/components/')[1]} has no fixed palette colour`, () => {
+      const hit = fs.readFileSync(file, 'utf8').match(PALETTE);
+      assert.equal(hit, null, hit ? `found ${hit[0]}` : '');
+    });
+  }
+  it('SecurityChecklist progress rings read --success / --info', () => {
+    const src = fs.readFileSync(new URL('../frontend/components/advanced-tools/SecurityChecklist.vue', import.meta.url), 'utf8');
+    assert.match(src, /filled: 'var\(--success\)'/);
+    assert.match(src, /info: 'var\(--info\)'/);
+  });
+});

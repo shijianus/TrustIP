@@ -47,7 +47,7 @@
     <!-- Card grid -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
       <Card v-for="test in connectivityTests" :key="test.id"
-        class="keyboard-shortcut-card group relative transition-transform duration-300 ease-out hover:-translate-y-1.5 data-[keyboard-hover=true]:ring-2 data-[keyboard-hover=true]:ring-green-500/50 jn-card">
+        class="keyboard-shortcut-card group relative transition-transform duration-300 ease-out hover:-translate-y-1.5 data-[keyboard-hover=true]:ring-2 data-[keyboard-hover=true]:ring-focus-ring/60 jn-card">
         <!-- Remove button, fades in on hover. Two-step confirm: first click
              arms "X?" (self-reverting), the second deletes; on the last
              remaining target the click just raises a toast. -->

@@ -21,7 +21,7 @@
         <div v-if="!hostOnly" class="grid grid-cols-1 md:grid-cols-4 gap-3">
             <Card v-for="card in enabledCards" :key="card.slug"
                 :data-adv-slug="card.slug"
-                class="keyboard-shortcut-card jn-card jn-adv-card group relative overflow-visible transition-transform duration-300 ease-out hover:-translate-y-1.5 data-[keyboard-hover=true]:ring-2 data-[keyboard-hover=true]:ring-green-500/50">
+                class="keyboard-shortcut-card jn-card jn-adv-card group relative overflow-visible transition-transform duration-300 ease-out hover:-translate-y-1.5 data-[keyboard-hover=true]:ring-2 data-[keyboard-hover=true]:ring-focus-ring/60">
                 <a :href="card.noStandalone ? `/?tool=${card.slug}` : `/tools/${card.slug}`"
                     class="block cursor-pointer no-underline text-inherit"
                     @click="onCardClick($event, card.slug)"

@@ -361,11 +361,13 @@ const priorityBadgeClass = (priority) => {
     return map[priority] || '';
 };
 
-// CircleProgressBar color: third-party library takes hex string, keep semantic color intention consistent:
-// filled use green-500, info (incomplete state) use sky-500, background has neutral value in light/dark mode
+// CircleProgressBar colours: the library writes them into CSS custom
+// properties (useCssVars), so a var() reference resolves against the theme —
+// filled = --success, info (incomplete state) = --info, the same tokens every
+// other status surface uses. The track stays a neutral per-theme grey.
 const progressColors = computed(() => ({
-    filled: '#22c55e', // green-500
-    info: '#0ea5e9', // sky-500
+    filled: 'var(--success)',
+    info: 'var(--info)',
     back: isDarkMode.value ? '#262626' : '#e5e5e5', // neutral-800 / neutral-200
 }));
 

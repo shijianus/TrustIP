@@ -1,7 +1,7 @@
 <template>
     <!-- IP Info Card -->
     <Card data-screenshot-root
-        class="keyboard-shortcut-card jn-card flex flex-col h-full overflow-hidden transition-transform duration-300 ease-out hover:-translate-y-1.5 data-[keyboard-hover=true]:ring-2 data-[keyboard-hover=true]:ring-green-500/50">
+        class="keyboard-shortcut-card jn-card flex flex-col h-full overflow-hidden transition-transform duration-300 ease-out hover:-translate-y-1.5 data-[keyboard-hover=true]:ring-2 data-[keyboard-hover=true]:ring-focus-ring/60">
         <!-- Card header: number badge + source + save-image + refresh -->
         <div class="flex items-center justify-between gap-2 px-4 py-2.5 bg-muted/50 border-b">
             <div class="flex items-center gap-2 min-w-0">

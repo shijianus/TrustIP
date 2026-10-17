@@ -23,7 +23,7 @@
     <!-- Card grid -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
       <Card v-for="(leak, index) in leakTest" :key="leak.slot"
-        class="keyboard-shortcut-card jn-card min-w-0 overflow-hidden transition-transform duration-300 ease-out hover:-translate-y-1.5 data-[keyboard-hover=true]:ring-2 data-[keyboard-hover=true]:ring-green-500/50">
+        class="keyboard-shortcut-card jn-card min-w-0 overflow-hidden transition-transform duration-300 ease-out hover:-translate-y-1.5 data-[keyboard-hover=true]:ring-2 data-[keyboard-hover=true]:ring-focus-ring/60">
         <CardContent class="p-4 min-w-0">
           <!-- Top: heartbeat icon + name + index -->
           <div class="flex flex-col gap-2 mb-3 w-full min-w-0">
