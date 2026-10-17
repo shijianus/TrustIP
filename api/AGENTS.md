@@ -118,7 +118,7 @@ upstream.
 
 - **Handler shape.** Single default export `async (req, res) => …`: read `req.query` / `req.body`, call upstream, write one response.
 - **Every upstream call uses `fetchUpstream`** (`common/fetch-with-timeout.js`, 8s). Never a bare `fetch()` / `https.get()` — a hanging provider must time out, not pin the connection. It injects a default `User-Agent` of `TrustIP/v<version>/<VITE_SITE_URL>` (`common/upstream-ua.js`, because some upstream WAFs block undici's `node` UA); a caller-supplied `User-Agent` always wins.
-- **Error shape.** `500 { error: error.message }` on upstream failure, `400` on bad input. Terse — the frontend doesn't display these verbatim.
+- **Error shape.** A fixed, terse string — `500 { error: 'Upstream request failed' }` / `'Internal Server Error'` on failure, `400` on bad input — never `error.message`: an exception's text (file paths, library internals) goes to the logger only (`api/maxmind.js` maps status → message for exactly this). The frontend doesn't display these verbatim.
 - **An unset environment variable is a supported state, never a crash.** Every read carries a fallback or an early "not configured" return before any request leaves the process: `500 { error: 'API key is missing' }` for a key-mandatory upstream, `503` for report sharing (KV trio), `{ stars: null }` for a private repo. Geo sources declare theirs with `requiredEnv` in `common/geo-handler.js`, checked before `buildUrl` runs; `/api/configs` booleanizes the same variables so the frontend hides the feature rather than calling it.
 - **Response shape.** Geo handlers normalize to the canonical frontend shape (`ip` / `country_code` / `latitude` / `asn` / `org` / …); new sources match it. `timezone` is the exception — no handler produces it (see enrichment below).
 - **`?lang` is never validated in a handler.** Pass the raw tag through: `lookupMaxMind` normalizes it onto `SUPPORTED_LANGS` (`common/maxmind-service.js`) and the private-API proxies forward it upstream. No allow-lists.
@@ -200,6 +200,19 @@ Third-party upstreams get only what's explicitly needed.
 Some handlers keep a `req.method !== 'GET'` branch although the route already
 gates the method — smoke tests assert on that branch directly. Leave the gate in
 place when a test covers it.
+
+Ahead of every route, `rejectUnsupportedMethods` (`common/method-guard.js`, on
+both Express servers) answers TRACE and any verb outside
+`GET, HEAD, POST, PUT, OPTIONS` with a JSON 405 + `Allow`; a route on a new
+method joins `ALLOWED_METHODS`. The edge function does the same for anything but
+`GET, POST` (`functions/handler.ts`).
+
+### Body and download ceilings
+
+`express.json` stops at 500 KB; `/api/monitoring` (Sentry tunnel) at 1 MB and 10
+envelopes in flight (`createTunnelGate`, 503 + `Retry-After`); the edge function
+at 64 KB, counted as the body streams. Dataset downloads stop at
+`DATASET_MAX_DOWNLOAD_MB` (default 500) and delete the partial file.
 
 ## Edge caching
 

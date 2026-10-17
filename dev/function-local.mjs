@@ -25,8 +25,18 @@ const readBody = (req) => new Promise((resolve, reject) => {
     req.on('error', reject);
 });
 
+// Methods the Fetch spec forbids in `new Request()` (it throws on them). A
+// server runtime still receives them off the wire, so the harness hands the
+// handler a minimal request-shaped object instead — the handler only reads
+// `url`, `method`, `headers` and `body`, and refuses these before the body.
+const FORBIDDEN_METHODS = new Set(['TRACE', 'TRACK', 'CONNECT']);
+
 const toWebRequest = async (req) => {
     const url = new URL(req.url, `http://${req.headers.host || `${HOST}:${PORT}`}`);
+    if (FORBIDDEN_METHODS.has(req.method)) {
+        req.resume();
+        return { url: url.href, method: req.method, headers: new Headers(req.headers), body: null };
+    }
     const body = req.method === 'GET' || req.method === 'HEAD' ? undefined : await readBody(req);
     return new Request(url, {
         method: req.method,

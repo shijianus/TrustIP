@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 
-import handler, { routeNameOf } from '../functions/handler.ts';
+import handler, { routeNameOf, readBodyCapped, MAX_BODY_BYTES } from '../functions/handler.ts';
 
 // Modules `functions/shared/` carries unchanged from `common/`. A file that
 // needs an edge-specific change leaves this list in the same commit.
@@ -59,9 +59,59 @@ describe('edge handler', () => {
         assert.equal(res.headers.get('Cache-Control'), 'no-store');
     });
 
-    it('answers 405 for the wrong method', async () => {
+    it('answers 405 for the wrong method, naming the route\'s method in Allow', async () => {
         const res = await call('split');
         assert.equal(res.status, 405);
+        assert.equal(res.headers.get('Allow'), 'POST');
+    });
+
+    it('refuses TRACE (and any method no route answers) with 405 + Allow, unknown paths included', async () => {
+        // `new Request()` throws on TRACE, so the platform-side shape is a plain
+        // object — the handler reads only these four fields.
+        for (const method of ['TRACE', 'TRACK']) {
+            for (const path of ['ipsb?ip=8.8.8.8', 'nope']) {
+                const res = await handler({
+                    url: `http://localhost/functions/v1/app/${path}`, method, headers: new Headers(), body: null,
+                });
+                assert.equal(res.status, 405, `${method} ${path}`);
+                assert.equal(res.headers.get('Allow'), 'GET, POST');
+                assert.equal(res.headers.get('Cache-Control'), 'no-store');
+            }
+        }
+        for (const method of ['PUT', 'DELETE', 'PROPFIND', 'OPTIONS']) {
+            const res = await call('configs', { method });
+            assert.equal(res.status, 405, method);
+            assert.equal(res.headers.get('Allow'), 'GET, POST');
+        }
+    });
+
+    it('caps a POST body at 64 KB: declared length, and a chunked stream counted as it arrives', async () => {
+        assert.equal(MAX_BODY_BYTES, 64 * 1024);
+        const declared = await call('split', {
+            method: 'POST', body: 'x', headers: { 'Content-Length': String(MAX_BODY_BYTES + 1) },
+        });
+        assert.equal(declared.status, 413);
+        assert.deepEqual(await declared.json(), { error: 'Request body too large' });
+
+        let pulled = 0;
+        const chunk = new Uint8Array(16 * 1024).fill(32);
+        const stream = new ReadableStream({
+            pull(controller) {
+                if (pulled >= 64) return controller.close();
+                pulled += 1;
+                controller.enqueue(chunk);
+            },
+        });
+        const chunked = await call('split', { method: 'POST', body: stream, duplex: 'half' });
+        assert.equal(chunked.status, 413);
+        assert.ok(pulled < 64, `stream should be abandoned early (pulled ${pulled} chunks)`);
+    });
+
+    it('readBodyCapped reads a body exactly at the limit and refuses one byte more', async () => {
+        const at = await readBodyCapped(new Request('http://x/', { method: 'POST', body: 'a'.repeat(32) }), 32);
+        assert.equal(at.text.length, 32);
+        const over = await readBodyCapped(new Request('http://x/', { method: 'POST', body: 'a'.repeat(33) }), 32);
+        assert.equal(over.tooLarge, true);
     });
 
     it('routes /api/ai-news like the Express app (GET only)', async () => {

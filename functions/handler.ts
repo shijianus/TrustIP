@@ -87,19 +87,53 @@ export const routeNameOf = (pathname: string): string => {
     return tail(1);
 };
 
-// Same ceiling as express.json({ limit: '500kb' }) in backend-server.js; the
-// edge used to read a body of any size into memory before parsing it.
-const MAX_BODY_BYTES = 500 * 1024;
+// The only POST route (`split`) carries six short signals — a few hundred
+// bytes. 64 KB leaves ample room for that and keeps a hostile body from costing
+// the isolate more than a trivial read.
+export const MAX_BODY_BYTES = 64 * 1024;
+
+// Methods some route answers. Anything else (TRACE, PUT, DELETE, …) is a 405
+// with this list in `Allow`, before routing — an unknown path included.
+const SUPPORTED_METHODS = new Set(['GET', 'POST']);
+const SUPPORTED_ALLOW = [...SUPPORTED_METHODS].join(', ');
+
+const TOO_LARGE = { error: 'Request body too large', status: 413 };
+
+/**
+ * The body as text, read chunk by chunk and abandoned the moment it passes
+ * `limit`: a declared Content-Length over it is refused unread, and a chunked
+ * body (no length to check) is counted as it streams rather than buffered whole
+ * first. Exported for tests.
+ */
+export const readBodyCapped = async (request: Request, limit = MAX_BODY_BYTES): Promise<{ text?: string; tooLarge?: boolean }> => {
+    const declared = Number(request.headers.get('content-length'));
+    if (Number.isFinite(declared) && declared > limit) return { tooLarge: true };
+    if (!request.body) return { text: '' };
+    const reader = request.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let received = 0;
+    for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        received += value.byteLength;
+        if (received > limit) {
+            await reader.cancel().catch(() => {});
+            return { tooLarge: true };
+        }
+        chunks.push(value);
+    }
+    const bytes = new Uint8Array(received);
+    let offset = 0;
+    for (const chunk of chunks) {
+        bytes.set(chunk, offset);
+        offset += chunk.byteLength;
+    }
+    return { text: new TextDecoder().decode(bytes) };
+};
 
 const parseBody = async (request: Request): Promise<{ body?: unknown; error?: string; status?: number }> => {
-    const declared = Number(request.headers.get('content-length'));
-    if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) {
-        return { error: 'Request body too large', status: 413 };
-    }
-    const text = await request.text();
-    if (new TextEncoder().encode(text).length > MAX_BODY_BYTES) {
-        return { error: 'Request body too large', status: 413 };
-    }
+    const { text, tooLarge } = await readBodyCapped(request);
+    if (tooLarge) return TOO_LARGE;
     if (!text) return { body: {} };
     try {
         return { body: JSON.parse(text) };
@@ -122,12 +156,16 @@ const dispatch = async (request: Request): Promise<Response> => {
         );
     }
 
+    if (!SUPPORTED_METHODS.has(request.method)) {
+        return json({ error: 'Method Not Allowed' }, { status: 405, headers: { Allow: SUPPORTED_ALLOW } });
+    }
+
     const name = routeNameOf(url.pathname);
     const route = ROUTES[name];
 
     if (!route) return json({ error: 'Not found' }, { status: 404 });
     if (request.method !== route.method) {
-        return json({ error: 'Method Not Allowed' }, { status: 405 });
+        return json({ error: 'Method Not Allowed' }, { status: 405, headers: { Allow: route.method } });
     }
 
     // A fresh URLSearchParams per request: the canonicalising guards lowercase and

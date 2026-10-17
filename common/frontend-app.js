@@ -8,6 +8,7 @@ import express from 'express';
 import path from 'path';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import { securityHeaders } from './security-headers.js';
+import { rejectUnsupportedMethods } from './method-guard.js';
 import { apiProxyOptions } from './frontend-proxy.js';
 import { noStore } from './cache-control.js';
 import { cspMiddleware } from './csp.js';
@@ -28,6 +29,9 @@ export const createFrontendApp = ({ distDir, backEndPort, env = {} }) => {
     const frontendApp = express();
     frontendApp.disable('x-powered-by');
     frontendApp.use(securityHeaders);
+    // TRACE / WebDAV verbs: 405 + Allow, before the proxy and the static
+    // layer (common/method-guard.js).
+    frontendApp.use(rejectUnsupportedMethods);
     // Report-Only unless CSP_ENFORCE=1; inline scripts are allowed by the hashes
     // of the dist/index.html this process starts with.
     frontendApp.use(cspMiddleware({ indexPath: path.join(distDir, 'index.html'), env }));

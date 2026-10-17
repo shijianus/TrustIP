@@ -71,6 +71,7 @@ import { backendHost, hostPort } from './common/backend-host.js';
 import { exitOnBootFailure } from './common/boot-failure.js';
 import { limiter, perMinute, clientKey, getClientIp } from './common/route-limiter.js';
 import { securityHeaders } from './common/security-headers.js';
+import { rejectUnsupportedMethods } from './common/method-guard.js';
 import { cspMiddleware } from './common/csp.js';
 
 dotenv.config({ quiet: true });
@@ -80,6 +81,8 @@ const app = express();
 // Don't advertise the framework on every response.
 app.disable('x-powered-by');
 app.use(securityHeaders);
+// TRACE / WebDAV verbs: 405 + Allow before any route (common/method-guard.js).
+app.use(rejectUnsupportedMethods);
 // Default every /api/* response to no-store, ahead of the limiters and the body
 // parser so their 429 / 400 / 413 are never cacheable. Routes that want edge
 // caching declare it explicitly via `cacheable(maxAge)` (common/cache-control.js).
