@@ -370,7 +370,13 @@ let runSeq = 0;
 // Test-process log: one step per timed request (every round in multi mode), the
 // verdict per target on its best round — the same best-of-N the cards show.
 const testLog = useTestLog('connectivity');
-let roundNo = 0;
+// Per-run round id: every pass a run launches takes the next number at launch
+// time and hands it down to each of its requests, so a step's "Round n" is the
+// pass it belongs to — not whatever round a shared variable had reached when a
+// staggered (50 ms × index) or overlapping request finally started. Reset per
+// run; a single card's manual re-check carries no round.
+let roundsIssued = 0;
+const nextRound = () => ++roundsIssued;
 const finishLog = () => {
   const judged = connectivityTests.filter((test) => test.statusCode !== undefined);
   testLog.finish(summarizeSteps(judged.map((test) => ({
@@ -379,7 +385,7 @@ const finishLog = () => {
   }))));
 };
 
-const checkConnectivityHandler = async (test, onTestComplete = () => { }, isManualRun) => {
+const checkConnectivityHandler = async (test, onTestComplete = () => { }, isManualRun, round = null) => {
   manualRun.value = isManualRun;
   const runId = runSeq;
   const logStep = testLog.open({
@@ -387,7 +393,7 @@ const checkConnectivityHandler = async (test, onTestComplete = () => { }, isManu
     target: test.name,
     endpoint: test.url,
     protocol: 'HTTPS GET (no-cors)',
-    note: roundNo ? t('testlog.note.round', { n: roundNo }) : null,
+    note: round ? t('testlog.note.round', { n: round }) : null,
   });
   // Only multi-cycle passes feed the dot history; per-card refreshes skip it.
   const recordRound = multipleTests.value && !isManualRun;
@@ -453,7 +459,7 @@ const checkConnectivityHandler = async (test, onTestComplete = () => { }, isManu
 // it — a superseded pass just resolves.
 let passSeq = 0;
 
-const checkAllConnectivity = (isAlertToShow, isRefresh, isManualRun) => {
+const checkAllConnectivity = (isAlertToShow, isRefresh, isManualRun, round = null) => {
   // Sticky false→true; interval ticks must not overwrite the bootstrap's `true`.
   if (isAlertToShow) alertToShow.value = true;
   const passId = ++passSeq;
@@ -482,7 +488,7 @@ const checkAllConnectivity = (isAlertToShow, isRefresh, isManualRun) => {
           checkConnectivityHandler(test, (isSuccess) => {
             if (isSuccess) testResolve();
             else testReject();
-          }, isManualRun);
+          }, isManualRun, round);
         }, 50 * index);
       }));
     });
@@ -608,7 +614,7 @@ const handelCheckStart = async (trigger = 'boot') => {
   const isAuto = trigger === 'boot';
   const showToast = trigger !== 'refresh';
   const resetCards = trigger !== 'boot';
-  roundNo = 1;
+  roundsIssued = 0;
   testLog.begin({
     list: activeList.value ? listName(activeList.value) : '',
     targets: connectivityTests.length,
@@ -630,14 +636,13 @@ const handelCheckStart = async (trigger = 'boot') => {
       test.mintime = 0;
     });
   }
-  await checkAllConnectivity(showToast, resetCards, !multi && !isAuto);
+  await checkAllConnectivity(showToast, resetCards, !multi && !isAuto, nextRound());
   store.setLoadingStatus('Connectivity', true);
   if (multi) {
     if (intervalId.value !== null) clearInterval(intervalId.value);
     intervalId.value = setInterval(async () => {
       if (counter.value < maxCounts.value && !manualRun.value) {
-        roundNo = counter.value + 2;
-        await checkAllConnectivity(false, false, false);
+        await checkAllConnectivity(false, false, false, nextRound());
         counter.value++;
         if (counter.value >= maxCounts.value) {
           // Final round — re-aggregate and unlock the toast pipeline.
