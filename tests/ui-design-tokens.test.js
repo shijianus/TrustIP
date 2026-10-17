@@ -98,7 +98,7 @@ const PAIRS = [
   ['action-soft-fg', 'action-soft', 4.5],
   ['focus-ring', 'card', 3], ['focus-ring', 'page-bg', 3],
   // Form-field outlines (WCAG 1.4.11 non-text contrast).
-  ['input-border', 'card', 3], ['input-border', 'page-bg', 3], ['input-border', 'background', 3],
+  ['input-border', 'card', 3], ['input-border', 'page-bg', 3], ['input-border', 'background', 3], ['input-border', 'muted', 3],
 ];
 
 describe('design tokens — WCAG AA contrast', () => {
