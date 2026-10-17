@@ -1108,14 +1108,15 @@ describe('asn-profile handler', () => {
         assert.ok(['ok', 'empty'].includes(res.body.status.connectivity));
         assert.equal(res.body.whois, null);
         assert.equal(res.body.rank, null);
-        // No Cloudflare key: PeeringDB isn't configured here.
-        assert.equal(res.body.status.peeringdb, 'disabled');
+        // No Cloudflare key: no local index, so the PeeringDB API fallback is
+        // asked — and with the network down that is an error, not 'disabled'.
+        assert.equal(res.body.status.peeringdb, 'error');
     });
 
-    it('PeeringDB: disabled only when unconfigured; configured but not loaded is an error', () => {
-        assert.equal(peeringdbReadiness({ configured: () => false, loaded: () => false })(), false);
+    it('PeeringDB: disabled only when unconfigured and the API fallback is off; configured but not loaded is an error', () => {
+        assert.equal(peeringdbReadiness({ configured: () => false, loaded: () => false, apiFallback: () => false })(), false);
         assert.equal(peeringdbReadiness({ configured: () => true, loaded: () => true })(), true);
-        assert.throws(() => peeringdbReadiness({ configured: () => true, loaded: () => false })(), /not loaded/);
+        assert.throws(() => peeringdbReadiness({ configured: () => true, loaded: () => false, apiFallback: () => false })(), /not loaded/);
     });
 
     it('connectivity: no as-rel snapshot is an error; as2org matters only while loading', async () => {

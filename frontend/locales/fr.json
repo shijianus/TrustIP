@@ -2312,6 +2312,13 @@
       "gap": {
         "sameBlockActivity": "lesquelles sont utilisées"
       }
+    },
+    "peeringdb": {
+      "source": "Type et trafic : la fiche PeeringDB de l'opérateur (déclarative).",
+      "notReported": "Non déclaré",
+      "noEntry": "Absent de PeeringDB",
+      "rateLimited": "PeeringDB saturé, réessayez plus tard",
+      "failed": "PeeringDB n'a pas répondu"
     }
   },
   "home": {

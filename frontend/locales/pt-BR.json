@@ -2312,6 +2312,13 @@
       "gap": {
         "sameBlockActivity": "quais deles estão em uso"
       }
+    },
+    "peeringdb": {
+      "source": "Tipo e tráfego: o cadastro do próprio operador no PeeringDB (autodeclarado).",
+      "notReported": "Não informado",
+      "noEntry": "Sem cadastro no PeeringDB",
+      "rateLimited": "PeeringDB ocupado, tente mais tarde",
+      "failed": "PeeringDB não respondeu"
     }
   },
   "home": {

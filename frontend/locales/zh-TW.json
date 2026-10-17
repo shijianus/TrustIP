@@ -2312,6 +2312,13 @@
       "gap": {
         "sameBlockActivity": "這些位址中哪些正在使用"
       }
+    },
+    "peeringdb": {
+      "source": "類型與流量：營運者在 PeeringDB 的自填資料（自行申報）。",
+      "notReported": "未申報",
+      "noEntry": "無 PeeringDB 資料",
+      "rateLimited": "PeeringDB 限流，請稍後再試",
+      "failed": "PeeringDB 未回應"
     }
   },
   "home": {

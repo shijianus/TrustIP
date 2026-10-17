@@ -1,8 +1,8 @@
 // /api/asn-profile?asn=<n> — everything the ASN Profile page shows, in one
 // answer: Radar ASN summary + prefix list (common/cf-radar.js), CAIDA
 // topology and neighbours (./asn-connectivity.js), RDAP autnum
-// (common/rdap.js), ASRank (common/asrank.js), the local PeeringDB index
-// (common/peeringdb-db.js) and, when the private API is configured,
+// (common/rdap.js), ASRank (common/asrank.js), PeeringDB — the local index
+// (common/peeringdb-db.js), else the public API (common/peeringdb-api.js) — and, when the private API is configured,
 // reputation (common/asn-reputation.js). Composition, deadlines and statuses
 // live in common/asn-profile.js. `asn` arrives as a canonical number string
 // (requireValidASN). 200 unless every configured source failed (502).
@@ -11,7 +11,8 @@ import { RADAR_VIEWS, hasRadarApiKey, loadAsnSummary, isCompleteRadarAnswer } fr
 import { rdapAutnum, isAutnumMissing } from '../common/rdap.js';
 import { queryAsRank } from '../common/asrank.js';
 import { requestAsnReputation } from '../common/asn-reputation.js';
-import { isPeeringdbLoaded, lookupPeeringdb } from '../common/peeringdb-db.js';
+import { isPeeringdbLoaded } from '../common/peeringdb-db.js';
+import { isPeeringdbApiEnabled, resolvePeeringdbNet } from '../common/peeringdb-api.js';
 import { isAsRelLoaded } from '../common/as-rel-db.js';
 import { isAsOrgLoaded } from '../common/as-org-db.js';
 import { isStillLoading } from '../common/offline-data.js';
@@ -36,13 +37,25 @@ export const connectivityReadiness = ({ relLoaded = isAsRelLoaded, orgLoaded = i
         return fetch(...args);
     };
 
-// PeeringDB is 'disabled' only where it isn't configured (no Cloudflare key,
-// so never downloaded). Configured but not loaded — still downloading, or
-// the download failed — is an error. Exported for tests.
-export const peeringdbReadiness = ({ configured = hasRadarApiKey, loaded = isPeeringdbLoaded } = {}) => () => {
+// PeeringDB answers from the local index when it is loaded, else from the
+// public API (PEERINGDB_API, on by default), so the section no longer needs
+// the Cloudflare key. 'disabled' only where neither path exists; configured
+// for the index, not yet loaded and with the API switched off, it is an error.
+// Exported for tests.
+export const peeringdbReadiness = ({ configured = hasRadarApiKey, loaded = isPeeringdbLoaded, apiFallback = isPeeringdbApiEnabled } = {}) => () => {
+    if (loaded()) return true;
+    if (apiFallback()) return true;
     if (!configured()) return false;
-    if (!loaded()) throw new Error('PeeringDB index not loaded');
-    return true;
+    throw new Error('PeeringDB index not loaded');
+};
+
+// The record from whichever path resolvePeeringdbNet takes; an API failure
+// (timeout, 5xx, 429) throws so the section is 'error' and the answer is not
+// cached for a week. Exported for tests.
+export const peeringdbLookup = (resolve = resolvePeeringdbNet) => async (asn) => {
+    const answer = await resolve(asn);
+    if (answer.status === 'error') throw new Error(`PeeringDB API ${answer.reason || 'failed'}`);
+    return answer.record || null;
 };
 
 export default async (req, res) => {
@@ -62,7 +75,7 @@ export default async (req, res) => {
         // visitor's cookies or a client-written X-Forwarded-For.
         requestReputation: (n) => requestAsnReputation(n, anonymousUpstreamHeaders(req), { timeoutMs: SOURCE_TIMEOUTS.reputation }),
         isPeeringdbLoaded: peeringdbReadiness(),
-        lookupPeeringdb,
+        lookupPeeringdb: peeringdbLookup(),
     });
     const body = await composeAsnProfile(asn, loaders);
     if (allSourcesFailed(body)) {

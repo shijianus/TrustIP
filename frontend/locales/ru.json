@@ -2312,6 +2312,13 @@
       "gap": {
         "sameBlockActivity": "какие из них используются"
       }
+    },
+    "peeringdb": {
+      "source": "Тип и трафик: собственная запись оператора в PeeringDB (самоотчёт).",
+      "notReported": "Не указано",
+      "noEntry": "Нет записи в PeeringDB",
+      "rateLimited": "PeeringDB занят, повторите позже",
+      "failed": "PeeringDB не ответил"
     }
   },
   "home": {

@@ -34,7 +34,7 @@ const UPSTREAM_DEFAULT_MS = 8000; // fetchUpstream's default
 //   whois        IANA bootstrap (default, cached 24 h), then RDAP autnum
 //   connectivity local CAIDA + RIPEstat name fallback (3 s, in parallel)
 //   rank / reputation  ASRank GraphQL / private API
-//   peeringdb    local index, no I/O
+//   peeringdb    local index (no I/O), else one PeeringDB API call
 export const INNER_TIMEOUTS = {
     radar: UPSTREAM_DEFAULT_MS,
     prefixes: UPSTREAM_DEFAULT_MS,
@@ -42,7 +42,7 @@ export const INNER_TIMEOUTS = {
     connectivity: 3000,
     rank: SOURCE_TIMEOUTS.rank,
     reputation: SOURCE_TIMEOUTS.reputation,
-    peeringdb: 0,
+    peeringdb: 5000,
 };
 
 // Per-section budget (ms): each sits above its source's worst case
@@ -54,7 +54,7 @@ export const DEADLINES = {
     whois: 14000,
     rank: 5000,
     reputation: 5000,
-    peeringdb: 1000,
+    peeringdb: 6000,
 };
 
 // Reject with a code 'deadline' error when `promise` outlives `ms`. The
@@ -153,7 +153,10 @@ export const buildSectionLoaders = (deps) => ({
     },
     rank: async (asn) => classifyRank(await deps.queryAsRank(asn)),
     reputation: async (asn) => classifyReputation(await deps.requestReputation(asn)),
-    peeringdb: async (asn) => classifyPeeringdb(deps.isPeeringdbLoaded(), deps.lookupPeeringdb(asn)),
+    peeringdb: async (asn) => {
+        const loaded = deps.isPeeringdbLoaded();
+        return classifyPeeringdb(loaded, loaded ? await deps.lookupPeeringdb(asn) : null);
+    },
 });
 
 // Run every loader under its deadline and assemble the response body.

@@ -2312,6 +2312,13 @@
       "gap": {
         "sameBlockActivity": "这些地址中哪些正在使用"
       }
+    },
+    "peeringdb": {
+      "source": "类型与流量：运营者在 PeeringDB 的自填资料（自行申报）。",
+      "notReported": "未申报",
+      "noEntry": "无 PeeringDB 资料",
+      "rateLimited": "PeeringDB 限流，请稍后再试",
+      "failed": "PeeringDB 未响应"
     }
   },
   "home": {

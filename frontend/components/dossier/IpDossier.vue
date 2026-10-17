@@ -121,16 +121,21 @@
                                 </span>
                             </KeyRow>
                             <KeyRow :label="t('dossier.row.asnOrg')" :value="network.asName || network.asOrg" wide />
+                            <!-- Type and traffic band are the operator's own
+                                 PeeringDB entry: self-reported, and labelled so. -->
                             <KeyRow :label="t('dossier.row.asnKind')">
-                                <VerdictChip tone="muted" :label="t('trustip.verdict.notMeasured')" />
+                                <span v-if="asnKinds" class="font-semibold">{{ asnKinds }}</span>
+                                <VerdictChip v-else tone="muted" :label="peeringdbGapLabel" />
                             </KeyRow>
                             <KeyRow :label="t('dossier.row.asnSize')" :nums="true">
                                 <span v-if="network.ipv4Total" class="jn-nums font-semibold">{{ network.ipv4Total.toLocaleString(locale) }}</span>
                                 <VerdictChip v-else tone="muted" :label="t('trustip.verdict.notMeasured')" />
                             </KeyRow>
                             <KeyRow :label="t('dossier.row.bandwidth')">
-                                <VerdictChip tone="muted" :label="t('trustip.verdict.notMeasured')" />
+                                <span v-if="peeringdb?.traffic" class="jn-nums font-semibold">{{ peeringdb.traffic }}</span>
+                                <VerdictChip v-else tone="muted" :label="peeringdbGapLabel" />
                             </KeyRow>
+                            <p v-if="peeringdb?.status === 'record'" class="pt-1.5 text-xs text-muted-foreground">{{ t('dossier.peeringdb.source') }}</p>
                             <KeyRow :label="t('dossier.row.asnRegistered')" :value="asnRegisteredDate" />
                             <KeyRow :label="t('dossier.row.registered')" :value="allocationDate" />
                             <KeyRow :label="t('dossier.row.cidr')" :nums="true">
@@ -415,6 +420,7 @@ import { useMainStore } from '@/store.js';
 import { resolveSelfAddress } from '@/utils/self-address.js';
 import { isValidIP } from '@/utils/valid-ip.js';
 import { formatIsoDate } from '@/utils/time-utils.js';
+import { peeringEnumKey } from '@/utils/asn-profile-view.js';
 import { fetchWithTimeout } from '@/utils/fetch-with-timeout.js';
 import StandalonePageHeader from '@/components/StandalonePageHeader.vue';
 import Footer from '@/components/Footer.vue';
@@ -620,6 +626,23 @@ const listSources = computed(() => {
     return answered(lists.tor) || answered(lists.vpn) || answered(lists.datacenter);
 });
 const deepScore = computed(() => `${deepRows.value.filter((r) => r.tone !== 'muted').length} / 4`);
+
+// PeeringDB's self-reported network type(s), in the ASN Profile's vocabulary.
+const peeringdb = computed(() => network.value.peeringdb || null);
+const asnKinds = computed(() => (peeringdb.value?.types || [])
+    .map((type) => { const key = peeringEnumKey('types', type); return key ? t(key) : type; })
+    .join(' · ') || null);
+// Why a self-reported row is empty: the operator left it blank, the AS has no
+// entry, or the lookup did not complete — three different sentences.
+const peeringdbGapLabel = computed(() => {
+    const status = peeringdb.value?.status;
+    if (status === 'record') return t('dossier.peeringdb.notReported');
+    if (status === 'no-record') return t('dossier.peeringdb.noEntry');
+    if (status === 'error') {
+        return peeringdb.value.reason === 'rate-limited' ? t('dossier.peeringdb.rateLimited') : t('dossier.peeringdb.failed');
+    }
+    return t('trustip.verdict.notMeasured');
+});
 
 const asnRegisteredDate = computed(() => {
     const raw = network.value.asnRegistered;

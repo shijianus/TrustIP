@@ -2312,6 +2312,13 @@
       "gap": {
         "sameBlockActivity": "which of these are in use"
       }
+    },
+    "peeringdb": {
+      "source": "Type and traffic: the operator's own PeeringDB entry (self-reported).",
+      "notReported": "Not reported",
+      "noEntry": "No PeeringDB entry",
+      "rateLimited": "PeeringDB busy, retry later",
+      "failed": "PeeringDB did not answer"
     }
   },
   "home": {

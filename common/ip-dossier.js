@@ -27,6 +27,7 @@ import { providersOf, peersOf, customerCountOf, isTier1 } from './as-rel-db.js';
 import { lookupAsOrgName } from './as-org-db.js';
 import { isMaxMindReady, lookupMaxMind } from './maxmind-service.js';
 import { lookupAnonymity } from './anonymity-lists.js';
+import { resolvePeeringdbNet } from './peeringdb-api.js';
 import { buildAsnHistoryBlock } from './asn-announcement-history.js';
 import { buildLatencyMatrix } from './latency-matrix.js';
 import { toBgpPrefix } from './bgp-prefix.js';
@@ -506,6 +507,44 @@ const deepRiskSlot = (usablePrivacy, anonymity) => {
 };
 
 /**
+ * The ASN block's self-reported half: PeeringDB's network type(s) and traffic
+ * band, which no registry carries. Only the summary fields travel — the
+ * exchange and facility lists belong to the ASN Profile.
+ *
+ * @param {object} answer  resolvePeeringdbNet's answer
+ * @returns {object|null}
+ */
+export const peeringdbSummary = (answer) => {
+    if (!answer || answer.status === 'disabled') return null;
+    const record = answer.record || {};
+    return {
+        status: answer.status,
+        source: answer.source || null,
+        types: record.types || [],
+        traffic: record.traffic || null,
+        scope: record.scope || null,
+        ratio: record.ratio || null,
+        policy: record.policy || null,
+        website: record.website || null,
+        reason: answer.reason || null,
+        retryAfter: answer.retryAfter || null,
+    };
+};
+
+/**
+ * The ASN slot: `asnKind` and `bandwidth` stay partial until PeeringDB has
+ * a record that names them. An operator that publishes no traffic band leaves
+ * that half declared — self-reporting is the only source for it.
+ */
+export const asnSlot = (summary) => {
+    if (summary?.status !== 'record') return SLOTS.asn;
+    const partial = [];
+    if (!summary.types.length) partial.push('asnKind');
+    if (!summary.traffic) partial.push('bandwidth');
+    return partial.length ? { status: 'ready', partial, note: 'PeeringDB, self-reported' } : { status: 'ready', note: 'PeeringDB, self-reported' };
+};
+
+/**
  * Build the dossier for one address.
  *
  * @param {string} ip  validated, publicly routable
@@ -547,7 +586,11 @@ export const buildDossier = async (ip, { lang = 'en' } = {}) => {
     const anonymity = lookupAnonymity(ip);
     const technical = technicalSlot(evidence.scan);
 
-    const registeredBlock = await registeredBlockOf(ip, evidence.rir?.cidr || null);
+    const [registeredBlock, peeringdbAnswer] = await Promise.all([
+        registeredBlockOf(ip, evidence.rir?.cidr || null),
+        resolvedAsn ? resolvePeeringdbNet(resolvedAsn).catch(() => ({ status: 'error', reason: 'request-failed' })) : null,
+    ]);
+    const peeringdb = peeringdbSummary(peeringdbAnswer);
     const neighbours = buildNeighbours(ip, registeredBlock);
     return {
         ip,
@@ -590,6 +633,9 @@ export const buildDossier = async (ip, { lang = 'en' } = {}) => {
             // "nothing was open on it" are different answers, and the row has to be
             // able to say which one it is showing.
             scan: evidence.scan || null,
+            // PeeringDB's self-reported network type and traffic band (local
+            // index, else the public API); null where neither path exists.
+            peeringdb,
         },
         blocklists: evidence.blocklists || null,
         privacy: evidence.privacy || null,
@@ -610,6 +656,7 @@ export const buildDossier = async (ip, { lang = 'en' } = {}) => {
                 ? { status: 'placeholder', needs: 'RIPEstat routing-history did not answer within our timeout for this prefix' }
                 : { status: 'ready' },
             blocklists: blocklistSlot(evidence),
+            asn: asnSlot(peeringdb),
             neighbours: neighboursSlot(neighbours),
             // The two panels the optional keyed feed fills. Off, they stay the
             // declared gaps they have always been; on, they report what it said,

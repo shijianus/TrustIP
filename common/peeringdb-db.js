@@ -177,8 +177,14 @@ const toPlaceMap = (table) => new Map(Object.entries(table || {}).map(([id, [nam
  * number). The file text and the parsed object stay local, so only the
  * Maps outlive the call. Throws on a malformed or wrong-version file.
  */
-export const readPeeringdbIndex = (filePath) => {
-    const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+export const readPeeringdbIndex = (filePath) => tablesFromIndex(JSON.parse(fs.readFileSync(filePath, 'utf8')));
+
+/**
+ * An index object (buildPeeringdbIndex's shape) → lookup tables { nets, ix,
+ * fac }. Shared by the file reader and the live-API fallback
+ * (common/peeringdb-api.js), so both expand through one expandNet.
+ */
+export const tablesFromIndex = (parsed) => {
     if (parsed?.v !== PEERINGDB_INDEX_VERSION || !parsed.nets) {
         throw new Error(`unsupported PeeringDB index (v=${parsed?.v})`);
     }
