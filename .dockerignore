@@ -11,7 +11,9 @@ localtest
 package-lock.json
 
 .DS_Store
-.env
+# Every env file, .env.example included: the image ships no configuration —
+# mount or pass one at run time.
+.env*
 *.log
 scripts/
 npm-debug.log*
@@ -23,3 +25,12 @@ pnpm-debug.log*
 # `pnpm dev`) consistent with CI, so the container always downloads fresh data on
 # first boot. Same pattern as .gitignore.
 common/*-db/
+
+# Never needed by `pnpm run build` or the runtime, and must not leak into an
+# image layer: the test suite, deployment evidence, docs and deploy samples.
+tests/
+evidence*/
+**/evidence*/
+docs/
+deploy/
+coverage/
