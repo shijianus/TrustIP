@@ -34,7 +34,7 @@ import serviceStatusHandler, {
 } from './api/service-status.js';
 import { getSessionResult as dnsLeakGetResult } from './api/dns-leak-test.js';
 import getWhois from './api/get-whois.js';
-import sentryTunnelHandler from './api/sentry-tunnel.js';
+import sentryTunnelHandler, { createTunnelGate, TUNNEL_MAX_BODY_BYTES } from './api/sentry-tunnel.js';
 import createReportHandler, { getReport as getReportHandler } from './api/share-report.js';
 import invisibilitytestHandler from './api/invisibility-test.js';
 import macChecker from './api/mac-checker.js';
@@ -428,7 +428,16 @@ if (process.env.VITE_SENTRY_DSN_FRONTEND) {
         max: 600,
         message: 'Too Many Requests',
     });
-    app.post('/api/monitoring', monitoringLimiter, express.raw({ type: () => true, limit: '10mb' }), sentryTunnelHandler);
+    // Gate before the parser: a request refused for concurrency (503) is never
+    // buffered; one over TUNNEL_MAX_BODY_BYTES is cut off by express.raw with a
+    // 413 that jsonErrorHandler renders as JSON.
+    app.post(
+        '/api/monitoring',
+        monitoringLimiter,
+        createTunnelGate(),
+        express.raw({ type: () => true, limit: TUNNEL_MAX_BODY_BYTES }),
+        sentryTunnelHandler,
+    );
 }
 
 // Set static file server

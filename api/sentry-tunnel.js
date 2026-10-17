@@ -10,6 +10,45 @@ import { isValidIP } from '../common/valid-ip.js';
 import { trustsCfConnectingIp } from '../common/client-ip.js';
 import logger from '../common/logger.js';
 
+// Largest envelope the relay accepts. The browser SDK's own envelope ceiling
+// is 1 MB for events; anything bigger is a replay we would forward only to be
+// refused upstream, or a client using the relay as a free upload pipe.
+export const TUNNEL_MAX_BODY_BYTES = 1024 * 1024;
+
+// Envelopes in flight at once (body read + upstream forward). Each one holds
+// up to TUNNEL_MAX_BODY_BYTES in memory and an 8s upstream slot, so the cap
+// bounds what a burst can pin regardless of how many IPs it comes from.
+export const TUNNEL_MAX_CONCURRENCY = 10;
+const RETRY_AFTER_SECONDS = 5;
+
+/**
+ * Concurrency gate mounted ahead of the body parser, so a refused request is
+ * never buffered. A slot is freed exactly once, on `finish` or `close`
+ * (whichever comes first — an aborted upload only ever fires `close`).
+ * `max` is injectable for tests; the returned middleware exposes `inFlight()`.
+ */
+export const createTunnelGate = ({ max = TUNNEL_MAX_CONCURRENCY } = {}) => {
+    let inFlight = 0;
+    const gate = (req, res, next) => {
+        if (inFlight >= max) {
+            res.setHeader('Retry-After', String(RETRY_AFTER_SECONDS));
+            return res.status(503).json({ error: 'Relay busy' });
+        }
+        inFlight += 1;
+        let released = false;
+        const release = () => {
+            if (released) return;
+            released = true;
+            inFlight -= 1;
+        };
+        res.on('finish', release);
+        res.on('close', release);
+        return next();
+    };
+    gate.inFlight = () => inFlight;
+    return gate;
+};
+
 // The envelope header is the first newline-delimited JSON line and carries
 // the DSN the SDK was configured with. Returns a URL or null. Exported for
 // tests.
@@ -116,6 +155,11 @@ export default async (req, res) => {
     const rawBody = req.body;
     if (!Buffer.isBuffer(rawBody)) {
         return res.status(400).json({ error: 'Invalid envelope' });
+    }
+    // express.raw's `limit` answers 413 first; this repeats it for any mount
+    // that forgot the parser limit.
+    if (rawBody.length > TUNNEL_MAX_BODY_BYTES) {
+        return res.status(413).json({ error: 'Request body too large' });
     }
 
     const dsn = parseEnvelopeDsn(rawBody);

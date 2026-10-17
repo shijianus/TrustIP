@@ -1,11 +1,17 @@
 // api/sentry-tunnel.js — envelope-header parsing, visitor-IP resolution and
 // injection into event items, and the guard branches that return before any
 // upstream forward (method gate / unconfigured / invalid envelope / foreign
-// DSN). No real Sentry traffic is ever sent.
+// DSN / oversized body), and the concurrency gate mounted ahead of the body
+// parser. No real Sentry traffic is ever sent.
 import { test, beforeEach } from 'node:test';
 import assert from 'node:assert';
 
-import tunnelHandler, { parseEnvelopeDsn, visitorIpFrom, injectUserIp } from '../api/sentry-tunnel.js';
+import { EventEmitter } from 'node:events';
+
+import tunnelHandler, {
+    parseEnvelopeDsn, visitorIpFrom, injectUserIp,
+    createTunnelGate, TUNNEL_MAX_BODY_BYTES, TUNNEL_MAX_CONCURRENCY,
+} from '../api/sentry-tunnel.js';
 
 const OUR_DSN = 'https://publickey@o111.ingest.sentry.io/222';
 
@@ -178,4 +184,80 @@ test('injectUserIp returns malformed bodies unchanged', () => {
     assert.strictEqual(injectUserIp(headerOnly, IP), headerOnly);
     const badItem = Buffer.from('{"dsn":"x"}\nnot-json\n{}');
     assert.strictEqual(injectUserIp(badItem, IP), badItem);
+});
+
+// -- size and concurrency caps -------------------------------------------------
+
+test('returns 413 for an envelope over TUNNEL_MAX_BODY_BYTES before any forward', async () => {
+    process.env.VITE_SENTRY_DSN_FRONTEND = OUR_DSN;
+    const realFetch = globalThis.fetch;
+    let forwarded = false;
+    globalThis.fetch = async () => { forwarded = true; return new Response('ok'); };
+    try {
+        const header = Buffer.from(`${JSON.stringify({ dsn: OUR_DSN })}\n`);
+        const big = Buffer.concat([header, Buffer.alloc(TUNNEL_MAX_BODY_BYTES)]);
+        const res = makeRes();
+        await tunnelHandler({ method: 'POST', body: big, headers: {} }, res);
+        assert.strictEqual(res.statusCode, 413);
+        assert.deepStrictEqual(res.body, { error: 'Request body too large' });
+        assert.strictEqual(forwarded, false);
+    } finally {
+        globalThis.fetch = realFetch;
+    }
+});
+
+test('TUNNEL_MAX_BODY_BYTES is 1 MB and the concurrency cap is 10', () => {
+    assert.strictEqual(TUNNEL_MAX_BODY_BYTES, 1024 * 1024);
+    assert.strictEqual(TUNNEL_MAX_CONCURRENCY, 10);
+});
+
+// A response stand-in that can emit finish / close like http.ServerResponse.
+const makeGateRes = () => {
+    const res = new EventEmitter();
+    Object.assign(res, {
+        statusCode: null,
+        body: null,
+        headers: {},
+        setHeader(name, value) { this.headers[name.toLowerCase()] = value; },
+        status(code) { this.statusCode = code; return this; },
+        json(payload) { this.body = payload; return this; },
+    });
+    return res;
+};
+
+test('createTunnelGate refuses the request past the cap with 503 + Retry-After', () => {
+    const gate = createTunnelGate({ max: 2 });
+    let passed = 0;
+    const next = () => { passed += 1; };
+    const held = [makeGateRes(), makeGateRes()];
+    for (const res of held) gate({}, res, next);
+    assert.strictEqual(passed, 2);
+    assert.strictEqual(gate.inFlight(), 2);
+
+    const refused = makeGateRes();
+    gate({}, refused, next);
+    assert.strictEqual(passed, 2);
+    assert.strictEqual(refused.statusCode, 503);
+    assert.strictEqual(refused.headers['retry-after'], '5');
+    assert.deepStrictEqual(refused.body, { error: 'Relay busy' });
+});
+
+test('createTunnelGate frees a slot once per request, on finish or close', () => {
+    const gate = createTunnelGate({ max: 1 });
+    const next = () => {};
+    const first = makeGateRes();
+    gate({}, first, next);
+    first.emit('finish');
+    first.emit('close'); // both fire on a normal response; counted once
+    assert.strictEqual(gate.inFlight(), 0);
+
+    const aborted = makeGateRes();
+    gate({}, aborted, next);
+    aborted.emit('close'); // client hung up mid-upload: only close fires
+    assert.strictEqual(gate.inFlight(), 0);
+
+    const after = makeGateRes();
+    let passed = false;
+    gate({}, after, () => { passed = true; });
+    assert.strictEqual(passed, true);
 });
