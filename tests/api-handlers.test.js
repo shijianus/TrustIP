@@ -8,6 +8,8 @@
 // common/guards.js, tests/guards.test.js); handlers themselves no longer
 // repeat those checks, so this file focuses on handler-specific branches.
 
+import os from 'node:os';
+import path from 'node:path';
 import assert from 'node:assert/strict';
 import { Writable } from 'node:stream';
 import { afterEach, beforeEach, describe, it } from 'node:test';
@@ -23,7 +25,7 @@ import { cacheable } from '../common/cache-control.js';
 import cfRadarHandler from '../api/cf-radar.js';
 import invisibilityHandler from '../api/invisibility-test.js';
 import macCheckerHandler, { createMacChecker } from '../api/mac-checker.js';
-import githubStarsHandler, { resetGithubStarsCache } from '../api/github-stars.js';
+import githubStarsHandler, { resetGithubStarsCache, useLastGoodFile } from '../api/github-stars.js';
 import personaEvaluateHandler from '../api/persona.js';
 import splitHandler from '../api/split.js';
 import asnProfileHandler, { peeringdbReadiness, connectivityReadiness } from '../api/asn-profile.js';
@@ -592,6 +594,8 @@ describe('get-whois registry replies', () => {
 // -- github-stars handler -------------------------------------------------
 
 describe('github-stars handler', () => {
+    // The persisted last-good count goes to a temp file, never the repo's.
+    useLastGoodFile(path.join(os.tmpdir(), `trustip-stars-${process.pid}.json`));
     it('rejects non-GET with 405 before hitting GitHub', async () => {
         const res = createResponse();
         await githubStarsHandler(createRequest({ method: 'POST' }), res);
@@ -617,7 +621,7 @@ describe('github-stars handler', () => {
     });
 
     it('concurrent misses share one GitHub call, and a failure is held briefly too', async () => {
-        resetGithubStarsCache();
+        resetGithubStarsCache({ lastGood: true });
         let calls = 0;
         globalThis.fetch = async () => {
             calls += 1;
