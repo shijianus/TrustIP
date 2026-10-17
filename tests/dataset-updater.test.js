@@ -16,6 +16,7 @@ import {
     STATE_FILE, LOCK_FILE, updateDataset, bootstrapDataset, readState, isPresent,
     isAutoUpdateEnabled, startDatasetScheduler, DEFAULT_UPDATE_CRON, rowsMissingACheck, watchDatasets,
     updateDatasets, downloadToFile, monitorConfigFor,
+    maxDownloadBytes, DEFAULT_DATASET_MAX_DOWNLOAD_MB,
 } from '../common/dataset-updater.js';
 import logger from '../common/logger.js';
 import { setUpstreamUserAgent } from '../common/fetch-with-timeout.js';
@@ -485,6 +486,64 @@ describe('downloadToFile', () => {
             globalThis.fetch = realFetch;
             setUpstreamUserAgent(null);
         }
+    });
+});
+
+describe('download size cap', () => {
+    const withFetch = async (impl, fn) => {
+        const realFetch = globalThis.fetch;
+        globalThis.fetch = impl;
+        try {
+            await fn();
+        } finally {
+            globalThis.fetch = realFetch;
+        }
+    };
+
+    it('maxDownloadBytes defaults to 500 MB and honours DATASET_MAX_DOWNLOAD_MB', () => {
+        assert.equal(DEFAULT_DATASET_MAX_DOWNLOAD_MB, 500);
+        assert.equal(maxDownloadBytes({}), 500 * 1024 * 1024);
+        assert.equal(maxDownloadBytes({ DATASET_MAX_DOWNLOAD_MB: '50' }), 50 * 1024 * 1024);
+        for (const bad of ['', 'abc', '0', '-3']) {
+            assert.equal(maxDownloadBytes({ DATASET_MAX_DOWNLOAD_MB: bad }), 500 * 1024 * 1024, bad);
+        }
+    });
+
+    it('refuses a declared Content-Length over the cap before writing', async () => {
+        const dest = path.join(root, 'declared-too-big.bin');
+        await withFetch(async () => new Response('x'.repeat(64), { headers: { 'Content-Length': '64' } }), async () => {
+            await assert.rejects(downloadToFile('https://example.invalid/big', dest, { maxBytes: 16 }),
+                (error) => error.code === 'EDATASETTOOLARGE');
+        });
+        assert.equal(fs.existsSync(dest), false);
+    });
+
+    it('aborts a streamed body that grows past the cap and removes the partial file', async () => {
+        const dest = path.join(root, 'streamed-too-big.bin');
+        const chunk = new Uint8Array(1024).fill(97);
+        let sent = 0;
+        // No Content-Length (chunked): only the running count can catch it.
+        const body = new ReadableStream({
+            pull(controller) {
+                if (sent >= 64) return controller.close();
+                sent += 1;
+                controller.enqueue(chunk);
+            },
+        });
+        await withFetch(async () => new Response(body), async () => {
+            await assert.rejects(downloadToFile('https://example.invalid/stream', dest, { maxBytes: 10 * 1024 }),
+                (error) => error.code === 'EDATASETTOOLARGE');
+        });
+        assert.equal(fs.existsSync(dest), false);
+        assert.ok(sent < 64, `stream should stop early (pulled ${sent} chunks)`);
+    });
+
+    it('writes a body exactly at the cap', async () => {
+        const dest = path.join(root, 'at-cap.bin');
+        await withFetch(async () => new Response('x'.repeat(16)), async () => {
+            await downloadToFile('https://example.invalid/ok', dest, { maxBytes: 16 });
+        });
+        assert.equal(fs.readFileSync(dest, 'utf8').length, 16);
     });
 });
 

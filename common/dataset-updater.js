@@ -46,7 +46,7 @@ import fs from 'fs';
 import fsp from 'fs/promises';
 import os from 'os';
 import path from 'path';
-import { Readable } from 'stream';
+import { Readable, Transform } from 'stream';
 import { pipeline } from 'stream/promises';
 import { setTimeout as sleep } from 'timers/promises';
 import lockfile from 'proper-lockfile';
@@ -72,15 +72,56 @@ const CATCH_UP_DELAY_MS = 60 * 1000;
 
 // ---------- download helpers for rows ----------
 
+// Ceiling on one downloaded file. The largest real archive (PeeringDB's JSON
+// dump, the MaxMind City tarball) is well under 100 MB; the cap only stops a
+// misbehaving or hostile upstream from filling the disk.
+export const DEFAULT_DATASET_MAX_DOWNLOAD_MB = 500;
+
+/**
+ * DATASET_MAX_DOWNLOAD_MB as bytes; empty, non-numeric or non-positive falls
+ * back to DEFAULT_DATASET_MAX_DOWNLOAD_MB.
+ */
+export const maxDownloadBytes = (env = process.env) => {
+    const mb = Number(env.DATASET_MAX_DOWNLOAD_MB);
+    const usable = Number.isFinite(mb) && mb > 0 ? mb : DEFAULT_DATASET_MAX_DOWNLOAD_MB;
+    return Math.floor(usable * 1024 * 1024);
+};
+
+const tooLarge = (url, maxBytes) => Object.assign(
+    new Error(`download exceeds ${maxBytes} bytes: ${new URL(url).host}`),
+    { code: 'EDATASETTOOLARGE' },
+);
+
 /**
  * Stream `url` into `destPath`. fetchUpstream (project User-Agent) times out
  * the wait for a response; the body — a large archive — is bounded by the
- * caller's signal instead.
+ * caller's signal instead, and its size by `maxBytes` (DATASET_MAX_DOWNLOAD_MB):
+ * a declared Content-Length over the cap is refused before a byte is written,
+ * and a body that grows past it mid-stream aborts. Either way the partial
+ * file is removed.
  */
-export const downloadToFile = async (url, destPath, { signal, headers } = {}) => {
+export const downloadToFile = async (url, destPath, { signal, headers, maxBytes = maxDownloadBytes() } = {}) => {
     const response = await fetchUpstream(url, { signal, headers, timeoutMs: 30 * 1000 });
     if (!response.ok || !response.body) throw new Error(`download failed: HTTP ${response.status}`);
-    await pipeline(Readable.fromWeb(response.body), fs.createWriteStream(destPath), { signal });
+    const declared = Number(response.headers.get('content-length'));
+    if (Number.isFinite(declared) && declared > maxBytes) {
+        await response.body.cancel().catch(() => {});
+        throw tooLarge(url, maxBytes);
+    }
+    let received = 0;
+    const counter = new Transform({
+        transform(chunk, encoding, callback) {
+            received += chunk.length;
+            if (received > maxBytes) return callback(tooLarge(url, maxBytes));
+            return callback(null, chunk);
+        },
+    });
+    try {
+        await pipeline(Readable.fromWeb(response.body), counter, fs.createWriteStream(destPath), { signal });
+    } catch (error) {
+        await fsp.rm(destPath, { force: true }).catch(() => {});
+        throw error;
+    }
 };
 
 /** Decompress `srcPath` ('gzip' | 'bzip2') into `destPath`. */
