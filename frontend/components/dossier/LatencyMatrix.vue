@@ -31,6 +31,7 @@
                     <Spinner v-if="status === 'running'" class="me-1.5" />
                     {{ buttonLabel }}
                 </Button>
+                <GlobalpingRateNotice />
                 <p v-if="runError" class="text-xs text-destructive-soft-fg">
                     {{ t('dossier.latency.runFailed') }}
                 </p>
@@ -70,6 +71,7 @@ import { Icon } from '@iconify/vue';
 import { useStatusTone } from '@/composables/use-status-tone.js';
 import { useGlobalpingMeasurement } from '@/composables/use-globalping-measurement.js';
 import SectionTitle from '@/components/widgets/SectionTitle.vue';
+import GlobalpingRateNotice from '@/components/widgets/GlobalpingRateNotice.vue';
 import Button from '@/components/ui/button/Button.vue';
 import { Spinner } from '@/components/ui/spinner';
 
@@ -153,7 +155,8 @@ function run() {
         // stay queued until the composable gives up, which is the honest shape
         // of a probe network where some nodes simply do not take the job.
         onResults: applyResults,
-        onError: () => { runError.value = true; },
+        // A 429 is the shared back-off's line (GlobalpingRateNotice), not a failure.
+        onError: (reason) => { runError.value = reason !== 'rate-limited'; },
     });
 }
 </script>

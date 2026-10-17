@@ -19,11 +19,21 @@
 //       status is 'finished' vs 'error'.
 //   - onFinish(): called exactly once when status transitions to 'finished'.
 //       Use this for post-processing (e.g. drawMap, calResult).
-//   - onError(reason): called when status transitions to 'error'. Reason is
-//       'create' (POST failed), 'poll' (GET failed), or 'empty' (measurement
-//       completed but produced no usable rows).
+//   - onError(reason, info): called when status transitions to 'error'. Reason is
+//       'create' (POST failed), 'poll' (GET failed), 'empty' (measurement
+//       completed but produced no usable rows) or 'rate-limited' (Globalping
+//       answered 429; `info.retryAfter` is the wait in seconds).
+//
+// Rate limits are shared by every tool on the page: a 429 sets one module-level
+// back-off (`globalpingRateLimit`, read by GlobalpingRateNotice.vue) and every
+// start inside it fails fast as 'rate-limited' without spending another request.
+// Identical create bodies in flight at once share one POST.
+//
+// Where the server holds GLOBALPING_TOKEN (/api/configs.globalpingProxy), the
+// create POST goes to /api/globalping/measurements, which adds the Bearer token;
+// polls always read api.globalping.io directly (results need no token).
 
-import { ref, onScopeDispose } from 'vue';
+import { ref, shallowRef, onScopeDispose } from 'vue';
 import { fetchWithTimeout } from '../../common/fetch-with-timeout.js';
 import { isValidIP, isUsablePublicIP } from '../utils/valid-ip.js';
 
@@ -65,6 +75,65 @@ export function classifyTarget(input) {
 }
 
 const API_BASE = 'https://api.globalping.io/v1/measurements';
+export const GLOBALPING_PROXY_CREATE = '/api/globalping/measurements';
+
+// Whether creates go through this server's token-holding proxy. Set from
+// /api/configs once it loads (store.js); off until then, and on the edge.
+let proxyCreate = false;
+export const setGlobalpingProxy = (on) => { proxyCreate = Boolean(on); };
+const createUrl = () => (proxyCreate ? GLOBALPING_PROXY_CREATE : API_BASE);
+
+// The shared back-off: { until (ms epoch), seconds } while Globalping's 429
+// holds, else null.
+const DEFAULT_RETRY_AFTER_S = 60;
+const MAX_RETRY_AFTER_S = 3600;
+export const globalpingRateLimit = shallowRef(null);
+export const isGlobalpingRateLimited = (now = Date.now()) => Boolean(globalpingRateLimit.value && globalpingRateLimit.value.until > now);
+export const resetGlobalpingRateLimit = () => { globalpingRateLimit.value = null; };
+
+// Seconds to wait from a 429: Retry-After, else Globalping's X-RateLimit-Reset
+// (seconds until the window resets), else a minute; capped at an hour.
+export const retryAfterOf = (response) => {
+    const read = (name) => Number(response?.headers?.get?.(name));
+    for (const value of [read('retry-after'), read('x-ratelimit-reset')]) {
+        if (Number.isFinite(value) && value > 0) return Math.min(Math.ceil(value), MAX_RETRY_AFTER_S);
+    }
+    return DEFAULT_RETRY_AFTER_S;
+};
+const enterBackoff = (seconds) => {
+    globalpingRateLimit.value = { until: Date.now() + seconds * 1000, seconds };
+};
+
+class RateLimitedError extends Error {
+    constructor(seconds) {
+        super(`rate limited, retry after ${seconds}s`);
+        this.retryAfter = seconds;
+    }
+}
+
+// One POST per distinct body in flight; every caller awaits the same outcome.
+const inFlightCreates = new Map();
+const createOnce = (body) => {
+    const key = JSON.stringify(body);
+    if (inFlightCreates.has(key)) return inFlightCreates.get(key);
+    const pending = (async () => {
+        const response = await fetchWithTimeout(createUrl(), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: key,
+            timeoutMs: REQUEST_TIMEOUT_MS,
+        });
+        if (response.status === 429) {
+            const seconds = retryAfterOf(response);
+            enterBackoff(seconds);
+            throw new RateLimitedError(seconds);
+        }
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        return response.json();
+    })().finally(() => inFlightCreates.delete(key));
+    inFlightCreates.set(key, pending);
+    return pending;
+};
 
 // The finished measurement as test-process log steps, one per probe: where the
 // probe sits, what it reported, and its raw output (trimmed — an mtr dump is long).
@@ -133,9 +202,9 @@ export function useGlobalpingMeasurement({ pollInterval = 1000, maxRetries = 4 }
             }, delay);
         };
 
-        const finishError = (reason) => {
+        const finishError = (reason, info) => {
             status.value = 'error';
-            onError?.(reason);
+            onError?.(reason, info);
         };
 
         const poll = async (id) => {
@@ -148,6 +217,11 @@ export function useGlobalpingMeasurement({ pollInterval = 1000, maxRetries = 4 }
                     timeoutMs: REQUEST_TIMEOUT_MS,
                     signal: currentController.signal,
                 });
+                if (response.status === 429) {
+                    const seconds = retryAfterOf(response);
+                    enterBackoff(seconds);
+                    throw new RateLimitedError(seconds);
+                }
                 if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                 data = await response.json();
                 pollStep?.end({
@@ -158,7 +232,8 @@ export function useGlobalpingMeasurement({ pollInterval = 1000, maxRetries = 4 }
                 pollStep?.end({ result: 'fail', error: err });
                 if (disposed) return;
                 console.error('Error fetching globalping results:', err);
-                finishError('poll');
+                if (err instanceof RateLimitedError) finishError('rate-limited', { retryAfter: err.retryAfter });
+                else finishError('poll');
                 return;
             }
             if (disposed) return;
@@ -177,25 +252,23 @@ export function useGlobalpingMeasurement({ pollInterval = 1000, maxRetries = 4 }
         };
 
         (async () => {
-            currentController = new AbortController();
             let createData;
             const createStep = log?.open({
                 kind: 'gpCreate',
                 target: `${body?.type || ''} → ${body?.target || ''}`,
-                endpoint: API_BASE,
+                endpoint: createUrl(),
                 protocol: 'HTTPS POST',
                 raw: body,
             });
+            // Inside a back-off nothing is sent: the answer is already known.
+            if (isGlobalpingRateLimited()) {
+                const seconds = Math.max(1, Math.ceil((globalpingRateLimit.value.until - Date.now()) / 1000));
+                createStep?.end({ result: 'fail', error: `rate limited (429), retry after ${seconds}s` });
+                finishError('rate-limited', { retryAfter: seconds });
+                return;
+            }
             try {
-                const response = await fetchWithTimeout(API_BASE, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(body),
-                    timeoutMs: REQUEST_TIMEOUT_MS,
-                    signal: currentController.signal,
-                });
-                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                createData = await response.json();
+                createData = await createOnce(body);
                 createStep?.end({
                     result: createData?.id ? 'ok' : 'fail',
                     value: createData?.id ? `id=${createData.id} probes=${createData.probesCount ?? '?'}` : null,
@@ -205,7 +278,8 @@ export function useGlobalpingMeasurement({ pollInterval = 1000, maxRetries = 4 }
                 createStep?.end({ result: 'fail', error: err });
                 if (disposed) return;
                 console.error('Error sending globalping request:', err);
-                finishError('create');
+                if (err instanceof RateLimitedError) finishError('rate-limited', { retryAfter: err.retryAfter });
+                else finishError('create');
                 return;
             }
             if (disposed) return;

@@ -1,4 +1,5 @@
 // store.js
+import { setGlobalpingProxy } from './composables/use-globalping-measurement.js';
 import { defineStore } from 'pinia';
 import { loadFirebaseAuth } from './firebase-init.js';
 import { writeAuthHint } from './utils/auth-hint.js';
@@ -229,6 +230,8 @@ export const useMainStore = defineStore('main', {
         })
         .then(data => {
           this.configs = data;
+          // Where the server holds a Globalping token, creates go through it.
+          setGlobalpingProxy(data?.globalpingProxy);
           // Configs flags are the only thing that flips ipDBs.enabled. If the
           // stored preference is no longer configured, migrate it to the
           // nearest available source (the one case that rewrites the user's

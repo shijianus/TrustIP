@@ -1808,7 +1808,8 @@
     "Europe": "Europe",
     "Africa": "Africa",
     "Americas": "Americas",
-    "Oceania": "Oceania"
+    "Oceania": "Oceania",
+    "RateLimited": "Globalping's free quota is used up for now (HTTP 429). Runs are paused for {s} s; try again when the countdown ends."
   },
   "pingtest": {
     "EnterIPLabel": "Enter an IP to test",

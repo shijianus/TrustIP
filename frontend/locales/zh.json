@@ -1808,7 +1808,8 @@
     "Europe": "欧洲",
     "Africa": "非洲",
     "Americas": "美洲",
-    "Oceania": "大洋洲"
+    "Oceania": "大洋洲",
+    "RateLimited": "Globalping 免费额度暂时用完（HTTP 429）。已暂停发送 {s} 秒——倒数结束后再试。"
   },
   "pingtest": {
     "EnterIPLabel": "输入要测试的 IP",

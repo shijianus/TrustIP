@@ -21,6 +21,7 @@ import ipapiisHandler from './api/ipapi-is.js';
 import ip2locationHandler from './api/ip2location-io.js';
 import ipsbHandler from './api/ip-sb.js';
 import maxmindHandler from './api/maxmind.js';
+import globalpingMeasurementsHandler from './api/globalping-measurements.js';
 // Others
 import cfRadarHandler from './api/cf-radar.js';
 import { RADAR_VIEWS, isCompleteRadarAnswer } from './common/cf-radar.js';
@@ -302,6 +303,9 @@ app.get('/api/ooni-blocking', requireValidDomain(), perMinute(20), cacheable(ONE
 // Which countries have online Globalping probes — coverage changes slowly,
 // and the pickers fail open anyway, so a week of edge cache is fine.
 app.get('/api/globalping-probes', cacheable(SEVEN_DAYS_CACHE), globalpingProbesHandler);
+// Token-holding create proxy (GLOBALPING_TOKEN): never cached, its own per-IP
+// budget, because every visitor here spends the one token's quota.
+app.post('/api/globalping/measurements', perMinute(10), globalpingMeasurementsHandler);
 // ASN Profile aggregate: every source in one answer; reputation inside it is
 // not per-user. A complete answer is cached for a week; a degraded one (a
 // section in error or incomplete) for a day — an upstream that fails for

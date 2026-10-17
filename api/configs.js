@@ -2,6 +2,7 @@
 import { isReportSharingConfigured } from './share-report.js';
 import { isMaxMindReady, getGeoSource, GEO_SOURCE } from '../common/maxmind-service.js';
 import { isCardConfigured } from '../common/ip-card.js';
+import { hasGlobalpingToken } from './globalping-measurements.js';
 
 export default (req, res) => {
     // defensive; app.get() in backend-server.js already gates method, but a
@@ -39,6 +40,10 @@ export default (req, res) => {
         // The MaxMind route is answering from DB-IP Lite (no GeoLite2 files):
         // the footer then carries the CC BY 4.0 attribution DB-IP requires.
         dbipLite: getGeoSource() === GEO_SOURCE.dbip,
+        // GLOBALPING_TOKEN is set: the client creates measurements through
+        // /api/globalping/measurements (Bearer added server-side). The edge
+        // function has no such route and never sends this flag.
+        globalpingProxy: hasGlobalpingToken(),
         // Not a credential: the card needs a font this host can read, and a host
         // without one answers 503. The UI hides the share button on this flag rather
         // than offering a link that downloads an error page.

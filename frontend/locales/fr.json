@@ -1808,7 +1808,8 @@
     "Europe": "Europe",
     "Africa": "Afrique",
     "Americas": "Amériques",
-    "Oceania": "Océanie"
+    "Oceania": "Océanie",
+    "RateLimited": "Le quota gratuit de Globalping est épuisé pour l'instant (HTTP 429). Envois suspendus {s} s — réessayez à la fin du décompte."
   },
   "pingtest": {
     "EnterIPLabel": "Saisissez une IP à tester",

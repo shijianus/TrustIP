@@ -19,6 +19,7 @@
                 </Button>
             </div>
             <p v-if="errorMsg" class="text-sm text-destructive">{{ errorMsg }}</p>
+            <GlobalpingRateNotice />
         </div>
 
         <!-- Module 1: OONI history -->
@@ -181,6 +182,7 @@
 </template>
 
 <script setup>
+import GlobalpingRateNotice from '@/components/widgets/GlobalpingRateNotice.vue';
 import { ref, computed } from 'vue';
 import { useMainStore } from '@/store';
 import { useI18n } from 'vue-i18n';
@@ -445,9 +447,11 @@ const runTest = () => {
         // poll failure / empty result surface as 'fetchError'.
         onError: (reason) => {
             finishTestLog(reason);
-            errorMsg.value = reason === 'create'
-                ? t('censorshipcheck.invalidURL')
-                : t('censorshipcheck.fetchError');
+            // A 429 is shown by GlobalpingRateNotice with its countdown.
+            errorMsg.value = reason === 'rate-limited' ? ''
+                : reason === 'create'
+                    ? t('censorshipcheck.invalidURL')
+                    : t('censorshipcheck.fetchError');
         },
     });
 };

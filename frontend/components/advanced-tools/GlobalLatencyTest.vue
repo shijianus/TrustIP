@@ -163,11 +163,13 @@
             </CardContent>
         </Card>
 
+        <GlobalpingRateNotice class="px-1" />
         <TestRunLog :log="testLog" />
     </div>
 </template>
 
 <script setup>
+import GlobalpingRateNotice from '@/components/widgets/GlobalpingRateNotice.vue';
 import { ref, computed, nextTick, onBeforeUnmount } from 'vue';
 import { useMainStore } from '@/store';
 import { useI18n } from 'vue-i18n';

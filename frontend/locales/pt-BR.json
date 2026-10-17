@@ -1808,7 +1808,8 @@
     "Europe": "Europa",
     "Africa": "África",
     "Americas": "Américas",
-    "Oceania": "Oceania"
+    "Oceania": "Oceania",
+    "RateLimited": "A cota gratuita do Globalping acabou por enquanto (HTTP 429). Envios pausados por {s} s — tente de novo quando a contagem terminar."
   },
   "pingtest": {
     "EnterIPLabel": "Digite um IP para testar",
