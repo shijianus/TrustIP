@@ -131,7 +131,28 @@
         </template>
       </SectionTitle>
 
-      <div v-if="candidates.length" class="overflow-x-auto">
+      <!-- Narrow screens: one block per candidate (same pattern as the probe
+           matrix below), so a long mDNS name or IPv6 address never squeezes the
+           type / scope / path columns into one letter per line at 390px. -->
+      <ul v-if="candidates.length" class="md:hidden rounded-md border divide-y text-sm" data-webrtc-cand-cards>
+        <li v-for="(row, i) in candidates" :key="`m-${row.raw}-${i}`" class="p-2.5 min-w-0">
+          <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span class="font-medium">{{ t(`webrtc.NATType.${row.type}`) }}</span>
+            <span class="ms-auto">
+              <VerdictChip
+                :tone="row.public ? 'warn' : 'muted'"
+                :label="row.public ? t('webrtc.CandPublic') : t('webrtc.CandPrivate')"
+              />
+            </span>
+          </div>
+          <p class="mt-1 font-mono text-xs break-all">{{ row.address || '—' }}</p>
+          <p class="mt-1 text-xs text-muted-foreground break-words">
+            {{ [row.protocol, row.port].filter(Boolean).join(' · ') || '—' }}
+            · {{ t('webrtc.CandVia', { url: candServer }) }}
+          </p>
+        </li>
+      </ul>
+      <div v-if="candidates.length" class="hidden md:block overflow-x-auto">
         <table class="w-full border-collapse text-sm">
           <thead>
             <tr class="border-b text-start">
