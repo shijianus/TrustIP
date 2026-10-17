@@ -1,3 +1,9 @@
+// The MaxMind-format geolocation readers behind /api/maxmind: GeoLite2 City +
+// ASN when those files are on disk (MaxMind credentials, or dropped in by
+// hand), else DB-IP's free IP-to-City Lite + IP-to-ASN Lite (CC BY 4.0, same
+// MMDB schema; downloaded keyless by the `dbip` dataset row). GeoLite2 is
+// always preferred; a DB-IP answer carries the attribution its licence asks for.
+import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import maxmind from 'maxmind';
@@ -13,6 +19,24 @@ export const MAXMIND_ASN_DB = 'GeoLite2-ASN.mmdb';
 
 const cityDbPath = path.join(MAXMIND_DB_DIR, MAXMIND_CITY_DB);
 const asnDbPath = path.join(MAXMIND_DB_DIR, MAXMIND_ASN_DB);
+
+export const DBIP_DB_DIR = path.resolve(__dirname, './dbip-db');
+export const DBIP_CITY_DB = 'dbip-city-lite.mmdb';
+export const DBIP_ASN_DB = 'dbip-asn-lite.mmdb';
+// CC BY 4.0 attribution, worded and linked as https://db-ip.com/db/lite.php asks.
+export const DBIP_ATTRIBUTION = Object.freeze({
+    text: 'IP Geolocation by DB-IP',
+    url: 'https://db-ip.com',
+    license: 'CC BY 4.0',
+    licenseUrl: 'https://creativecommons.org/licenses/by/4.0/',
+});
+export const GEO_SOURCE = Object.freeze({ geolite2: 'geolite2', dbip: 'dbip-lite' });
+
+const dbipPaths = () => ({
+    dbDir: DBIP_DB_DIR,
+    cityDbPath: path.join(DBIP_DB_DIR, DBIP_CITY_DB),
+    asnDbPath: path.join(DBIP_DB_DIR, DBIP_ASN_DB),
+});
 
 // The languages the City database carries `names` for — a property of the data
 // itself, not of the UI: registering a new front-end locale changes nothing
@@ -31,6 +55,7 @@ export const normalizeLang = (tag) => {
 
 let cityLookup = null;
 let asnLookup = null;
+let activeSource = null;
 let reloadPromise = null;
 
 /**
@@ -43,6 +68,22 @@ export function getMaxMindDbPaths() {
         asnDbPath,
     };
 }
+
+/**
+ * The pair to open: GeoLite2 when both of its files are present, else DB-IP
+ * Lite when both of those are, else GeoLite2's paths (which then fail to open,
+ * as before). `exists` is injectable for tests.
+ */
+export const pickGeoDbPaths = (exists = fs.existsSync) => {
+    const geolite = getMaxMindDbPaths();
+    if (exists(geolite.cityDbPath) && exists(geolite.asnDbPath)) return { ...geolite, source: GEO_SOURCE.geolite2 };
+    const dbip = dbipPaths();
+    if (exists(dbip.cityDbPath) && exists(dbip.asnDbPath)) return { ...dbip, source: GEO_SOURCE.dbip };
+    return { ...geolite, source: GEO_SOURCE.geolite2 };
+};
+
+/** Which database answers /api/maxmind: 'geolite2', 'dbip-lite', or null when none is loaded. */
+export const getGeoSource = () => (cityLookup && asnLookup ? activeSource : null);
 
 /**
  * Report whether both City and ASN readers are ready to serve lookups.
@@ -71,11 +112,13 @@ export async function reloadMaxMindDatabases(reason = 'manual') {
         return reloadPromise;
     }
 
-    reloadPromise = openMaxMindReaders()
+    const paths = pickGeoDbPaths();
+    reloadPromise = openMaxMindReaders(paths)
         .then(({ city, asn }) => {
             cityLookup = city;
             asnLookup = asn;
-            logger.info(`📦 MaxMind databases loaded (${reason})`);
+            activeSource = paths.source;
+            logger.info(`📦 ${paths.source === GEO_SOURCE.dbip ? 'DB-IP Lite' : 'MaxMind'} databases loaded (${reason})`);
             return true;
         })
         .catch(error => {
@@ -121,7 +164,11 @@ export function lookupMaxMind(ip, lang) {
     const city = cityLookup.get(ip);
     const asn = asnLookup.get(ip);
 
-    return formatMaxMindResult(ip, normalizeLang(lang), city, asn);
+    const result = formatMaxMindResult(ip, normalizeLang(lang), city, asn);
+    // Only a DB-IP answer grows the two fields, so a GeoLite2 body keeps its shape.
+    return activeSource === GEO_SOURCE.dbip
+        ? { ...result, source: GEO_SOURCE.dbip, attribution: DBIP_ATTRIBUTION }
+        : result;
 }
 
 /**

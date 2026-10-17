@@ -79,6 +79,13 @@
           </RouterLink>
         </span>
       </template>
+      <!-- CC BY 4.0: DB-IP's Lite databases ask for this line, worded and linked
+           as written, wherever their data is shown. Only while they serve. -->
+      <span v-if="configs.dbipLite">
+        <a href="https://db-ip.com" target="_blank" rel="noopener"
+          class="underline decoration-foreground/25 underline-offset-4 hover:text-foreground">IP Geolocation by DB-IP</a>
+        <span> (CC BY 4.0)</span>
+      </span>
     </div>
 
     <!-- About Sheet -->

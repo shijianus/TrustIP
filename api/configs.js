@@ -1,6 +1,6 @@
 // Validate environment variables exist to enable/disable frontend features
 import { isReportSharingConfigured } from './share-report.js';
-import { isMaxMindReady } from '../common/maxmind-service.js';
+import { isMaxMindReady, getGeoSource, GEO_SOURCE } from '../common/maxmind-service.js';
 import { isCardConfigured } from '../common/ip-card.js';
 
 export default (req, res) => {
@@ -36,6 +36,9 @@ export default (req, res) => {
         // key-free source (its entry has no other reason to be off) and burns
         // a request per lookup on a deployment that will never answer.
         maxmind: isMaxMindReady(),
+        // The MaxMind route is answering from DB-IP Lite (no GeoLite2 files):
+        // the footer then carries the CC BY 4.0 attribution DB-IP requires.
+        dbipLite: getGeoSource() === GEO_SOURCE.dbip,
         // Not a credential: the card needs a font this host can read, and a host
         // without one answers 503. The UI hides the share button on this flag rather
         // than offering a link that downloads an error page.

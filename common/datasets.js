@@ -6,6 +6,9 @@
 //
 //   maxmind   GeoLite2 City + ASN, published    common/maxmind-service.js
 //             together; only with MaxMind credentials
+//   dbip      DB-IP IP-to-City Lite + ASN Lite   common/maxmind-service.js
+//             (CC BY 4.0, monthly), the keyless stand-in for GeoLite2: only
+//             without MaxMind credentials, unless DBIP_LITE=false
 //   as2org    CAIDA AS → org name               common/as-org-db.js
 //   as-rel    CAIDA AS relationships            common/as-rel-db.js
 //   peeringdb PeeringDB dump (CAIDA mirror),    common/peeringdb-db.js
@@ -21,6 +24,7 @@
 // Sources: https://dev.maxmind.com/geoip/geolite2-free-geolocation-data ·
 // https://publicdata.caida.org/datasets/ (CAIDA AUA) · https://www.peeringdb.com ·
 // https://standards.ieee.org/products-programs/regauth/ ·
+// https://db-ip.com/db/lite.php (CC BY 4.0) ·
 // https://check.torproject.org/torbulkexitlist · https://github.com/X4BNet/lists_vpn (MIT)
 
 import fsp from 'fs/promises';
@@ -35,7 +39,10 @@ import { AS_REL_DB_DIR, AS_REL_FILE, reloadAsRelDatabase, isAsRelLoaded } from '
 import { PEERINGDB_DB_DIR, PEERINGDB_FILE, readPeeringdbIndex, reloadPeeringdbDatabase, isPeeringdbLoaded } from './peeringdb-db.js';
 import { distillPeeringdbDump } from './peeringdb-distill.js';
 import { hasRadarApiKey } from './cf-radar.js';
-import { MAXMIND_DB_DIR, MAXMIND_CITY_DB, MAXMIND_ASN_DB, reloadMaxMindDatabases, isMaxMindReady } from './maxmind-service.js';
+import {
+    MAXMIND_DB_DIR, MAXMIND_CITY_DB, MAXMIND_ASN_DB, DBIP_DB_DIR, DBIP_CITY_DB, DBIP_ASN_DB,
+    reloadMaxMindDatabases, isMaxMindReady,
+} from './maxmind-service.js';
 import { OUI_DB_DIR, OUI_REGISTRIES, OUI_FILES, readOuiRegistries, reloadOuiDatabase, isOuiLoaded } from './oui-db.js';
 import {
     TOR_EXIT_DB_DIR, TOR_EXIT_FILE, X4BNET_DB_DIR, X4BNET_VPN_FILE, X4BNET_DATACENTER_FILE,
@@ -134,6 +141,33 @@ export const findPeeringdbDump = async ({ signal, now = new Date() } = {}) => {
     throw new Error('No PeeringDB dump in the current or previous month listing');
 };
 
+// ---------- DB-IP Lite ----------
+
+// Monthly files named for their UTC month; before a month's release lands
+// the previous month's is the newest. Exported for tests.
+const DBIP_EDITIONS = [
+    { edition: 'city', file: DBIP_CITY_DB },
+    { edition: 'asn', file: DBIP_ASN_DB },
+];
+export const dbipUrl = (edition, month) => `https://download.db-ip.com/free/dbip-${edition}-lite-${month}.mmdb.gz`;
+const monthTag = (date) => `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
+
+export const isDbipEnabled = () => !hasMaxMindCredentials() && process.env.DBIP_LITE !== 'false';
+
+export const findDbipRelease = async ({ signal, now = new Date() } = {}) => {
+    for (const back of [0, 1]) {
+        const month = monthTag(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - back, 1)));
+        const urls = DBIP_EDITIONS.map(({ edition, file }) => ({ file, url: dbipUrl(edition, month) }));
+        const heads = [];
+        for (const { url } of urls) heads.push(await fetchUpstream(url, { method: 'HEAD', signal }));
+        if (heads.some((res) => res.status === 404)) continue;
+        const failed = heads.find((res) => !res.ok);
+        if (failed) throw new Error(`DB-IP HEAD failed: HTTP ${failed.status}`);
+        return { month, urls, identifier: `dbip-lite-${month}` };
+    }
+    throw new Error('No DB-IP Lite release for the current or previous month');
+};
+
 // ---------- anonymity lists ----------
 
 export const TOR_EXIT_URL = 'https://check.torproject.org/torbulkexitlist';
@@ -223,6 +257,34 @@ export const datasets = [
             await Promise.all(MAXMIND_EDITIONS.map(({ file }) => maxmind.open(staged[file])));
         },
         reload: reloadMaxMindDatabases,
+        isLoaded: isMaxMindReady,
+    },
+    {
+        id: 'dbip',
+        dir: DBIP_DB_DIR,
+        files: DBIP_EDITIONS.map(({ file }) => file),
+        enabled: isDbipEnabled,
+        findRemote: findDbipRelease,
+        // ~60 MB + ~8 MB gzip → ~130 MB + ~20 MB MMDB.
+        fetch: async ({ remote, tempDir, signal }) => {
+            const staged = {};
+            for (const { file, url } of remote.urls) {
+                const archive = path.join(tempDir, `${file}.gz`);
+                staged[file] = path.join(tempDir, file);
+                await downloadToFile(url, archive, { signal });
+                await decompressFile(archive, staged[file], 'gzip');
+                await fsp.rm(archive, { force: true });
+            }
+            return staged;
+        },
+        // Both must open as MMDB and answer a well-known address with a country / an AS.
+        validate: async (staged) => {
+            const [city, asn] = await Promise.all(DBIP_EDITIONS.map(({ file }) => maxmind.open(staged[file])));
+            if (!city.get('1.1.1.1')?.country?.iso_code) throw new Error('DB-IP City Lite has no country for 1.1.1.1');
+            if (!asn.get('1.1.1.1')?.autonomous_system_number) throw new Error('DB-IP ASN Lite has no AS for 1.1.1.1');
+        },
+        reload: reloadMaxMindDatabases,
+        // GeoLite2 (or an earlier DB-IP copy) already serving: nothing to fetch at boot.
         isLoaded: isMaxMindReady,
     },
     {

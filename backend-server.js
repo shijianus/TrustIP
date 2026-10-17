@@ -53,7 +53,7 @@ import { isCompleteProfile } from './common/asn-profile.js';
 import validateConfigs from './api/configs.js';
 import getUserinfo from './api/get-user-info.js';
 import updateUserAchievement from './api/update-user-achievement.js';
-import { reloadMaxMindDatabases, isMaxMindReady, getMaxMindDbPaths } from './common/maxmind-service.js';
+import { reloadMaxMindDatabases, isMaxMindReady, pickGeoDbPaths } from './common/maxmind-service.js';
 import { bootstrapDatasets, startDatasetScheduler, watchDatasets } from './common/dataset-updater.js';
 import { datasets } from './common/datasets.js';
 import {
@@ -465,7 +465,7 @@ app.use(jsonErrorHandler);
 // (MaxMind / IEEE → 503; CAIDA → empty graph, RIPEstat fallback or no
 // peering section).
 const bootBackend = async () => {
-    const { cityDbPath, asnDbPath } = getMaxMindDbPaths();
+    const { cityDbPath, asnDbPath } = pickGeoDbPaths();
     if (fs.existsSync(cityDbPath) && fs.existsSync(asnDbPath)) {
         await reloadMaxMindDatabases('startup').catch(() => {});
     }
@@ -488,7 +488,8 @@ const bootBackend = async () => {
             if (isMaxMindReady()) return;
             await reloadMaxMindDatabases('startup').catch(() => {
                 logger.error('❌ MaxMind API will return 503 until databases are available: set MAXMIND_ACCOUNT_ID + '
-                    + 'MAXMIND_LICENSE_KEY, or drop GeoLite2-City.mmdb + GeoLite2-ASN.mmdb into common/maxmind-db/');
+                    + 'MAXMIND_LICENSE_KEY, drop GeoLite2-City.mmdb + GeoLite2-ASN.mmdb into common/maxmind-db/, '
+                    + 'or let the keyless DB-IP Lite download (DBIP_LITE) finish');
             });
         },
         bootstrapServiceStatus,
