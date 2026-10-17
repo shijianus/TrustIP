@@ -434,13 +434,7 @@ if (process.env.VITE_SENTRY_DSN_FRONTEND) {
     // Gate before the parser: a request refused for concurrency (503) is never
     // buffered; one over TUNNEL_MAX_BODY_BYTES is cut off by express.raw with a
     // 413 that jsonErrorHandler renders as JSON.
-    app.post(
-        '/api/monitoring',
-        monitoringLimiter,
-        createTunnelGate(),
-        express.raw({ type: () => true, limit: TUNNEL_MAX_BODY_BYTES }),
-        sentryTunnelHandler,
-    );
+    app.post('/api/monitoring', monitoringLimiter, createTunnelGate(), express.raw({ type: () => true, limit: TUNNEL_MAX_BODY_BYTES }), sentryTunnelHandler);
 }
 
 // Set static file server
