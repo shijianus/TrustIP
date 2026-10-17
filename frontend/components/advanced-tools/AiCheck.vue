@@ -81,9 +81,18 @@
           <!-- No address, no verdict: the four ways this row can fail name the
                failure, because "unavailable" alone would not tell a visitor
                whether the site has no trace endpoint or their network killed it. -->
-          <p v-else class="text-xs font-normal text-muted-foreground leading-relaxed">
-            {{ reasonText(row) }}
-          </p>
+          <div v-else class="space-y-1.5">
+            <!-- A run that ended without an address is stated as unmeasurable,
+                 so it never reads as "still checking" or as a pass. -->
+            <VerdictChip
+              v-if="row.state !== EGRESS_STATE.pending"
+              tone="muted"
+              :label="t('aiCheck.Unmeasurable')"
+            />
+            <p class="text-xs font-normal text-muted-foreground leading-relaxed">
+              {{ reasonText(row) }}
+            </p>
+          </div>
 
           <!-- The trust score for this exit. `—` while loading, and a stated
                failure: an absent score is a missing measurement, never a zero. -->
