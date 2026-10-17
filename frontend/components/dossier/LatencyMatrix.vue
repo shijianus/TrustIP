@@ -20,7 +20,11 @@
                             {{ cell.city || cell.location }}
                         </span>
                     </div>
-                    <div class="jn-nums text-[0.8rem] leading-tight" :class="valueClass(cell)">
+                    <!-- A measured value is a StatusPill: fast / slow / far reads by
+                         glyph and text, not by hue alone (WCAG 1.4.1). -->
+                    <StatusPill v-if="cell.state === 'ok' && typeof cell.ms === 'number'" :tone="pillTone(cell)"
+                        class="text-[0.7rem]">{{ valueOf(cell) }}</StatusPill>
+                    <div v-else class="jn-nums text-[0.8rem] leading-tight" :class="valueClass(cell)">
                         {{ valueOf(cell) }}
                     </div>
                 </div>
@@ -68,6 +72,7 @@ import { ref, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { Icon } from '@iconify/vue';
 import { useStatusTone } from '@/composables/use-status-tone.js';
+import { StatusPill } from '@/components/ui/status-pill';
 import { useGlobalpingMeasurement } from '@/composables/use-globalping-measurement.js';
 import SectionTitle from '@/components/widgets/SectionTitle.vue';
 import Button from '@/components/ui/button/Button.vue';
@@ -108,6 +113,9 @@ const valueOf = (cell) => {
     if (cell.state === 'pending') return ran.value ? t('dossier.latency.queued') : '—';
     return t(`dossier.latency.${cell.state}`);
 };
+
+// Same 80 / 180 ms thresholds as valueClass, in StatusPill's tone names.
+const pillTone = (cell) => (cell.ms < 80 ? 'success' : cell.ms < 180 ? 'warning' : 'error');
 
 const valueClass = (cell) => {
     if (cell.state !== 'ok') {

@@ -22,10 +22,10 @@
              of its separation from the page, so the shared `jn-card` (which
              adds a shadow and stretches to its grid cell) does not belong here. -->
         <div class="mb-5 rounded-[10px] border px-4 py-3.5 min-[481px]:px-5 min-[481px]:py-[18px] md:px-7 md:py-6">
-            <div v-if="!primary">
-                <div class="jn-skeleton mb-2 h-7 w-56"></div>
-                <div class="jn-skeleton mb-2 h-4 w-72"></div>
-                <div class="jn-skeleton h-4 w-40"></div>
+            <div v-if="!primary" role="status" aria-busy="true" :aria-label="t('uikit.loading')">
+                <Skeleton class="mb-2 h-7 w-56" />
+                <Skeleton class="mb-2 w-72" />
+                <Skeleton class="w-40" />
             </div>
 
             <div class="flex flex-col gap-[14px] md:flex-row md:items-start md:gap-8">
@@ -197,6 +197,7 @@ import { RouterLink } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { Icon } from '@iconify/vue';
 import { Switch } from '@/components/ui/switch';
+import { Skeleton } from '@/components/ui/skeleton';
 import SiteIcon from '@/components/widgets/SiteIcon.vue';
 import FitText from '@/components/widgets/FitText.vue';
 import { onAppEvent } from '@/utils/app-events.js';

@@ -54,9 +54,9 @@
             </div>
 
             <!-- Loading state: skeleton rows -->
-            <div v-else class="flex-1 px-4 py-3 space-y-3">
-                <div v-for="(w, i) in placeholderSizes.slice(0, ipGeoSource === 0 ? 12 : 7)" :key="i"
-                    class="h-4 bg-muted rounded animate-pulse" :style="`width: ${(w / 12) * 100}%`"></div>
+            <div v-else class="flex-1 px-4 py-3 space-y-3" role="status" aria-busy="true" :aria-label="t('uikit.loading')">
+                <Skeleton v-for="(w, i) in placeholderSizes.slice(0, ipGeoSource === 0 ? 12 : 7)" :key="i"
+                    class="rounded" :style="`width: ${(w / 12) * 100}%`" />
             </div>
         </div>
     </Card>
@@ -74,6 +74,7 @@ import IpDetailPanel from './IpDetailPanel.vue';
 import { JnTooltip } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import CopyButton from '@/components/widgets/CopyButton.vue';
 import ScreenshotButton from '@/components/widgets/ScreenshotButton.vue';
 import {

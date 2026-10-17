@@ -183,6 +183,11 @@
         </table>
       </div>
 
+      <!-- Gathering, nothing yet: skeleton rows hold the table's place. -->
+      <div v-else-if="candState === 'running'" class="space-y-2 py-1" role="status" aria-busy="true"
+        :aria-label="t('uikit.loading')" data-webrtc-cand-skeleton>
+        <Skeleton v-for="n in 3" :key="n" class="h-5" />
+      </div>
       <p v-else-if="candState === 'done'" class="text-sm leading-relaxed text-muted-foreground">
         {{ t('webrtc.CandNone') }}
       </p>
@@ -272,6 +277,7 @@ import { useAppCommand } from '@/composables/use-app-command.js';
 import { JnTooltip } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { useStatusTone, ipFieldTone, isFieldPending as isFieldPendingShared } from '@/composables/use-status-tone.js';
 import { createMaskGate } from '@/composables/use-info-mask.js';

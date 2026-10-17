@@ -28,20 +28,22 @@
                 state="delegated" :title="t('dossier.title')"
                 :note="t('dossier.notServedNote')" to="/ipinfo" :cta="t('dossier.notServedCta')" />
 
-            <div v-else-if="error" class="rounded-lg border border-destructive-soft bg-destructive-soft px-4 py-3 text-sm text-destructive-soft-fg">
-                {{ error }}
-                <Button variant="ghost" size="sm" class="ms-2" @click="load(target)">{{ t('dossier.retry') }}</Button>
+            <!-- Failure: the shared EmptyState (glyph + message + Retry), not a
+                 tinted strip — same retry action as before. -->
+            <div v-else-if="error" class="jn-card rounded-[var(--radius)]" data-dossier-error>
+                <EmptyState tone="error" compact :title="error" :retry-label="t('dossier.retry')"
+                    @retry="load(target)" />
             </div>
 
-            <div v-else-if="!dossier" class="space-y-4">
+            <div v-else-if="!dossier" class="space-y-4" role="status" aria-busy="true" :aria-label="t('uikit.loading')">
                 <div class="jn-card rounded-[var(--radius)] p-4">
-                    <div class="jn-skeleton mb-3 h-5 w-52"></div>
-                    <div class="space-y-2"><div v-for="n in 5" :key="n" class="jn-skeleton h-4 w-full"></div></div>
+                    <Skeleton class="mb-3 h-5 w-52" />
+                    <div class="space-y-2"><Skeleton v-for="n in 5" :key="n" /></div>
                 </div>
                 <div class="grid gap-4 md:grid-cols-2">
                     <div v-for="n in 4" :key="n" class="jn-card rounded-[var(--radius)] p-4">
-                        <div class="jn-skeleton mb-3 h-4 w-32"></div>
-                        <div v-for="m in 5" :key="m" class="jn-skeleton mb-2 h-4 w-full"></div>
+                        <Skeleton class="mb-3 w-32" />
+                        <Skeleton v-for="m in 5" :key="m" class="mb-2" />
                     </div>
                 </div>
             </div>
@@ -435,6 +437,8 @@ import NeedsLine from '@/components/widgets/NeedsLine.vue';
 import CapabilitySlot from '@/components/widgets/CapabilitySlot.vue';
 import CopyButton from '@/components/widgets/CopyButton.vue';
 import Button from '@/components/ui/button/Button.vue';
+import { Skeleton } from '@/components/ui/skeleton';
+import { EmptyState } from '@/components/ui/empty-state';
 import Input from '@/components/ui/input/Input.vue';
 
 const route = useRoute();

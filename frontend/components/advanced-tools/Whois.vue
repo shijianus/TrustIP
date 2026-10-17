@@ -22,8 +22,14 @@
             <p v-if="errorMsg" class="text-sm text-destructive">{{ errorMsg }}</p>
         </div>
 
+        <!-- Lookup in flight: a skeleton of the raw record instead of blank space. -->
+        <div v-if="whoisCheckStatus === 'running'" role="status" aria-busy="true" :aria-label="t('uikit.loading')"
+            class="rounded-md bg-muted/50 p-4" data-whois-skeleton>
+            <SkeletonText :lines="6" />
+        </div>
+
         <!-- Result area -->
-        <div v-if="whoisResults && Object.keys(whoisResults).length" class="space-y-3">
+        <div v-else-if="whoisResults && Object.keys(whoisResults).length" class="space-y-3">
             <!-- Top success prompt bar -->
             <div
                 class="flex items-start gap-2 p-3 rounded-md border border-success/30 bg-success/10 text-sm text-success">
@@ -74,6 +80,7 @@ import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
+import { SkeletonText } from '@/components/ui/skeleton';
 import { Info, Search } from '@lucide/vue';
 import { Label } from '@/components/ui/label';
 
