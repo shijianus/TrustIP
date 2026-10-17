@@ -2,10 +2,11 @@
 //
 // The browser never reaches the internet: every non-loopback request is aborted,
 // except the visitor-IP endpoints a test chooses to answer with a fixed address.
-// WebRTC is the one channel a route cannot see: on the WebRTC test an init script
-// strips the public STUN servers from every RTCPeerConnection the page builds, so
-// only the local STUN server (dist-stun's VITE_TEST_EXTRA_STUN) can answer and the
-// verdict does not depend on whether the runner has outbound UDP.
+// WebRTC is the one channel a route cannot see: an init script strips the public
+// STUN servers from every RTCPeerConnection the page builds, so only the local
+// STUN server (dist-stun's VITE_TEST_EXTRA_STUN) can answer. Neither the WebRTC
+// verdict nor the homepage's quiet WebRTC pass then depends on whether the runner
+// has outbound UDP.
 import fs from 'node:fs';
 import path from 'node:path';
 import { test, expect } from '@playwright/test';
@@ -18,29 +19,6 @@ const FIXED_IP = '8.8.8.8';
 
 const LOOPBACK = new Set(['127.0.0.1', 'localhost', '[::1]']);
 const SETTLED = ['pass', 'fail', 'leak', 'no-leak', 'inconclusive', 'error', 'partial', 'warn'];
-
-/** Abort everything off-box; optionally answer the visitor-IP lookups with FIXED_IP. */
-const isolate = async (context, { answerIp = false, delayMs = 0 } = {}) => {
-    await context.route('**/*', async (route) => {
-        const url = new URL(route.request().url());
-        if (LOOPBACK.has(url.hostname)) return route.continue();
-        if (answerIp && delayMs) await new Promise((r) => setTimeout(r, delayMs));
-        if (answerIp && url.pathname.endsWith('/cdn-cgi/trace')) {
-            return route.fulfill({ status: 200, contentType: 'text/plain', body: `fl=e2e\nh=${url.host}\nip=${FIXED_IP}\nloc=US\ncolo=SJC\n` });
-        }
-        if (answerIp && /(^|\.)ipify\.org$|(^|\.)ipcheck\.ing$/.test(url.hostname) && url.pathname === '/') {
-            return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ip: FIXED_IP }) });
-        }
-        return route.abort('internetdisconnected');
-    });
-};
-
-/** Uncaught page errors are a failure on every page. */
-const watchErrors = (page) => {
-    const errors = [];
-    page.on('pageerror', (error) => errors.push(String(error?.stack || error)));
-    return errors;
-};
 
 /** Test-side shim: keep only loopback STUN servers in every RTCPeerConnection. */
 const localStunOnly = (context) => context.addInitScript(() => {
@@ -64,6 +42,30 @@ const localStunOnly = (context) => context.addInitScript(() => {
     Object.setPrototypeOf(Shim, Native);
     window.RTCPeerConnection = Shim;
 });
+
+/** Abort everything off-box; optionally answer the visitor-IP lookups with FIXED_IP. */
+const isolate = async (context, { answerIp = false, delayMs = 0 } = {}) => {
+    await localStunOnly(context);
+    await context.route('**/*', async (route) => {
+        const url = new URL(route.request().url());
+        if (LOOPBACK.has(url.hostname)) return route.continue();
+        if (answerIp && delayMs) await new Promise((r) => setTimeout(r, delayMs));
+        if (answerIp && url.pathname.endsWith('/cdn-cgi/trace')) {
+            return route.fulfill({ status: 200, contentType: 'text/plain', body: `fl=e2e\nh=${url.host}\nip=${FIXED_IP}\nloc=US\ncolo=SJC\n` });
+        }
+        if (answerIp && /(^|\.)ipify\.org$|(^|\.)ipcheck\.ing$/.test(url.hostname) && url.pathname === '/') {
+            return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ip: FIXED_IP }) });
+        }
+        return route.abort('internetdisconnected');
+    });
+};
+
+/** Uncaught page errors are a failure on every page. */
+const watchErrors = (page) => {
+    const errors = [];
+    page.on('pageerror', (error) => errors.push(String(error?.stack || error)));
+    return errors;
+};
 
 // Full-page screenshot kept next to the test's trace (uploaded as a CI artifact)
 // and attached to the HTML report.
@@ -119,7 +121,6 @@ test('tools index lists the advanced tools', async ({ page, context }, testInfo)
 test('WebRTC page reaches a verdict against the local STUN server', async ({ page, context }, testInfo) => {
     test.skip(!fs.existsSync('dist-stun/index.html'), 'dist-stun/ not built (VITE_TEST_EXTRA_STUN build)');
     await isolate(context);
-    await localStunOnly(context);
     const errors = watchErrors(page);
     const before = fs.existsSync(STUN_LOG) ? fs.readFileSync(STUN_LOG, 'utf8').split('\n').filter(Boolean).length : 0;
 
