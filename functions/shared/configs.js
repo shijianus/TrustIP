@@ -50,6 +50,8 @@ export default (headers) => {
         ipapiis: false,
         reportSharing: false,
         maxmind: false,
+        // No MaxMind-format reader runs here, DB-IP's included, so no attribution line.
+        dbipLite: false,
         ipCard: false,
         // The keyless geolocation routes (ipinfo / ipapiis / ip2location) are
         // Express-only, so their cards stay keyed here.
@@ -65,6 +67,9 @@ export default (headers) => {
         dossier: false,
         // /api/asn-profile is Express-only (it reads the CAIDA files on disk).
         asnProfile: false,
+        // POST /api/globalping/measurements (the GLOBALPING_TOKEN proxy) is
+        // Express-only; the browser creates measurements anonymously here.
+        globalpingProxy: false,
     }, { cacheSeconds: 60 * 60 });
     response.headers.set('Vary', 'Referer');
     return response;
